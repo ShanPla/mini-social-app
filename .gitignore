@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build output
+frontend/dist/
+
+# Env files
+frontend/.env
+.env
+
+# Lock files (optional but cleaner)
+package-lock.json
+frontend/package-lock.json
