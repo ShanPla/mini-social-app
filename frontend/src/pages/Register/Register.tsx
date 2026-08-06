@@ -9,7 +9,47 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'taken' | 'available'>('idle');
   const [loading, setLoading] = useState(false);
+
+  const handleUsernameChange = async (value: string) => {
+    const cleaned = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    setUsername(cleaned);
+    setError('');
+
+    if (cleaned.length < 3) {
+      setUsernameStatus('idle');
+      return;
+    }
+
+    setUsernameStatus('checking');
+    const { data } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', cleaned)
+      .maybeSingle();
+
+    setUsernameStatus(data ? 'taken' : 'available');
+  };
+
+  const getFriendlyError = (message: string): string => {
+    if (message.includes('invalid') && message.includes('email')) {
+      return 'Please enter a valid email address (e.g. yourname@gmail.com).';
+    }
+    if (message.includes('already registered') || message.includes('already been registered')) {
+      return 'An account with this email already exists. Try logging in instead.';
+    }
+    if (message.includes('rate limit') || message.includes('email rate')) {
+      return 'Too many attempts. Please wait a minute and try again.';
+    }
+    if (message.includes('password') && message.includes('short')) {
+      return 'Password must be at least 6 characters.';
+    }
+    if (message.includes('weak password')) {
+      return 'Password is too weak. Try adding numbers or symbols.';
+    }
+    return message;
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,30 +59,29 @@ export default function Register() {
       setError('Username must be at least 3 characters.');
       return;
     }
+    if (usernameStatus === 'taken') {
+      setError('That username is already taken. Please choose another.');
+      return;
+    }
+    if (usernameStatus === 'checking') {
+      setError('Still checking username availability, please wait.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
 
     setLoading(true);
 
-    // Check username availability
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', username)
-      .maybeSingle();
-
-    if (existing) {
-      setError('That username is already taken.');
-      setLoading(false);
-      return;
-    }
-
     const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+
     if (signUpError) {
-      setError(signUpError.message);
+      setError(getFriendlyError(signUpError.message));
       setLoading(false);
       return;
     }
 
-    // Update the auto-generated profile with the chosen username
     if (data.user) {
       await supabase
         .from('profiles')
@@ -65,16 +104,23 @@ export default function Register() {
 
         <form onSubmit={handleRegister} className="register-form">
           <div className="form-group">
-            <label>Username</label>
+            <label>
+              Username
+              {usernameStatus === 'checking' && <span className="username-status checking"> — checking…</span>}
+              {usernameStatus === 'taken' && <span className="username-status taken"> — already taken</span>}
+              {usernameStatus === 'available' && <span className="username-status available"> — available ✓</span>}
+            </label>
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
+              onChange={(e) => handleUsernameChange(e.target.value)}
               placeholder="your_username"
               required
               minLength={3}
               maxLength={30}
+              className={usernameStatus === 'taken' ? 'input-error' : usernameStatus === 'available' ? 'input-success' : ''}
             />
+            <span className="field-hint">Letters, numbers, and underscores only.</span>
           </div>
 
           <div className="form-group">
@@ -83,7 +129,7 @@ export default function Register() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder="yourname@gmail.com"
               required
             />
           </div>
@@ -102,7 +148,11 @@ export default function Register() {
 
           {error && <p className="error-msg">{error}</p>}
 
-          <button type="submit" className="btn-primary register-submit" disabled={loading}>
+          <button
+            type="submit"
+            className="btn-primary register-submit"
+            disabled={loading || usernameStatus === 'taken' || usernameStatus === 'checking'}
+          >
             {loading ? 'Creating account…' : 'Create Account'}
           </button>
         </form>

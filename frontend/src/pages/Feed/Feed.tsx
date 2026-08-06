@@ -18,14 +18,38 @@ export default function Feed({ userId }: FeedProps) {
   const [posting, setPosting] = useState(false);
   const [feedType, setFeedType] = useState<'all' | 'following'>('all');
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
+  const [newPostsBanner, setNewPostsBanner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchPosts();
   }, [feedType, userId]);
 
+  // Realtime subscription — only on "all" feed
+  useEffect(() => {
+    if (feedType !== 'all') return;
+
+    const channel = supabase
+      .channel('feed-realtime')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'posts',
+      }, (payload) => {
+        // If it's someone else's post, show banner instead of silently inserting
+        if (payload.new.user_id !== userId) {
+          setNewPostsBanner(true);
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [feedType, userId]);
+
   const fetchPosts = async () => {
     setLoading(true);
+    setNewPostsBanner(false);
+
     let query = supabase
       .from('posts')
       .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id)')
@@ -76,7 +100,6 @@ export default function Feed({ userId }: FeedProps) {
 
     let finalImageUrl: string | null = null;
 
-    // Upload file to Supabase Storage
     if (imageFile) {
       const ext = imageFile.name.split('.').pop();
       const path = `${userId}/${Date.now()}.${ext}`;
@@ -121,6 +144,13 @@ export default function Feed({ userId }: FeedProps) {
       <div className="feed-inner">
         <div className="feed-main">
 
+          {/* New posts banner */}
+          {newPostsBanner && (
+            <button className="new-posts-banner" onClick={fetchPosts}>
+              ↑ New posts available — click to refresh
+            </button>
+          )}
+
           {/* Compose box */}
           {userId && (
             <div className="compose-card">
@@ -134,7 +164,6 @@ export default function Feed({ userId }: FeedProps) {
                   rows={3}
                 />
 
-                {/* Image preview */}
                 {imagePreview && (
                   <div className="compose-preview">
                     <img src={imagePreview} alt="Preview" onError={() => setImagePreview(null)} />
@@ -142,7 +171,6 @@ export default function Feed({ userId }: FeedProps) {
                   </div>
                 )}
 
-                {/* Image input area */}
                 <div className="compose-image-section">
                   <div className="image-mode-tabs">
                     <button
@@ -215,7 +243,6 @@ export default function Feed({ userId }: FeedProps) {
             )}
           </div>
 
-          {/* Posts */}
           {loading ? (
             <div className="feed-loading">
               <div className="loading-dots"><span /><span /><span /></div>
