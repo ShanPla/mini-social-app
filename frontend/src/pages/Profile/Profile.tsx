@@ -69,20 +69,28 @@ export default function ProfilePage({ currentUserId }: ProfilePageProps) {
     }
   };
 
-  const handleFollow = async () => {
-    if (!currentUserId || !userId) return;
-    if (isFollowing) {
-      await supabase.from('follows').delete()
-        .eq('follower_id', currentUserId)
-        .eq('following_id', userId);
-      setIsFollowing(false);
-      setFollowersCount((c) => c - 1);
-    } else {
-      await supabase.from('follows').insert({ follower_id: currentUserId, following_id: userId });
-      setIsFollowing(true);
-      setFollowersCount((c) => c + 1);
-    }
-  };
+const handleFollow = async () => {
+  if (!currentUserId || !userId) return;
+  if (isFollowing) {
+    await supabase.from('follows').delete()
+      .eq('follower_id', currentUserId)
+      .eq('following_id', userId);
+    setIsFollowing(false);
+    setFollowersCount((c) => c - 1);
+  } else {
+    await supabase.from('follows').insert({ follower_id: currentUserId, following_id: userId });
+    setIsFollowing(true);
+    setFollowersCount((c) => c + 1);
+
+    // Fire follow notification
+    await supabase.from('notifications').insert({
+      user_id: userId,
+      actor_id: currentUserId,
+      type: 'follow',
+      post_id: null,
+    });
+  }
+};
 
   const handleSaveProfile = async () => {
     if (!currentUserId) return;

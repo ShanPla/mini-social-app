@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import NotificationBell from './NotificationBell';
 import './Navbar.css';
 
 type NavbarProps = {
@@ -26,6 +27,7 @@ export default function Navbar({ userId }: NavbarProps) {
           <div className="navbar-links">
             <Link to="/feed" className="nav-link">Feed</Link>
             <Link to={`/profile/${userId}`} className="nav-link">Profile</Link>
+            <NotificationBell currentUserId={userId} />
             <button onClick={handleLogout} className="nav-logout">Logout</button>
           </div>
         )}

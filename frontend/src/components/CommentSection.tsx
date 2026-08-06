@@ -6,10 +6,11 @@ import './CommentSection.css';
 
 type Props = {
   postId: string;
+  postAuthorId: string;
   currentUserId: string | null;
 };
 
-export default function CommentSection({ postId, currentUserId }: Props) {
+export default function CommentSection({ postId, postAuthorId, currentUserId }: Props) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -41,6 +42,16 @@ export default function CommentSection({ postId, currentUserId }: Props) {
     if (!error && data) {
       setComments([...comments, data as Comment]);
       setNewComment('');
+
+      // Fire notification if commenting on someone else's post
+      if (postAuthorId !== currentUserId) {
+        await supabase.from('notifications').insert({
+          user_id: postAuthorId,
+          actor_id: currentUserId,
+          type: 'comment',
+          post_id: postId,
+        });
+      }
     }
     setLoading(false);
   };

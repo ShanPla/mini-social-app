@@ -41,7 +41,20 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
         .insert({ post_id: post.id, user_id: currentUserId })
         .select()
         .single();
-      if (!error && data) setLikes([...likes, data]);
+
+      if (!error && data) {
+        setLikes([...likes, data]);
+
+        // Fire notification if liking someone else's post
+        if (post.user_id !== currentUserId) {
+          await supabase.from('notifications').insert({
+            user_id: post.user_id,
+            actor_id: currentUserId,
+            type: 'like',
+            post_id: post.id,
+          });
+        }
+      }
     }
     setLoading(false);
   };
@@ -95,7 +108,11 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
       </footer>
 
       {showComments && (
-        <CommentSection postId={post.id} currentUserId={currentUserId} />
+        <CommentSection
+          postId={post.id}
+          postAuthorId={post.user_id}
+          currentUserId={currentUserId}
+        />
       )}
     </article>
   );

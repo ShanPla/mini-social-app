@@ -9,6 +9,7 @@ import Feed from './pages/Feed/Feed';
 import ProfilePage from './pages/Profile/Profile';
 import PostPage from './pages/Post/Post';
 import SearchPage from './pages/Search/Search';
+import NotificationsPage from './pages/Notifications/Notifications';
 import './styles/global.css';
 
 function App() {
@@ -47,6 +48,7 @@ function App() {
         <Route path="/profile/:userId" element={userId ? <ProfilePage currentUserId={userId} /> : <Navigate to="/login" />} />
         <Route path="/post/:postId" element={userId ? <PostPage currentUserId={userId} /> : <Navigate to="/login" />} />
         <Route path="/search" element={userId ? <SearchPage /> : <Navigate to="/login" />} />
+        <Route path="/notifications" element={userId ? <NotificationsPage currentUserId={userId} /> : <Navigate to="/login" />} />
         <Route path="*" element={<Navigate to={userId ? "/feed" : "/login"} />} />
       </Routes>
     </BrowserRouter>
