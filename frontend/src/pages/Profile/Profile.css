@@ -36,6 +36,15 @@
   align-items: flex-start;
 }
 
+/* Avatar section */
+.profile-avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
 .profile-avatar-lg {
   width: 88px;
   height: 88px;
@@ -49,7 +58,6 @@
   font-size: 2.2rem;
   color: var(--cream);
   overflow: hidden;
-  flex-shrink: 0;
 }
 .profile-avatar-lg img {
   width: 100%;
@@ -57,6 +65,94 @@
   object-fit: cover;
 }
 
+/* Avatar edit */
+.avatar-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 160px;
+}
+
+.avatar-mode-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.avatar-mode-tab {
+  flex: 1;
+  background: none;
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  font-size: 0.68rem;
+  font-family: var(--font-body);
+  color: var(--ink-muted);
+  cursor: pointer;
+  border-radius: 999px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.avatar-mode-tab:hover { border-color: var(--ink); color: var(--ink); }
+.avatar-mode-tab.active {
+  background: var(--ink);
+  color: var(--cream);
+  border-color: var(--ink);
+}
+
+.avatar-file-area {
+  border: 1px dashed var(--border);
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.avatar-file-area:hover {
+  border-color: var(--ink);
+  background: var(--cream);
+  color: var(--ink);
+}
+
+.avatar-url-input {
+  border: 1px solid var(--border);
+  background: var(--warm-white);
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  color: var(--ink);
+  outline: none;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  width: 100%;
+  transition: border-color 0.2s;
+}
+.avatar-url-input:focus { border-color: var(--ink); }
+.avatar-url-input::placeholder { color: var(--ink-muted); }
+
+.avatar-preview {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--border);
+  margin: 0 auto;
+}
+.avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-save-btn {
+  width: 100%;
+  padding: 8px;
+  font-size: 0.75rem;
+}
+
+/* Profile info */
 .profile-info {
   flex: 1;
   display: flex;
@@ -163,4 +259,5 @@
   .profile-header { flex-direction: column; align-items: center; text-align: center; }
   .profile-stats { justify-content: center; }
   .profile-actions { justify-content: center; }
+  .avatar-edit { width: 200px; }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile, Post } from '../../lib/supabaseClient';
@@ -20,6 +20,14 @@ export default function ProfilePage({ currentUserId }: ProfilePageProps) {
   const [editing, setEditing] = useState(false);
   const [editBio, setEditBio] = useState('');
   const [editUsername, setEditUsername] = useState('');
+
+  // Avatar state
+  const [avatarMode, setAvatarMode] = useState<'file' | 'url'>('file');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const isOwnProfile = currentUserId === userId;
 
@@ -69,28 +77,81 @@ export default function ProfilePage({ currentUserId }: ProfilePageProps) {
     }
   };
 
-const handleFollow = async () => {
-  if (!currentUserId || !userId) return;
-  if (isFollowing) {
-    await supabase.from('follows').delete()
-      .eq('follower_id', currentUserId)
-      .eq('following_id', userId);
-    setIsFollowing(false);
-    setFollowersCount((c) => c - 1);
-  } else {
-    await supabase.from('follows').insert({ follower_id: currentUserId, following_id: userId });
-    setIsFollowing(true);
-    setFollowersCount((c) => c + 1);
+  const handleFollow = async () => {
+    if (!currentUserId || !userId) return;
+    if (isFollowing) {
+      await supabase.from('follows').delete()
+        .eq('follower_id', currentUserId)
+        .eq('following_id', userId);
+      setIsFollowing(false);
+      setFollowersCount((c) => c - 1);
+    } else {
+      await supabase.from('follows').insert({ follower_id: currentUserId, following_id: userId });
+      setIsFollowing(true);
+      setFollowersCount((c) => c + 1);
 
-    // Fire follow notification
-    await supabase.from('notifications').insert({
-      user_id: userId,
-      actor_id: currentUserId,
-      type: 'follow',
-      post_id: null,
-    });
-  }
-};
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        actor_id: currentUserId,
+        type: 'follow',
+        post_id: null,
+      });
+    }
+  };
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const handleAvatarUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAvatarUrl(e.target.value);
+    setAvatarPreview(e.target.value || null);
+  };
+
+  const handleAvatarSave = async () => {
+    if (!currentUserId || avatarUploading) return;
+    setAvatarUploading(true);
+
+    let finalUrl: string | null = null;
+
+    if (avatarMode === 'file' && avatarFile) {
+      const ext = avatarFile.name.split('.').pop();
+      const path = `${currentUserId}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, avatarFile, { upsert: true });
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(path);
+        // Cache bust so the new image shows immediately
+        finalUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      }
+    } else if (avatarMode === 'url' && avatarUrl.trim()) {
+      finalUrl = avatarUrl.trim();
+    }
+
+    if (finalUrl) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: finalUrl })
+        .eq('id', currentUserId);
+
+      if (!error) {
+        setProfile((p) => p ? { ...p, avatar_url: finalUrl } : p);
+        setAvatarFile(null);
+        setAvatarUrl('');
+        setAvatarPreview(null);
+      }
+    }
+
+    setAvatarUploading(false);
+  };
 
   const handleSaveProfile = async () => {
     if (!currentUserId) return;
@@ -117,13 +178,78 @@ const handleFollow = async () => {
   return (
     <div className="profile-page">
       <div className="profile-inner">
-        {/* Header */}
         <header className="profile-header">
-          <div className="profile-avatar-lg">
-            {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt={profile.username} />
-            ) : (
-              <span>{profile.username[0].toUpperCase()}</span>
+
+          {/* Avatar */}
+          <div className="profile-avatar-section">
+            <div className="profile-avatar-lg">
+              {profile.avatar_url ? (
+                <img src={profile.avatar_url} alt={profile.username} />
+              ) : (
+                <span>{profile.username[0].toUpperCase()}</span>
+              )}
+            </div>
+
+            {/* Avatar edit — only own profile */}
+            {isOwnProfile && editing && (
+              <div className="avatar-edit">
+                <div className="avatar-mode-tabs">
+                  <button
+                    type="button"
+                    className={`avatar-mode-tab ${avatarMode === 'file' ? 'active' : ''}`}
+                    onClick={() => setAvatarMode('file')}
+                  >
+                    📁 Upload
+                  </button>
+                  <button
+                    type="button"
+                    className={`avatar-mode-tab ${avatarMode === 'url' ? 'active' : ''}`}
+                    onClick={() => setAvatarMode('url')}
+                  >
+                    🔗 URL
+                  </button>
+                </div>
+
+                {avatarMode === 'file' ? (
+                  <div
+                    className="avatar-file-area"
+                    onClick={() => avatarInputRef.current?.click()}
+                  >
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarFileChange}
+                      style={{ display: 'none' }}
+                    />
+                    <span>{avatarFile ? avatarFile.name : 'Choose photo…'}</span>
+                  </div>
+                ) : (
+                  <input
+                    type="url"
+                    className="avatar-url-input"
+                    placeholder="Paste image URL…"
+                    value={avatarUrl}
+                    onChange={handleAvatarUrlChange}
+                  />
+                )}
+
+                {avatarPreview && (
+                  <div className="avatar-preview">
+                    <img src={avatarPreview} alt="Preview" onError={() => setAvatarPreview(null)} />
+                  </div>
+                )}
+
+                {(avatarFile || avatarUrl) && (
+                  <button
+                    className="btn-primary avatar-save-btn"
+                    onClick={handleAvatarSave}
+                    disabled={avatarUploading}
+                  >
+                    {avatarUploading ? 'Saving…' : 'Save Photo'}
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -189,7 +315,6 @@ const handleFollow = async () => {
 
         <hr className="divider" />
 
-        {/* Posts */}
         <section className="profile-posts">
           <h2 className="profile-posts-title">Posts</h2>
           {posts.length === 0 ? (
