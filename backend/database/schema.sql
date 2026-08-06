@@ -17,6 +17,7 @@ create table posts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references profiles(id) on delete cascade not null,
   content text not null,
+  image_url text,
   created_at timestamp default now()
 );
 
@@ -27,7 +28,6 @@ create table likes (
   post_id uuid references posts(id) on delete cascade not null,
   created_at timestamp default now(),
 
-  -- prevents duplicate likes
   unique (user_id, post_id)
 );
 
@@ -47,12 +47,21 @@ create table follows (
   following_id uuid references profiles(id) on delete cascade not null,
   created_at timestamp default now(),
 
-  -- prevents duplicate follows
   unique (follower_id, following_id)
 );
 
--- 6. AUTO-CREATE PROFILE ON SIGNUP
--- Ensures every new user gets a profile row automatically
+-- 6. NOTIFICATIONS TABLE
+create table notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) on delete cascade not null,
+  actor_id uuid references profiles(id) on delete cascade not null,
+  type text not null check (type in ('like', 'comment', 'follow')),
+  post_id uuid references posts(id) on delete cascade,
+  is_read boolean default false,
+  created_at timestamp default now()
+);
+
+-- 7. AUTO-CREATE PROFILE ON SIGNUP
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -66,9 +75,10 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
 
--- 7. PERFORMANCE INDEXES
+-- 8. PERFORMANCE INDEXES
 create index idx_posts_user_id on posts(user_id);
 create index idx_likes_post_id on likes(post_id);
 create index idx_comments_post_id on comments(post_id);
 create index idx_follows_follower on follows(follower_id);
 create index idx_follows_following on follows(following_id);
+create index idx_notifications_user_id on notifications(user_id);

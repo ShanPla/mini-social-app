@@ -73,3 +73,63 @@ with check (auth.uid() = follower_id);
 create policy "Users can unfollow"
 on follows for delete
 using (auth.uid() = follower_id);
+
+-- NOTIFICATIONS RLS
+alter table notifications enable row level security;
+
+create policy "Users can view own notifications"
+on notifications for select
+using (auth.uid() = user_id);
+
+create policy "Authenticated users can insert notifications"
+on notifications for insert
+with check (auth.uid() = actor_id);
+
+create policy "Users can update own notifications"
+on notifications for update
+using (auth.uid() = user_id);
+
+-- STORAGE: avatars bucket
+create policy "Anyone can view avatars"
+on storage.objects for select
+using ( bucket_id = 'avatars' );
+
+create policy "Authenticated users can upload avatars"
+on storage.objects for insert
+with check (
+  bucket_id = 'avatars'
+  and auth.role() = 'authenticated'
+);
+
+create policy "Users can update own avatar"
+on storage.objects for update
+using (
+  bucket_id = 'avatars'
+  and auth.uid()::text = (storage.foldername(name))[1]
+);
+
+create policy "Users can delete own avatar"
+on storage.objects for delete
+using (
+  bucket_id = 'avatars'
+  and auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- STORAGE: post-images bucket
+create policy "Anyone can view post images"
+on storage.objects for select
+using ( bucket_id = 'post-images' );
+
+create policy "Authenticated users can upload post images"
+on storage.objects for insert
+with check (
+  bucket_id = 'post-images'
+  and auth.role() = 'authenticated'
+);
+
+create policy "Users can delete own post images"
+on storage.objects for delete
+using (
+  bucket_id = 'post-images'
+  and auth.uid()::text = (storage.foldername(name))[1]
+);
