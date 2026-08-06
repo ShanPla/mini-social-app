@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import { usePageTitle } from '../../lib/usePageTitle';
 import './Register.css';
 
 export default function Register() {
@@ -11,6 +12,7 @@ export default function Register() {
   const [error, setError] = useState('');
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'taken' | 'available'>('idle');
   const [loading, setLoading] = useState(false);
+  usePageTitle('Create Account');
 
   const handleUsernameChange = async (value: string) => {
     const cleaned = value.toLowerCase().replace(/[^a-z0-9_]/g, '');

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import { usePageTitle } from '../../lib/usePageTitle';
 import './Login.css';
 
 export default function Login() {
@@ -9,6 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  usePageTitle('Sign In');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

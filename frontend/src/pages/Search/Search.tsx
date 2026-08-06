@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
+import { usePageTitle } from '../../lib/usePageTitle';
 import './Search.css';
 
 export default function SearchPage() {
@@ -9,6 +10,8 @@ export default function SearchPage() {
   const query = searchParams.get('q') || '';
   const [results, setResults] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
+
+  usePageTitle(query ? `Search: ${query}` : 'Search');
 
   useEffect(() => {
     if (query.trim()) fetchResults();
@@ -30,18 +33,27 @@ export default function SearchPage() {
     <div className="search-page">
       <div className="search-page-inner">
         <div className="search-page-header">
-          <h2>Search results for <em>"{query}"</em></h2>
-          <span className="result-count">{results.length} user{results.length !== 1 ? 's' : ''} found</span>
+          <h2>Results for <em>"{query}"</em></h2>
+          {!loading && <span className="result-count">{results.length} user{results.length !== 1 ? 's' : ''} found</span>}
         </div>
 
         {loading ? (
-          <div className="search-loading">
-            <div className="loading-dots"><span /><span /><span /></div>
+          <div className="search-skeletons">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="skeleton-result">
+                <div className="skeleton-avatar-sm" />
+                <div className="skeleton-info">
+                  <div className="skeleton-line short" />
+                  <div className="skeleton-line medium" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : results.length === 0 ? (
           <div className="search-empty">
-            <span>✦</span>
+            <span>🔍</span>
             <p>No users found for "<strong>{query}</strong>"</p>
+            <small>Try a different username.</small>
           </div>
         ) : (
           <div className="search-results-list">

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import PostCard from '../../components/PostCard';
+import { usePageTitle } from '../../lib/usePageTitle';
 import './Post.css';
 
 type PostPageProps = {
@@ -14,6 +15,7 @@ export default function PostPage({ currentUserId }: PostPageProps) {
   const navigate = useNavigate();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
+  usePageTitle('Post');
 
   useEffect(() => {
     if (postId) fetchPost();

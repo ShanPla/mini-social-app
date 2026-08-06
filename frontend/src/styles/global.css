@@ -136,3 +136,24 @@ input, textarea {
   border: none;
   border-top: 1px solid var(--border);
 }
+
+/* Mobile navbar */
+@media (max-width: 560px) {
+  .navbar-inner { padding: 0 16px; }
+  .brand-main { font-size: 1.1rem; }
+  .navbar-links { gap: 16px; }
+  .nav-link { font-size: 0.75rem; }
+}
+
+/* Mobile searchbar */
+@media (max-width: 560px) {
+  .searchbar-inner { padding: 8px 16px; }
+}
+
+/* Global mobile tweaks */
+@media (max-width: 560px) {
+  .btn-primary, .btn-ghost {
+    padding: 11px 18px;
+    font-size: 0.82rem;
+  }
+}

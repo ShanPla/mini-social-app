@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import { usePageTitle } from '../../lib/usePageTitle';
+import EmptyState from '../../components/EmptyState';
 import './Notifications.css';
 
 type Notification = {
@@ -9,11 +11,7 @@ type Notification = {
   is_read: boolean;
   created_at: string;
   post_id: string | null;
-  actor: {
-    id: string;
-    username: string;
-    avatar_url: string | null;
-  };
+  actor: { id: string; username: string; avatar_url: string | null; };
 };
 
 type NotificationsPageProps = {
@@ -24,10 +22,10 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
+  usePageTitle('Notifications');
+
   useEffect(() => {
-    if (currentUserId) {
-      fetchNotifications();
-    }
+    if (currentUserId) fetchNotifications();
   }, [currentUserId]);
 
   const fetchNotifications = async () => {
@@ -41,7 +39,6 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
     if (data) setNotifications(data as unknown as Notification[]);
     setLoading(false);
 
-    // Mark all as read
     await supabase
       .from('notifications')
       .update({ is_read: true })
@@ -81,25 +78,33 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
       <div className="notif-page-inner">
         <div className="notif-page-header">
           <h2>Notifications</h2>
-          <span className="notif-count">{notifications.length} total</span>
+          {!loading && <span className="notif-count">{notifications.length} total</span>}
         </div>
 
         {loading ? (
-          <div className="notif-loading">
-            <div className="loading-dots"><span /><span /><span /></div>
+          <div className="notif-skeletons">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="skeleton-notif">
+                <div className="skeleton-icon-sm" />
+                <div className="skeleton-avatar-sm" />
+                <div className="skeleton-info">
+                  <div className="skeleton-line medium" />
+                  <div className="skeleton-line short" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : notifications.length === 0 ? (
-          <div className="notif-empty">
-            <span>✦</span>
-            <p>No notifications yet.</p>
-          </div>
+          <EmptyState
+            icon="🔔"
+            title="No notifications yet"
+            subtitle="When someone likes, comments, or follows you — it'll show up here."
+          />
         ) : (
           <div className="notif-list">
             {notifications.map((n) => (
               <div key={n.id} className={`notif-item ${!n.is_read ? 'unread' : ''}`}>
-                <div className={`notif-icon notif-icon--${n.type}`}>
-                  {getIcon(n.type)}
-                </div>
+                <div className={`notif-icon notif-icon--${n.type}`}>{getIcon(n.type)}</div>
                 <div className="notif-avatar">
                   {n.actor.avatar_url
                     ? <img src={n.actor.avatar_url} alt={n.actor.username} />
@@ -108,13 +113,9 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
                 </div>
                 <div className="notif-body">
                   <p>
-                    <Link to={`/profile/${n.actor.id}`} className="notif-actor">
-                      @{n.actor.username}
-                    </Link>
+                    <Link to={`/profile/${n.actor.id}`} className="notif-actor">@{n.actor.username}</Link>
                     {' '}{getMessage(n)}
-                    {n.post_id && (
-                      <>{' '}<Link to={`/post/${n.post_id}`} className="notif-post-link">→ view post</Link></>
-                    )}
+                    {n.post_id && <>{' '}<Link to={`/post/${n.post_id}`} className="notif-post-link">→ view post</Link></>}
                   </p>
                   <span className="notif-time">{formatTime(n.created_at)}</span>
                 </div>
