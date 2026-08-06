@@ -15,6 +15,7 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
   const [likes, setLikes] = useState(post.likes || []);
   const [showComments, setShowComments] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const isLiked = likes.some((l) => l.user_id === currentUserId);
   const likeCount = likes.length;
@@ -86,7 +87,21 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
         )}
       </header>
 
-      <p className="post-content">{post.content}</p>
+      {post.content && (
+        <p className="post-content">{post.content}</p>
+      )}
+
+      {/* Post image */}
+      {post.image_url && !imgError && (
+        <div className="post-image-wrap">
+          <img
+            src={post.image_url}
+            alt="Post image"
+            className="post-image"
+            onError={() => setImgError(true)}
+          />
+        </div>
+      )}
 
       <footer className="post-footer">
         <button

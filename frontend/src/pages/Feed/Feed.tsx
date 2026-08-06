@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import PostCard from '../../components/PostCard';
@@ -11,9 +11,14 @@ type FeedProps = {
 export default function Feed({ userId }: FeedProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [newPostContent, setNewPostContent] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [feedType, setFeedType] = useState<'all' | 'following'>('all');
+  const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchPosts();
@@ -45,20 +50,64 @@ export default function Feed({ userId }: FeedProps) {
     setLoading(false);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageUrl(e.target.value);
+    setImagePreview(e.target.value || null);
+  };
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImageUrl('');
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId || !newPostContent.trim() || posting) return;
+    if (!userId || (!newPostContent.trim() && !imageFile && !imageUrl) || posting) return;
     setPosting(true);
+
+    let finalImageUrl: string | null = null;
+
+    // Upload file to Supabase Storage
+    if (imageFile) {
+      const ext = imageFile.name.split('.').pop();
+      const path = `${userId}/${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('post-images')
+        .upload(path, imageFile);
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage
+          .from('post-images')
+          .getPublicUrl(path);
+        finalImageUrl = urlData.publicUrl;
+      }
+    } else if (imageUrl.trim()) {
+      finalImageUrl = imageUrl.trim();
+    }
 
     const { data, error } = await supabase
       .from('posts')
-      .insert({ user_id: userId, content: newPostContent.trim() })
+      .insert({
+        user_id: userId,
+        content: newPostContent.trim(),
+        image_url: finalImageUrl,
+      })
       .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id)')
       .single();
 
     if (!error && data) {
       setPosts([data as Post, ...posts]);
       setNewPostContent('');
+      clearImage();
     }
     setPosting(false);
   };
@@ -84,9 +133,63 @@ export default function Feed({ userId }: FeedProps) {
                   maxLength={500}
                   rows={3}
                 />
+
+                {/* Image preview */}
+                {imagePreview && (
+                  <div className="compose-preview">
+                    <img src={imagePreview} alt="Preview" onError={() => setImagePreview(null)} />
+                    <button type="button" className="preview-remove" onClick={clearImage}>✕</button>
+                  </div>
+                )}
+
+                {/* Image input area */}
+                <div className="compose-image-section">
+                  <div className="image-mode-tabs">
+                    <button
+                      type="button"
+                      className={`image-mode-tab ${uploadMode === 'file' ? 'active' : ''}`}
+                      onClick={() => setUploadMode('file')}
+                    >
+                      📁 Upload
+                    </button>
+                    <button
+                      type="button"
+                      className={`image-mode-tab ${uploadMode === 'url' ? 'active' : ''}`}
+                      onClick={() => setUploadMode('url')}
+                    >
+                      🔗 URL
+                    </button>
+                  </div>
+
+                  {uploadMode === 'file' ? (
+                    <div className="file-upload-area" onClick={() => fileInputRef.current?.click()}>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        style={{ display: 'none' }}
+                      />
+                      <span>{imageFile ? imageFile.name : 'Click to choose an image…'}</span>
+                    </div>
+                  ) : (
+                    <input
+                      type="url"
+                      className="url-input"
+                      placeholder="Paste image URL…"
+                      value={imageUrl}
+                      onChange={handleUrlChange}
+                    />
+                  )}
+                </div>
+
                 <div className="compose-footer">
                   <span className="char-count">{newPostContent.length}/500</span>
-                  <button type="submit" className="btn-primary" disabled={posting || !newPostContent.trim()}>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={posting || (!newPostContent.trim() && !imageFile && !imageUrl.trim())}
+                  >
                     {posting ? 'Publishing…' : 'Publish'}
                   </button>
                 </div>
