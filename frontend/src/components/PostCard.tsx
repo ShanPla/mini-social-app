@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import type { Post } from '../lib/supabaseClient';
 import CommentSection from './CommentSection';
 import ImageCollage from './ImageCollage';
+import ConfirmModal from './ConfirmModal';
 import './PostCard.css';
 
 type PostCardProps = {
@@ -19,6 +20,7 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
   const [showComments, setShowComments] = useState(false);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const isLiked = likes.some((l) => l.user_id === currentUserId);
   const likeCount = likes.length;
@@ -70,10 +72,10 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
     setLoading(false);
   };
 
-  const handleDelete = async () => {
-    if (!currentUserId || post.user_id !== currentUserId) return;
+  const handleDeleteConfirmed = async () => {
     const { error } = await supabase.from('posts').delete().eq('id', post.id);
     if (!error && onDelete) onDelete(post.id);
+    setShowDeleteModal(false);
   };
 
   const displayText = isTruncated && !expanded
@@ -81,78 +83,86 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
     : post.content;
 
   return (
-    <article className="post-card">
-      <header className="post-header">
-        <Link to={`/profile/${post.user_id}`} className="post-author">
-          <div className="author-avatar">
-            {post.profiles?.avatar_url ? (
-              <img src={post.profiles.avatar_url} alt={post.profiles.username} />
-            ) : (
-              <span>{post.profiles?.username?.[0]?.toUpperCase() || '?'}</span>
+    <>
+      <article className="post-card">
+        <header className="post-header">
+          <Link to={`/profile/${post.user_id}`} className="post-author">
+            <div className="author-avatar">
+              {post.profiles?.avatar_url ? (
+                <img src={post.profiles.avatar_url} alt={post.profiles.username} />
+              ) : (
+                <span>{post.profiles?.username?.[0]?.toUpperCase() || '?'}</span>
+              )}
+            </div>
+            <div>
+              <span className="author-name">{post.profiles?.username || 'Unknown'}</span>
+              <span className="post-date">{formatDate(post.created_at)}</span>
+            </div>
+          </Link>
+          {currentUserId === post.user_id && (
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="post-delete"
+              title="Delete post"
+            >
+              ✕
+            </button>
+          )}
+        </header>
+
+        {post.content && (
+          <p className="post-content">
+            {displayText}
+            {isTruncated && !expanded && (
+              <>{'… '}<button className="see-more-btn" onClick={() => setExpanded(true)}>see more</button></>
             )}
-          </div>
-          <div>
-            <span className="author-name">{post.profiles?.username || 'Unknown'}</span>
-            <span className="post-date">{formatDate(post.created_at)}</span>
-          </div>
-        </Link>
-        {currentUserId === post.user_id && (
-          <button onClick={handleDelete} className="post-delete" title="Delete post">✕</button>
+            {isTruncated && expanded && (
+              <>{' '}<button className="see-more-btn" onClick={() => setExpanded(false)}>see less</button></>
+            )}
+          </p>
         )}
-      </header>
 
-      {post.content && (
-        <p className="post-content">
-          {displayText}
-          {isTruncated && !expanded && (
-            <>
-              {'… '}
-              <button className="see-more-btn" onClick={() => setExpanded(true)}>
-                see more
-              </button>
-            </>
-          )}
-          {isTruncated && expanded && (
-            <>
-              {' '}
-              <button className="see-more-btn" onClick={() => setExpanded(false)}>
-                see less
-              </button>
-            </>
-          )}
-        </p>
-      )}
+        {images.length > 0 && <ImageCollage images={images} />}
 
-      {images.length > 0 && (
-        <ImageCollage images={images} />
-      )}
+        <footer className="post-footer">
+          <button
+            className={`post-action like-btn ${isLiked ? 'liked' : ''}`}
+            onClick={handleLike}
+            disabled={!currentUserId}
+          >
+            <span className="like-icon">{isLiked ? '♥' : '♡'}</span>
+            <span>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</span>
+          </button>
 
-      <footer className="post-footer">
-        <button
-          className={`post-action like-btn ${isLiked ? 'liked' : ''}`}
-          onClick={handleLike}
-          disabled={!currentUserId}
-        >
-          <span className="like-icon">{isLiked ? '♥' : '♡'}</span>
-          <span>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</span>
-        </button>
+          <button
+            className="post-action comment-btn"
+            onClick={() => setShowComments(!showComments)}
+          >
+            <span>✦</span>
+            <span>{post.comments?.length || 0} {(post.comments?.length || 0) === 1 ? 'comment' : 'comments'}</span>
+          </button>
+        </footer>
 
-        <button
-          className="post-action comment-btn"
-          onClick={() => setShowComments(!showComments)}
-        >
-          <span>✦</span>
-          <span>{post.comments?.length || 0} {(post.comments?.length || 0) === 1 ? 'comment' : 'comments'}</span>
-        </button>
-      </footer>
+        {showComments && (
+          <CommentSection
+            postId={post.id}
+            postAuthorId={post.user_id}
+            currentUserId={currentUserId}
+          />
+        )}
+      </article>
 
-      {showComments && (
-        <CommentSection
-          postId={post.id}
-          postAuthorId={post.user_id}
-          currentUserId={currentUserId}
+      {showDeleteModal && (
+        <ConfirmModal
+          title="Delete post?"
+          message="This can't be undone. The post and all its images will be permanently removed."
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          danger
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setShowDeleteModal(false)}
         />
       )}
-    </article>
+    </>
   );
 }
