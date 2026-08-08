@@ -1,0 +1,90 @@
+.collage {
+  width: 100%;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--cream);
+  margin-bottom: 16px;
+}
+
+/* Shared image cell */
+.collage-img {
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  background: var(--cream);
+}
+.collage-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+.collage-img:hover img { transform: scale(1.03); }
+
+/* 1 image — fixed height like Facebook */
+.collage--1 {
+  height: 380px;
+}
+.collage--1 .collage-img {
+  height: 100%;
+}
+
+/* 2 images — side by side */
+.collage--2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  height: 300px;
+}
+.collage--2 .collage-img {
+  height: 100%;
+}
+
+/* 3 images — 1 big left, 2 stacked right */
+.collage--3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  height: 300px;
+}
+.collage-img--main {
+  height: 100%;
+}
+.collage-side {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+  height: 300px;
+}
+.collage-side .collage-img {
+  height: 100%;
+}
+
+/* 4 images — 2x2 grid */
+.collage--4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+  height: 300px;
+}
+.collage--4 .collage-img {
+  height: 100%;
+}
+
+/* +X overflow overlay */
+.collage-overflow {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.02em;
+}

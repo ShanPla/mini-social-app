@@ -61,7 +61,7 @@ export default function ProfilePage({ currentUserId }: ProfilePageProps) {
     setPostsLoading(true);
     const { data } = await supabase
       .from('posts')
-      .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id)')
+      .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id), post_images(id, image_url, position)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     setPosts((data as Post[]) || []);

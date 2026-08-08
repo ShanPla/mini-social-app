@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import type { Post } from '../lib/supabaseClient';
 import CommentSection from './CommentSection';
+import ImageCollage from './ImageCollage';
 import './PostCard.css';
 
 type PostCardProps = {
@@ -15,7 +16,6 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
   const [likes, setLikes] = useState(post.likes || []);
   const [showComments, setShowComments] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [imgError, setImgError] = useState(false);
 
   const isLiked = likes.some((l) => l.user_id === currentUserId);
   const likeCount = likes.length;
@@ -24,6 +24,15 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
+
+  // Collect images: prefer post_images table, fall back to legacy image_url
+  const images: string[] = post.post_images?.length
+    ? post.post_images
+        .sort((a, b) => a.position - b.position)
+        .map((img) => img.image_url)
+    : post.image_url
+    ? [post.image_url]
+    : [];
 
   const handleLike = async () => {
     if (!currentUserId || loading) return;
@@ -45,8 +54,6 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
 
       if (!error && data) {
         setLikes([...likes, data]);
-
-        // Fire notification if liking someone else's post
         if (post.user_id !== currentUserId) {
           await supabase.from('notifications').insert({
             user_id: post.user_id,
@@ -91,16 +98,8 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
         <p className="post-content">{post.content}</p>
       )}
 
-      {/* Post image */}
-      {post.image_url && !imgError && (
-        <div className="post-image-wrap">
-          <img
-            src={post.image_url}
-            alt="Post image"
-            className="post-image"
-            onError={() => setImgError(true)}
-          />
-        </div>
+      {images.length > 0 && (
+        <ImageCollage images={images} />
       )}
 
       <footer className="post-footer">

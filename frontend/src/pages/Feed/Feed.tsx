@@ -13,21 +13,17 @@ type FeedProps = {
 export default function Feed({ userId }: FeedProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [newPostContent, setNewPostContent] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState('');
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [feedType, setFeedType] = useState<'all' | 'following'>('all');
-  const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
   const [newPostsBanner, setNewPostsBanner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   usePageTitle('Feed');
 
-  useEffect(() => {
-    fetchPosts();
-  }, [feedType, userId]);
+  useEffect(() => { fetchPosts(); }, [feedType, userId]);
 
   useEffect(() => {
     if (feedType !== 'all') return;
@@ -45,7 +41,7 @@ export default function Feed({ userId }: FeedProps) {
     setNewPostsBanner(false);
     let query = supabase
       .from('posts')
-      .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id)')
+      .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id), post_images(id, image_url, position)')
       .order('created_at', { ascending: false });
 
     if (feedType === 'following' && userId) {
@@ -61,53 +57,69 @@ export default function Feed({ userId }: FeedProps) {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    const files = Array.from(e.target.files || []).slice(0, 10); // max 10
+    setImageFiles(files);
+    setImagePreviews(files.map((f) => URL.createObjectURL(f)));
   };
 
-  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setImageUrl(e.target.value);
-    setImagePreview(e.target.value || null);
+  const removeImage = (index: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const clearImage = () => {
-    setImageFile(null);
-    setImageUrl('');
-    setImagePreview(null);
+  const clearImages = () => {
+    setImageFiles([]);
+    setImagePreviews([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId || (!newPostContent.trim() && !imageFile && !imageUrl) || posting) return;
+    if (!userId || (!newPostContent.trim() && !imageFiles.length) || posting) return;
     setPosting(true);
 
-    let finalImageUrl: string | null = null;
-    if (imageFile) {
-      const ext = imageFile.name.split('.').pop();
-      const path = `${userId}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('post-images').upload(path, imageFile);
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(path);
-        finalImageUrl = urlData.publicUrl;
-      }
-    } else if (imageUrl.trim()) {
-      finalImageUrl = imageUrl.trim();
-    }
-
-    const { data, error } = await supabase
+    // Create the post first
+    const { data: postData, error: postError } = await supabase
       .from('posts')
-      .insert({ user_id: userId, content: newPostContent.trim(), image_url: finalImageUrl })
+      .insert({ user_id: userId, content: newPostContent.trim() })
       .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id)')
       .single();
 
-    if (!error && data) {
-      setPosts([data as Post, ...posts]);
-      setNewPostContent('');
-      clearImage();
+    if (postError || !postData) { setPosting(false); return; }
+
+    // Upload images and insert into post_images
+    if (imageFiles.length > 0) {
+      const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
+
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+        const ext = file.name.split('.').pop();
+        const path = `${userId}/${postData.id}/${i}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('post-images')
+          .upload(path, file);
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(path);
+          uploadedImages.push({ post_id: postData.id, image_url: urlData.publicUrl, position: i });
+        }
+      }
+
+      if (uploadedImages.length > 0) {
+        await supabase.from('post_images').insert(uploadedImages);
+        (postData as Post).post_images = uploadedImages.map((img, i) => ({
+          id: `temp-${i}`,
+          post_id: postData.id,
+          image_url: img.image_url,
+          position: img.position,
+        }));
+      }
     }
+
+    setPosts([postData as Post, ...posts]);
+    setNewPostContent('');
+    clearImages();
     setPosting(false);
   };
 
@@ -134,29 +146,44 @@ export default function Feed({ userId }: FeedProps) {
                   maxLength={500}
                   rows={3}
                 />
-                {imagePreview && (
-                  <div className="compose-preview">
-                    <img src={imagePreview} alt="Preview" onError={() => setImagePreview(null)} />
-                    <button type="button" className="preview-remove" onClick={clearImage}>✕</button>
+
+                {/* Image previews */}
+                {imagePreviews.length > 0 && (
+                  <div className="compose-previews">
+                    {imagePreviews.map((src, i) => (
+                      <div key={i} className="compose-preview-item">
+                        <img src={src} alt={`Preview ${i + 1}`} />
+                        <button type="button" className="preview-remove" onClick={() => removeImage(i)}>✕</button>
+                      </div>
+                    ))}
                   </div>
                 )}
+
+                {/* Upload button */}
                 <div className="compose-image-section">
-                  <div className="image-mode-tabs">
-                    <button type="button" className={`image-mode-tab ${uploadMode === 'file' ? 'active' : ''}`} onClick={() => setUploadMode('file')}>📁 Upload</button>
-                    <button type="button" className={`image-mode-tab ${uploadMode === 'url' ? 'active' : ''}`} onClick={() => setUploadMode('url')}>🔗 URL</button>
+                  <div className="file-upload-area" onClick={() => fileInputRef.current?.click()}>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                    />
+                    <span>📁 {imageFiles.length > 0 ? `${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} selected` : 'Add photos (up to 10)…'}</span>
                   </div>
-                  {uploadMode === 'file' ? (
-                    <div className="file-upload-area" onClick={() => fileInputRef.current?.click()}>
-                      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
-                      <span>{imageFile ? imageFile.name : 'Click to choose an image…'}</span>
-                    </div>
-                  ) : (
-                    <input type="url" className="url-input" placeholder="Paste image URL…" value={imageUrl} onChange={handleUrlChange} />
+                  {imageFiles.length > 0 && (
+                    <button type="button" className="clear-images-btn" onClick={clearImages}>Clear all</button>
                   )}
                 </div>
+
                 <div className="compose-footer">
                   <span className="char-count">{newPostContent.length}/500</span>
-                  <button type="submit" className="btn-primary" disabled={posting || (!newPostContent.trim() && !imageFile && !imageUrl.trim())}>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={posting || (!newPostContent.trim() && !imageFiles.length)}
+                  >
                     {posting ? 'Publishing…' : 'Publish'}
                   </button>
                 </div>
@@ -187,17 +214,9 @@ export default function Feed({ userId }: FeedProps) {
             </div>
           ) : posts.length === 0 ? (
             feedType === 'following' ? (
-              <EmptyState
-                icon="👥"
-                title="Your following feed is empty"
-                subtitle="Follow some users to see their posts here."
-              />
+              <EmptyState icon="👥" title="Your following feed is empty" subtitle="Follow some users to see their posts here." />
             ) : (
-              <EmptyState
-                icon="✦"
-                title="Nothing here yet"
-                subtitle="Be the first to publish something!"
-              />
+              <EmptyState icon="✦" title="Nothing here yet" subtitle="Be the first to publish something!" />
             )
           ) : (
             <div className="posts-list">

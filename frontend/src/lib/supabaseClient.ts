@@ -13,6 +13,13 @@ export type Profile = {
   created_at: string;
 };
 
+export type PostImage = {
+  id: string;
+  post_id: string;
+  image_url: string;
+  position: number;
+};
+
 export type Post = {
   id: string;
   user_id: string;
@@ -22,6 +29,7 @@ export type Post = {
   profiles?: Profile;
   likes?: { id: string; user_id: string }[];
   comments?: Comment[];
+  post_images?: PostImage[];
 };
 
 export type Comment = {

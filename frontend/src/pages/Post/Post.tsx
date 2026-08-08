@@ -24,7 +24,7 @@ export default function PostPage({ currentUserId }: PostPageProps) {
   const fetchPost = async () => {
     const { data } = await supabase
       .from('posts')
-      .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id, user_id, content, created_at, profiles(id, username))')
+      .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id, user_id, content, created_at, profiles(id, username)), post_images(id, image_url, position)')
       .eq('id', postId)
       .single();
     setPost(data as Post);
