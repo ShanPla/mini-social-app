@@ -12,20 +12,23 @@ type PostCardProps = {
   onDelete?: (postId: string) => void;
 };
 
+const CHAR_LIMIT = 200;
+
 export default function PostCard({ post, currentUserId, onDelete }: PostCardProps) {
   const [likes, setLikes] = useState(post.likes || []);
   const [showComments, setShowComments] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const isLiked = likes.some((l) => l.user_id === currentUserId);
   const likeCount = likes.length;
+  const isTruncated = post.content && post.content.length > CHAR_LIMIT;
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  // Collect images: prefer post_images table, fall back to legacy image_url
   const images: string[] = post.post_images?.length
     ? post.post_images
         .sort((a, b) => a.position - b.position)
@@ -73,6 +76,10 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
     if (!error && onDelete) onDelete(post.id);
   };
 
+  const displayText = isTruncated && !expanded
+    ? post.content.slice(0, CHAR_LIMIT).trimEnd()
+    : post.content;
+
   return (
     <article className="post-card">
       <header className="post-header">
@@ -95,7 +102,25 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
       </header>
 
       {post.content && (
-        <p className="post-content">{post.content}</p>
+        <p className="post-content">
+          {displayText}
+          {isTruncated && !expanded && (
+            <>
+              {'… '}
+              <button className="see-more-btn" onClick={() => setExpanded(true)}>
+                see more
+              </button>
+            </>
+          )}
+          {isTruncated && expanded && (
+            <>
+              {' '}
+              <button className="see-more-btn" onClick={() => setExpanded(false)}>
+                see less
+              </button>
+            </>
+          )}
+        </p>
       )}
 
       {images.length > 0 && (
