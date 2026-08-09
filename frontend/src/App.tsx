@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
-import Navbar from './components/Navbar';
-import SearchBar from './components/SearchBar';
+import Navbar from './components/Navbar/Navbar';
+import SearchBar from './components/SearchBar/SearchBar';
 import Login from './pages/Login/Login';
 import Register from './pages/Register/Register';
 import Feed from './pages/Feed/Feed';

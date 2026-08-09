@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
-import type { Post } from '../lib/supabaseClient';
-import CommentSection from './CommentSection';
-import ImageCollage from './ImageCollage';
-import ConfirmModal from './ConfirmModal';
+import { supabase } from '../../lib/supabaseClient';
+import type { Post } from '../../lib/supabaseClient';
+import CommentSection from '../CommentSection/CommentSection';
+import ImageCollage from '../ImageCollage/ImageCollage';
+import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import './PostCard.css';
 
 type PostCardProps = {

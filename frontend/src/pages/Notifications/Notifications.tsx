@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
-import EmptyState from '../../components/EmptyState';
+import EmptyState from '../../components/EmptyState/EmptyState';
 import './Notifications.css';
 
 type Notification = {

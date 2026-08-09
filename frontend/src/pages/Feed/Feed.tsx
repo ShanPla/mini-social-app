@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
-import PostCard from '../../components/PostCard';
-import EmptyState from '../../components/EmptyState';
+import PostCard from '../../components/PostCard/PostCard';
+import EmptyState from '../../components/EmptyState/EmptyState';
 import { usePageTitle } from '../../lib/usePageTitle';
 import './Feed.css';
 

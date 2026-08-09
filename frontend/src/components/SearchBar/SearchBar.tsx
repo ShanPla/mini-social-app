@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
-import type { Profile } from '../lib/supabaseClient';
+import { supabase } from '../../lib/supabaseClient';
+import type { Profile } from '../../lib/supabaseClient';
 import './SearchBar.css';
 
 export default function SearchBar() {

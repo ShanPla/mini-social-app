@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
-import PostCard from '../../components/PostCard';
+import PostCard from '../../components/PostCard/PostCard';
 import { usePageTitle } from '../../lib/usePageTitle';
 import './Post.css';
 

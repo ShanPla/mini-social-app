@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
-import NotificationBell from './NotificationBell';
+import { supabase } from '../../lib/supabaseClient';
+import NotificationBell from '../NotificationBell/NotificationBell';
 import './Navbar.css';
 
 type NavbarProps = {

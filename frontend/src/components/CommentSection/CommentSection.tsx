@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
-import type { Comment } from '../lib/supabaseClient';
+import { supabase } from '../../lib/supabaseClient';
+import type { Comment } from '../../lib/supabaseClient';
 import './CommentSection.css';
 
 type Props = {

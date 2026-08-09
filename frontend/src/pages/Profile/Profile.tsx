@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile, Post } from '../../lib/supabaseClient';
-import PostCard from '../../components/PostCard';
-import EmptyState from '../../components/EmptyState';
+import PostCard from '../../components/PostCard/PostCard';
+import EmptyState from '../../components/EmptyState/EmptyState';
 import { usePageTitle } from '../../lib/usePageTitle';
 import './Profile.css';
 
