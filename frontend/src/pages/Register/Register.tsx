@@ -12,85 +12,47 @@ export default function Register() {
   const [error, setError] = useState('');
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'taken' | 'available'>('idle');
   const [loading, setLoading] = useState(false);
+
   usePageTitle('Create Account');
 
   const handleUsernameChange = async (value: string) => {
     const cleaned = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
     setUsername(cleaned);
     setError('');
-
-    if (cleaned.length < 3) {
-      setUsernameStatus('idle');
-      return;
-    }
-
+    if (cleaned.length < 3) { setUsernameStatus('idle'); return; }
     setUsernameStatus('checking');
-    const { data } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', cleaned)
-      .maybeSingle();
-
+    const { data } = await supabase.from('profiles').select('id').eq('username', cleaned).maybeSingle();
     setUsernameStatus(data ? 'taken' : 'available');
   };
 
   const getFriendlyError = (message: string): string => {
-    if (message.includes('invalid') && message.includes('email')) {
+    if (message.includes('invalid') && message.includes('email'))
       return 'Please enter a valid email address (e.g. yourname@gmail.com).';
-    }
-    if (message.includes('already registered') || message.includes('already been registered')) {
+    if (message.includes('already registered') || message.includes('already been registered'))
       return 'An account with this email already exists. Try logging in instead.';
-    }
-    if (message.includes('rate limit') || message.includes('email rate')) {
+    if (message.includes('rate limit') || message.includes('email rate'))
       return 'Too many attempts. Please wait a minute and try again.';
-    }
-    if (message.includes('password') && message.includes('short')) {
+    if (message.includes('password') && message.includes('short'))
       return 'Password must be at least 6 characters.';
-    }
-    if (message.includes('weak password')) {
+    if (message.includes('weak password'))
       return 'Password is too weak. Try adding numbers or symbols.';
-    }
     return message;
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (username.length < 3) {
-      setError('Username must be at least 3 characters.');
-      return;
-    }
-    if (usernameStatus === 'taken') {
-      setError('That username is already taken. Please choose another.');
-      return;
-    }
-    if (usernameStatus === 'checking') {
-      setError('Still checking username availability, please wait.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
+    if (username.length < 3) { setError('Username must be at least 3 characters.'); return; }
+    if (usernameStatus === 'taken') { setError('That username is already taken. Please choose another.'); return; }
+    if (usernameStatus === 'checking') { setError('Still checking username availability, please wait.'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
 
     setLoading(true);
-
     const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
-
-    if (signUpError) {
-      setError(getFriendlyError(signUpError.message));
-      setLoading(false);
-      return;
-    }
-
+    if (signUpError) { setError(getFriendlyError(signUpError.message)); setLoading(false); return; }
     if (data.user) {
-      await supabase
-        .from('profiles')
-        .update({ username })
-        .eq('id', data.user.id);
+      await supabase.from('profiles').update({ username }).eq('id', data.user.id);
     }
-
     navigate('/feed');
     setLoading(false);
   };
@@ -161,12 +123,35 @@ export default function Register() {
       </div>
 
       <div className="register-art">
-        <div className="art-grid">
-          {Array.from({ length: 9 }).map((_, i) => (
-            <div key={i} className="art-cell" style={{ animationDelay: `${i * 0.2}s` }}>✦</div>
-          ))}
+        <div className="register-art-watermark">✦</div>
+
+        <div className="register-panel-brand">
+          <span className="register-panel-brand-serif">The</span>
+          <span className="register-panel-brand-main">Chronicle</span>
         </div>
-        <p className="art-quote">"Every voice matters."</p>
+
+        <div className="register-art-main">
+          <h2 className="register-art-headline">
+            Your story<br />
+            <em>starts here.</em>
+          </h2>
+          <p className="register-art-sub">
+            Join a community of voices.<br />
+            Share what matters to you.
+          </p>
+        </div>
+
+        <div className="register-art-deco">
+          <div className="register-art-stars">
+            <span className="register-art-star">✦</span>
+            <span className="register-art-star">✦</span>
+            <span className="register-art-star">✦</span>
+            <span className="register-art-star">✦</span>
+            <span className="register-art-star">✦</span>
+          </div>
+          <div className="register-art-divider" />
+          <p className="register-art-quote">"Every voice matters."</p>
+        </div>
       </div>
     </div>
   );

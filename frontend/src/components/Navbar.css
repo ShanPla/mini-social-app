@@ -69,3 +69,15 @@
   padding: 0;
 }
 .nav-logout:hover { color: var(--accent-hover); }
+
+/* Auth pages — hide navbar entirely */
+.navbar--hidden {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .navbar-inner { padding: 0 16px; }
+  .brand-main { font-size: 1.1rem; }
+  .navbar-links { gap: 16px; }
+  .nav-link { font-size: 0.75rem; }
+}

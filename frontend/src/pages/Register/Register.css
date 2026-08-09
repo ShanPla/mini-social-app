@@ -1,20 +1,21 @@
 .register-page {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
+/* ── LEFT PANEL (form) ── */
 .register-box {
   width: 480px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   background: var(--warm-white);
-  padding: 60px 48px;
+  padding: 48px;
+  overflow-y: auto;
 }
 
-.register-header {
-  margin-bottom: 36px;
-}
+.register-header { margin-bottom: 32px; }
 
 .register-back {
   display: inline-block;
@@ -22,7 +23,7 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-muted);
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   transition: color 0.2s;
   text-decoration: none;
 }
@@ -36,91 +37,164 @@
   letter-spacing: -0.02em;
   margin-bottom: 6px;
 }
-.register-header p {
-  color: var(--ink-muted);
-  font-size: 0.9rem;
-}
+.register-header p { color: var(--ink-muted); font-size: 0.9rem; }
 
-.register-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
+.register-form { display: flex; flex-direction: column; gap: 18px; }
 
-.register-submit {
-  width: 100%;
-  padding: 13px;
-  margin-top: 4px;
-}
-.register-submit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.register-submit { width: 100%; padding: 13px; margin-top: 4px; }
+.register-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.username-status {
-  font-size: 0.72rem;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  text-transform: none;
-}
+.username-status { font-size: 0.72rem; font-weight: 400; letter-spacing: 0.02em; text-transform: none; }
 .username-status.checking { color: var(--ink-muted); }
 .username-status.taken { color: var(--accent); }
 .username-status.available { color: #2f9e44; }
 
-/* Input states */
-.form-group input.input-error {
-  border-color: var(--accent);
-}
-.form-group input.input-success {
-  border-color: #2f9e44;
-}
+.form-group input.input-error { border-color: var(--accent); }
+.form-group input.input-success { border-color: #2f9e44; }
+.field-hint { font-size: 0.72rem; color: var(--ink-muted); margin-top: 2px; }
 
-.field-hint {
-  font-size: 0.72rem;
-  color: var(--ink-muted);
-  margin-top: 2px;
-}
-
+/* ── RIGHT PANEL (dark) ── */
 .register-art {
   flex: 1;
-  background: var(--cream);
+  background: var(--ink);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 40px;
+  justify-content: space-between;
+  padding: 48px;
   position: relative;
-  border-left: 1px solid var(--border);
+  overflow: hidden;
 }
 
-.art-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 28px;
+/* Dot grid */
+.register-art::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
 }
 
-.art-cell {
-  font-size: 1.6rem;
-  color: var(--ink-muted);
-  opacity: 0.3;
-  animation: pulse 3s ease-in-out infinite alternate;
-  text-align: center;
-}
-@keyframes pulse {
-  from { opacity: 0.15; transform: scale(0.9); }
-  to { opacity: 0.5; transform: scale(1.05); }
+/* Circle decoration */
+.register-art::after {
+  content: '';
+  position: absolute;
+  top: -160px;
+  left: -160px;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.06);
+  pointer-events: none;
 }
 
-.art-quote {
+.register-art-watermark {
+  position: absolute;
+  bottom: -40px;
+  right: -20px;
+  font-size: 220px;
+  color: rgba(255,255,255,0.025);
+  font-family: var(--font-display);
+  pointer-events: none;
+  line-height: 1;
+  user-select: none;
+}
+
+/* Brand inside panel */
+.register-panel-brand {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 48px;
+}
+
+.register-panel-brand-serif {
   font-family: var(--font-display);
   font-style: italic;
-  font-size: 1.1rem;
-  color: var(--ink-muted);
-  text-align: center;
+  font-size: 1rem;
+  color: rgba(255,255,255,0.4);
 }
 
+.register-panel-brand-main {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.85);
+  letter-spacing: -0.02em;
+}
+
+.register-art-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.register-art-headline {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 3.5vw, 3.6rem);
+  font-weight: 700;
+  color: var(--cream);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  margin-bottom: 16px;
+}
+.register-art-headline em { color: var(--gold); font-style: italic; }
+
+.register-art-sub {
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.3);
+  line-height: 1.7;
+}
+
+.register-art-deco {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.register-art-stars { display: flex; gap: 10px; margin-bottom: 4px; }
+
+.register-art-star {
+  color: var(--gold);
+  opacity: 0.4;
+  font-size: 0.7rem;
+  animation: twinkle 2.5s ease-in-out infinite alternate;
+}
+.register-art-star:nth-child(2) { animation-delay: 0.4s; opacity: 0.6; }
+.register-art-star:nth-child(3) { animation-delay: 0.8s; opacity: 0.3; }
+.register-art-star:nth-child(4) { animation-delay: 1.2s; opacity: 0.5; }
+.register-art-star:nth-child(5) { animation-delay: 0.2s; opacity: 0.4; }
+
+@keyframes twinkle {
+  from { opacity: 0.2; transform: scale(0.9); }
+  to { opacity: 0.7; transform: scale(1.1); }
+}
+
+.register-art-divider {
+  width: 48px;
+  height: 1px;
+  background: rgba(255,255,255,0.15);
+}
+
+.register-art-quote {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.28);
+  line-height: 1.6;
+}
+
+/* Mobile */
 @media (max-width: 700px) {
-  .register-page { flex-direction: column; }
-  .register-art { display: none; }
-  .register-box { width: 100%; padding: 40px 24px; }
+  .register-page { flex-direction: column; height: auto; min-height: 100vh; overflow: auto; }
+  .register-box { width: 100%; padding: 36px 24px; }
+  .register-art { min-height: 280px; flex: none; padding: 32px 28px; }
+  .register-art-watermark { font-size: 120px; }
 }
