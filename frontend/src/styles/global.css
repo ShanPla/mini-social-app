@@ -18,6 +18,10 @@
   --font-body: 'DM Sans', system-ui, sans-serif;
 }
 
+#root {
+  position: relative;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;

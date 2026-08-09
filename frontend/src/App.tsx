@@ -11,8 +11,19 @@ import PostPage from './pages/Post/Post';
 import SearchPage from './pages/Search/Search';
 import NotificationsPage from './pages/Notifications/Notifications';
 import './styles/global.css';
+import './styles/animations.css';
 
 const AUTH_ROUTES = ['/login', '/register'];
+
+// Wraps each page in a fade+slide entrance
+function PageWrapper({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  return (
+    <div key={location.pathname} className="page-enter">
+      {children}
+    </div>
+  );
+}
 
 function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean }) {
   const location = useLocation();
@@ -22,16 +33,18 @@ function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean
     <>
       {!isAuthPage && <Navbar userId={userId} />}
       {!isAuthPage && userId && <SearchBar />}
-      <Routes>
-        <Route path="/login" element={!userId ? <Login /> : <Navigate to="/feed" />} />
-        <Route path="/register" element={!userId ? <Register /> : <Navigate to="/feed" />} />
-        <Route path="/feed" element={userId ? <Feed userId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
-        <Route path="/profile/:userId" element={userId ? <ProfilePage currentUserId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
-        <Route path="/post/:postId" element={userId ? <PostPage currentUserId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
-        <Route path="/search" element={userId ? <SearchPage /> : <Navigate to="/login" />} />
-        <Route path="/notifications" element={userId ? <NotificationsPage currentUserId={userId} /> : <Navigate to="/login" />} />
-        <Route path="*" element={<Navigate to={userId ? "/feed" : "/login"} />} />
-      </Routes>
+      <PageWrapper>
+        <Routes>
+          <Route path="/login" element={!userId ? <Login /> : <Navigate to="/feed" />} />
+          <Route path="/register" element={!userId ? <Register /> : <Navigate to="/feed" />} />
+          <Route path="/feed" element={userId ? <Feed userId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
+          <Route path="/profile/:userId" element={userId ? <ProfilePage currentUserId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
+          <Route path="/post/:postId" element={userId ? <PostPage currentUserId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
+          <Route path="/search" element={userId ? <SearchPage /> : <Navigate to="/login" />} />
+          <Route path="/notifications" element={userId ? <NotificationsPage currentUserId={userId} /> : <Navigate to="/login" />} />
+          <Route path="*" element={<Navigate to={userId ? "/feed" : "/login"} />} />
+        </Routes>
+      </PageWrapper>
     </>
   );
 }
@@ -41,17 +54,17 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-const fetchAdminStatus = async (uid: string) => {
-  try {
-    const { data } = await Promise.race([
-      supabase.from('profiles').select('is_admin').eq('id', uid).single(),
-      new Promise<{ data: null }>((resolve) => setTimeout(() => resolve({ data: null }), 1500))
-    ]);
-    setIsAdmin((data as any)?.is_admin ?? false);
-  } catch {
-    setIsAdmin(false);
-  }
-};
+  const fetchAdminStatus = async (uid: string) => {
+    try {
+      const { data } = await Promise.race([
+        supabase.from('profiles').select('is_admin').eq('id', uid).single(),
+        new Promise<{ data: null }>((resolve) => setTimeout(() => resolve({ data: null }), 1500))
+      ]);
+      setIsAdmin((data as any)?.is_admin ?? false);
+    } catch {
+      setIsAdmin(false);
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import './Lightbox.css';
 
 type Props = {
@@ -29,7 +30,7 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
     };
   }, [hasPrev, hasNext, onClose]);
 
-  return (
+  return createPortal(
     <div className="lightbox-backdrop" onClick={onClose}>
       {/* Close button */}
       <button className="lightbox-close" onClick={onClose}>✕</button>
@@ -44,18 +45,12 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
         <button
           className="lightbox-nav lightbox-nav--prev"
           onClick={(e) => { e.stopPropagation(); setCurrent((c) => c - 1); }}
-        >
-          ‹
-        </button>
+        >‹</button>
       )}
 
       {/* Image */}
       <div className="lightbox-image-wrap" onClick={(e) => e.stopPropagation()}>
-        <img
-          src={images[current]}
-          alt={`Image ${current + 1}`}
-          className="lightbox-image"
-        />
+        <img src={images[current]} alt={`Image ${current + 1}`} className="lightbox-image" />
       </div>
 
       {/* Next */}
@@ -63,9 +58,7 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
         <button
           className="lightbox-nav lightbox-nav--next"
           onClick={(e) => { e.stopPropagation(); setCurrent((c) => c + 1); }}
-        >
-          ›
-        </button>
+        >›</button>
       )}
 
       {/* Thumbnail strip for multiple images */}
@@ -82,6 +75,7 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
           ))}
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }

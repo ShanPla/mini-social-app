@@ -1,0 +1,262 @@
+/* ============================================
+   THE CHRONICLE — ANIMATION SYSTEM
+   Import this in global.css or main.tsx
+   ============================================ */
+
+/* ── Page transitions ── */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: pageEnter 0.3s ease forwards;
+}
+
+/* ── Posts appearing in feed ── */
+@keyframes postEnter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.post-card {
+  animation: postEnter 0.35s ease forwards;
+}
+
+/* Stagger each post */
+.posts-list .post-card:nth-child(1) { animation-delay: 0ms; }
+.posts-list .post-card:nth-child(2) { animation-delay: 60ms; }
+.posts-list .post-card:nth-child(3) { animation-delay: 120ms; }
+.posts-list .post-card:nth-child(4) { animation-delay: 180ms; }
+.posts-list .post-card:nth-child(5) { animation-delay: 240ms; }
+.posts-list .post-card:nth-child(6) { animation-delay: 300ms; }
+.posts-list .post-card:nth-child(n+7) { animation-delay: 360ms; }
+
+/* ── Like button pop ── */
+@keyframes likePop {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.4); }
+  60%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+@keyframes unlikePop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(0.8); }
+  100% { transform: scale(1); }
+}
+
+.like-icon--popping {
+  display: inline-block;
+  animation: likePop 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+}
+
+.like-icon--unpopping {
+  display: inline-block;
+  animation: unlikePop 0.25s ease forwards;
+}
+
+/* ── Navbar entrance ── */
+@keyframes navbarSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.navbar {
+  animation: navbarSlideDown 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Searchbar entrance ── */
+@keyframes searchbarFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.searchbar-wrapper {
+  animation: searchbarFadeIn 0.35s ease 0.1s both;
+}
+
+/* ── Notification bell badge pulse ── */
+@keyframes badgePulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.bell-badge {
+  animation: badgePulse 0.4s ease;
+}
+
+/* ── Dropdown appear ── */
+@keyframes dropdownEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.searchbar-dropdown,
+.bell-dropdown {
+  animation: dropdownEnter 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Modal entrance ── */
+@keyframes modalBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalBoxIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-backdrop {
+  animation: modalBackdropIn 0.2s ease forwards;
+}
+
+.modal-box {
+  animation: modalBoxIn 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Skeleton shimmer (already in place, ensure it's smooth) ── */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Comment section slide in ── */
+@keyframes commentSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.comment-section {
+  animation: commentSlideIn 0.25s ease forwards;
+}
+
+/* ── Profile header entrance ── */
+@keyframes profileHeaderIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.profile-header {
+  animation: profileHeaderIn 0.35s ease forwards;
+}
+
+/* ── Notification item entrance ── */
+@keyframes notifItemIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.notif-item {
+  animation: notifItemIn 0.25s ease forwards;
+}
+
+.notif-list .notif-item:nth-child(1) { animation-delay: 0ms; }
+.notif-list .notif-item:nth-child(2) { animation-delay: 40ms; }
+.notif-list .notif-item:nth-child(3) { animation-delay: 80ms; }
+.notif-list .notif-item:nth-child(4) { animation-delay: 120ms; }
+.notif-list .notif-item:nth-child(n+5) { animation-delay: 160ms; }
+
+/* ── Lightbox entrance ── */
+@keyframes lightboxIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.lightbox-image-wrap {
+  animation: lightboxIn 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Search results entrance ── */
+@keyframes searchResultIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search-result-card {
+  animation: searchResultIn 0.2s ease forwards;
+}
+
+.search-results-list .search-result-card:nth-child(1) { animation-delay: 0ms; }
+.search-results-list .search-result-card:nth-child(2) { animation-delay: 40ms; }
+.search-results-list .search-result-card:nth-child(3) { animation-delay: 80ms; }
+.search-results-list .search-result-card:nth-child(n+4) { animation-delay: 120ms; }
+
+/* ── Reduce motion for accessibility ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

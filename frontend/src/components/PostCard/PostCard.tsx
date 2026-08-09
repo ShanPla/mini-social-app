@@ -22,6 +22,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [likeAnim, setLikeAnim] = useState<'pop' | 'unpop' | null>(null);
 
   const isLiked = likes.some((l) => l.user_id === currentUserId);
   const likeCount = likes.length;
@@ -43,10 +44,12 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
     setLoading(true);
 
     if (isLiked) {
+      setLikeAnim('unpop');
       const { error } = await supabase.from('likes').delete()
         .eq('post_id', post.id).eq('user_id', currentUserId);
       if (!error) setLikes(likes.filter((l) => l.user_id !== currentUserId));
     } else {
+      setLikeAnim('pop');
       const { data, error } = await supabase.from('likes')
         .insert({ post_id: post.id, user_id: currentUserId })
         .select().single();
@@ -63,6 +66,8 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
         }
       }
     }
+
+    setTimeout(() => setLikeAnim(null), 400);
     setLoading(false);
   };
 
@@ -124,7 +129,11 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
             onClick={handleLike}
             disabled={!currentUserId}
           >
-            <span className="like-icon">{isLiked ? '♥' : '♡'}</span>
+            <span
+              className={`like-icon ${likeAnim === 'pop' ? 'like-icon--popping' : likeAnim === 'unpop' ? 'like-icon--unpopping' : ''}`}
+            >
+              {isLiked ? '♥' : '♡'}
+            </span>
             <span>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</span>
           </button>
 
