@@ -35,7 +35,7 @@ export default function Register() {
     if (message.includes('password') && message.includes('short'))
       return 'Password must be at least 6 characters.';
     if (message.includes('weak password'))
-      return 'Password is too weak. Try adding numbers or symbols.';
+      return 'Password must contain uppercase, lowercase letters and numbers.';
     return message;
   };
 
