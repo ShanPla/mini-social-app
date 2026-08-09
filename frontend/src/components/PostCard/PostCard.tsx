@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
+import { timeAgo } from '../../lib/timeAgo';
 import CommentSection from '../CommentSection/CommentSection';
 import ImageCollage from '../ImageCollage/ImageCollage';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
@@ -29,11 +30,6 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
   const isOwner = currentUserId === post.user_id;
   const canDelete = isOwner || isAdmin;
   const isTruncated = post.content && post.content.length > CHAR_LIMIT;
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
 
   const images: string[] = post.post_images?.length
     ? post.post_images.sort((a, b) => a.position - b.position).map((img) => img.image_url)
@@ -94,7 +90,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
             </div>
             <div>
               <span className="author-name">{post.profiles?.username || 'Unknown'}</span>
-              <span className="post-date">{formatDate(post.created_at)}</span>
+              <span className="post-date">{timeAgo(post.created_at)}</span>
             </div>
           </Link>
 
