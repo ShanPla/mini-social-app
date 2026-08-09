@@ -118,3 +118,11 @@
 
 .like-btn.liked { color: var(--accent); }
 .like-icon { font-size: 1rem; }
+
+.post-delete--admin {
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+.post-delete--admin:hover {
+  color: var(--accent-hover);
+}

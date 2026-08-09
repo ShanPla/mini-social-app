@@ -10,12 +10,13 @@ import './PostCard.css';
 type PostCardProps = {
   post: Post;
   currentUserId: string | null;
+  isAdmin?: boolean;
   onDelete?: (postId: string) => void;
 };
 
 const CHAR_LIMIT = 200;
 
-export default function PostCard({ post, currentUserId, onDelete }: PostCardProps) {
+export default function PostCard({ post, currentUserId, isAdmin = false, onDelete }: PostCardProps) {
   const [likes, setLikes] = useState(post.likes || []);
   const [showComments, setShowComments] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,6 +25,8 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
 
   const isLiked = likes.some((l) => l.user_id === currentUserId);
   const likeCount = likes.length;
+  const isOwner = currentUserId === post.user_id;
+  const canDelete = isOwner || isAdmin;
   const isTruncated = post.content && post.content.length > CHAR_LIMIT;
 
   const formatDate = (dateStr: string) => {
@@ -32,30 +35,21 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
   };
 
   const images: string[] = post.post_images?.length
-    ? post.post_images
-        .sort((a, b) => a.position - b.position)
-        .map((img) => img.image_url)
-    : post.image_url
-    ? [post.image_url]
-    : [];
+    ? post.post_images.sort((a, b) => a.position - b.position).map((img) => img.image_url)
+    : post.image_url ? [post.image_url] : [];
 
   const handleLike = async () => {
     if (!currentUserId || loading) return;
     setLoading(true);
 
     if (isLiked) {
-      const { error } = await supabase
-        .from('likes')
-        .delete()
-        .eq('post_id', post.id)
-        .eq('user_id', currentUserId);
+      const { error } = await supabase.from('likes').delete()
+        .eq('post_id', post.id).eq('user_id', currentUserId);
       if (!error) setLikes(likes.filter((l) => l.user_id !== currentUserId));
     } else {
-      const { data, error } = await supabase
-        .from('likes')
+      const { data, error } = await supabase.from('likes')
         .insert({ post_id: post.id, user_id: currentUserId })
-        .select()
-        .single();
+        .select().single();
 
       if (!error && data) {
         setLikes([...likes, data]);
@@ -88,24 +82,24 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
         <header className="post-header">
           <Link to={`/profile/${post.user_id}`} className="post-author">
             <div className="author-avatar">
-              {post.profiles?.avatar_url ? (
-                <img src={post.profiles.avatar_url} alt={post.profiles.username} />
-              ) : (
-                <span>{post.profiles?.username?.[0]?.toUpperCase() || '?'}</span>
-              )}
+              {post.profiles?.avatar_url
+                ? <img src={post.profiles.avatar_url} alt={post.profiles.username} />
+                : <span>{post.profiles?.username?.[0]?.toUpperCase() || '?'}</span>
+              }
             </div>
             <div>
               <span className="author-name">{post.profiles?.username || 'Unknown'}</span>
               <span className="post-date">{formatDate(post.created_at)}</span>
             </div>
           </Link>
-          {currentUserId === post.user_id && (
+
+          {canDelete && (
             <button
               onClick={() => setShowDeleteModal(true)}
-              className="post-delete"
-              title="Delete post"
+              className={`post-delete ${isAdmin && !isOwner ? 'post-delete--admin' : ''}`}
+              title={isAdmin && !isOwner ? 'Delete as admin' : 'Delete post'}
             >
-              ✕
+              {isAdmin && !isOwner ? '🛡️' : '✕'}
             </button>
           )}
         </header>
@@ -134,10 +128,7 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
             <span>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</span>
           </button>
 
-          <button
-            className="post-action comment-btn"
-            onClick={() => setShowComments(!showComments)}
-          >
+          <button className="post-action comment-btn" onClick={() => setShowComments(!showComments)}>
             <span>✦</span>
             <span>{post.comments?.length || 0} {(post.comments?.length || 0) === 1 ? 'comment' : 'comments'}</span>
           </button>
@@ -148,14 +139,19 @@ export default function PostCard({ post, currentUserId, onDelete }: PostCardProp
             postId={post.id}
             postAuthorId={post.user_id}
             currentUserId={currentUserId}
+            isAdmin={isAdmin}
           />
         )}
       </article>
 
       {showDeleteModal && (
         <ConfirmModal
-          title="Delete post?"
-          message="This can't be undone. The post and all its images will be permanently removed."
+          title={isAdmin && !isOwner ? 'Delete this post?' : 'Delete post?'}
+          message={
+            isAdmin && !isOwner
+              ? `You are deleting @${post.profiles?.username || 'this user'}'s post as an admin. This cannot be undone.`
+              : 'This can\'t be undone. The post and all its images will be permanently removed.'
+          }
           confirmLabel="Delete"
           cancelLabel="Cancel"
           danger

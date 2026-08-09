@@ -9,9 +9,10 @@ import './Profile.css';
 
 type ProfilePageProps = {
   currentUserId: string | null;
+  isAdmin: boolean;
 };
 
-export default function ProfilePage({ currentUserId }: ProfilePageProps) {
+export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps) {
   const { userId } = useParams<{ userId: string }>();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -321,7 +322,7 @@ export default function ProfilePage({ currentUserId }: ProfilePageProps) {
           ) : (
             <div className="posts-list">
               {posts.map((post) => (
-                <PostCard key={post.id} post={post} currentUserId={currentUserId} onDelete={handleDelete} />
+                <PostCard key={post.id} post={post} currentUserId={currentUserId} isAdmin={isAdmin} onDelete={handleDelete} />
               ))}
             </div>
           )}

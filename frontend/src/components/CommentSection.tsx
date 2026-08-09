@@ -8,16 +8,15 @@ type Props = {
   postId: string;
   postAuthorId: string;
   currentUserId: string | null;
+  isAdmin?: boolean;
 };
 
-export default function CommentSection({ postId, postAuthorId, currentUserId }: Props) {
+export default function CommentSection({ postId, postAuthorId, currentUserId, isAdmin = false }: Props) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchComments();
-  }, [postId]);
+  useEffect(() => { fetchComments(); }, [postId]);
 
   const fetchComments = async () => {
     const { data } = await supabase
@@ -43,7 +42,6 @@ export default function CommentSection({ postId, postAuthorId, currentUserId }: 
       setComments([...comments, data as Comment]);
       setNewComment('');
 
-      // Fire notification if commenting on someone else's post
       if (postAuthorId !== currentUserId) {
         await supabase.from('notifications').insert({
           user_id: postAuthorId,
@@ -67,17 +65,28 @@ export default function CommentSection({ postId, postAuthorId, currentUserId }: 
         {comments.length === 0 && (
           <p className="no-comments">No comments yet. Be the first.</p>
         )}
-        {comments.map((comment) => (
-          <div key={comment.id} className="comment-item">
-            <Link to={`/profile/${comment.user_id}`} className="comment-author">
-              {comment.profiles?.username || 'Unknown'}
-            </Link>
-            <span className="comment-content">{comment.content}</span>
-            {currentUserId === comment.user_id && (
-              <button onClick={() => handleDelete(comment.id)} className="comment-delete">✕</button>
-            )}
-          </div>
-        ))}
+        {comments.map((comment) => {
+          const isOwner = currentUserId === comment.user_id;
+          const canDelete = isOwner || isAdmin;
+
+          return (
+            <div key={comment.id} className="comment-item">
+              <Link to={`/profile/${comment.user_id}`} className="comment-author">
+                {comment.profiles?.username || 'Unknown'}
+              </Link>
+              <span className="comment-content">{comment.content}</span>
+              {canDelete && (
+                <button
+                  onClick={() => handleDelete(comment.id)}
+                  className={`comment-delete ${isAdmin && !isOwner ? 'comment-delete--admin' : ''}`}
+                  title={isAdmin && !isOwner ? 'Delete as admin' : 'Delete comment'}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {currentUserId && (

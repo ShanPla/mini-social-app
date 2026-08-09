@@ -8,9 +8,10 @@ import './Post.css';
 
 type PostPageProps = {
   currentUserId: string | null;
+  isAdmin: boolean;
 };
 
-export default function PostPage({ currentUserId }: PostPageProps) {
+export default function PostPage({ currentUserId, isAdmin }: PostPageProps) {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
   const [post, setPost] = useState<Post | null>(null);
@@ -40,7 +41,7 @@ export default function PostPage({ currentUserId }: PostPageProps) {
     <div className="post-detail-page">
       <div className="post-detail-inner">
         <button className="back-btn" onClick={() => navigate(-1)}>← Back</button>
-        <PostCard post={post} currentUserId={currentUserId} onDelete={handleDelete} />
+        <PostCard post={post} currentUserId={currentUserId} isAdmin={isAdmin} onDelete={handleDelete} />
       </div>
     </div>
   );

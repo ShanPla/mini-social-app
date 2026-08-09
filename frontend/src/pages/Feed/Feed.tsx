@@ -8,9 +8,10 @@ import './Feed.css';
 
 type FeedProps = {
   userId: string | null;
+  isAdmin: boolean;
 };
 
-export default function Feed({ userId }: FeedProps) {
+export default function Feed({ userId, isAdmin }: FeedProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [newPostContent, setNewPostContent] = useState('');
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -221,7 +222,7 @@ export default function Feed({ userId }: FeedProps) {
           ) : (
             <div className="posts-list">
               {posts.map((post) => (
-                <PostCard key={post.id} post={post} currentUserId={userId} onDelete={handleDelete} />
+                <PostCard key={post.id} post={post} currentUserId={userId} isAdmin={isAdmin} onDelete={handleDelete} />
               ))}
             </div>
           )}
