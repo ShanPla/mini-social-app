@@ -1,73 +1,157 @@
-# React + TypeScript + Vite
+# The Chronicle — Mini Social Media App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A full-stack social media platform built with React + TypeScript + Vite + Supabase.
 
-Currently, two official plugins are available:
+## Project Structure
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+mini-social/
+├── frontend/          ← React + Vite + TypeScript app
+└── backend/
+    └── database/
+        ├── schema.sql      ← Table definitions + trigger
+        └── policies.sql    ← Row Level Security rules
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Frontend Structure
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+frontend/
+├── src/
+│   ├── lib/
+│   │   ├── supabaseClient.ts
+│   │   └── usePageTitle.ts
+│   ├── styles/
+│   │   └── global.css
+│   ├── components/
+│   │   ├── Navbar/
+│   │   ├── SearchBar/
+│   │   ├── NotificationBell/
+│   │   ├── PostCard/
+│   │   ├── CommentSection/
+│   │   ├── ImageCollage/
+│   │   ├── ConfirmModal/
+│   │   └── EmptyState/
+│   └── pages/
+│       ├── Login/
+│       ├── Register/
+│       ├── Feed/
+│       ├── Profile/
+│       ├── Post/
+│       ├── Search/
+│       └── Notifications/
+```
+
+## Features
+
+**Auth**
+- Register with live username availability check
+- Login / Logout with session persistence
+- Friendly error messages for common issues
+
+**Posts**
+- Create posts with text and/or images (up to 10, file upload or URL)
+- Image collage layout — 1, 2, 3, or 4+ images with Facebook-style grid
+- Text truncation with "see more / see less"
+- Delete your own posts with confirmation modal
+- Real-time feed — banner appears when new posts are available
+
+**Interactions**
+- Like / unlike posts
+- Comment on posts, delete your own comments
+- Follow / unfollow users
+
+**Feed**
+- All Posts tab — every post on the platform
+- Following tab — only posts from users you follow
+- Sorted by newest first
+
+**Profile**
+- View any user's profile and posts
+- Edit your own username and bio
+- Upload a profile picture (file upload or URL)
+- Follower / following counts
+- Skeleton loaders while data fetches
+
+**Search**
+- Search bar below the navbar on every page
+- Real-time dropdown as you type
+- Press Enter to go to the full search results page
+
+**Notifications**
+- Bell icon in the navbar with unread badge
+- Notified when someone likes your post, comments, or follows you
+- Dropdown preview of latest 5, links to full notifications page
+- Real-time updates via Supabase subscriptions
+
+**Admin**
+- Admin role via `is_admin` flag on profiles
+- Admin can delete any post or comment
+- Shield icon (🛡️) visible only to admin on others' content
+- Confirmation modal before any deletion
+
+**Polish**
+- Skeleton loaders on feed and profile
+- Empty state illustrations on all pages
+- Page titles on every route
+- Mobile responsive
+- Dark panel auth pages (Login + Register)
+
+## Tech Stack
+
+| Layer | Tech |
+|---|---|
+| Frontend | React 18, TypeScript, Vite |
+| Styling | Plain CSS with CSS variables |
+| Backend | Supabase (Auth, Database, Storage, Realtime) |
+| Routing | React Router v6 |
+
+## Database Tables
+
+| Table | Purpose |
+|---|---|
+| `profiles` | Extended user info (username, bio, avatar, is_admin) |
+| `posts` | User posts with optional image |
+| `post_images` | Multiple images per post (up to 10) |
+| `likes` | Many-to-many: users ↔ posts |
+| `comments` | Comments on posts |
+| `follows` | Follow relationships between users |
+| `notifications` | Like, comment, and follow notifications |
+
+## Storage Buckets
+
+| Bucket | Purpose |
+|---|---|
+| `avatars` | Profile pictures |
+| `post-images` | Images attached to posts |
+
+## Setup
+
+### 1. Supabase (Backend)
+The SQL files in `backend/database/` have already been run.
+If setting up fresh, run in order in the Supabase SQL Editor:
+1. `schema.sql`
+2. `policies.sql`
+
+Also create two public storage buckets: `avatars` and `post-images`.
+
+### 2. Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env
+```
+
+Fill in `.env`:
+```
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Then:
+```bash
+npm run dev
+```
+
+App runs at `http://localhost:5173`.
