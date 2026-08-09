@@ -65,28 +65,41 @@ export default function CommentSection({ postId, postAuthorId, currentUserId, is
         {comments.length === 0 && (
           <p className="no-comments">No comments yet. Be the first.</p>
         )}
-        {comments.map((comment) => {
-          const isOwner = currentUserId === comment.user_id;
-          const canDelete = isOwner || isAdmin;
+              {comments.map((comment) => {
+        const isOwner = currentUserId === comment.user_id;
+        const canDelete = isOwner || isAdmin;
 
-          return (
-            <div key={comment.id} className="comment-item">
+        return (
+          <div key={comment.id} className="comment-item">
+            {/* Avatar */}
+            <Link to={`/profile/${comment.user_id}`} className="comment-avatar">
+              {comment.profiles?.avatar_url
+                ? <img src={comment.profiles.avatar_url} alt={comment.profiles.username} />
+                : <span>{comment.profiles?.username?.[0]?.toUpperCase() || '?'}</span>
+              }
+            </Link>
+
+            {/* Content */}
+            <div className="comment-body">
               <Link to={`/profile/${comment.user_id}`} className="comment-author">
                 {comment.profiles?.username || 'Unknown'}
               </Link>
               <span className="comment-content">{comment.content}</span>
-              {canDelete && (
-                <button
-                  onClick={() => handleDelete(comment.id)}
-                  className={`comment-delete ${isAdmin && !isOwner ? 'comment-delete--admin' : ''}`}
-                  title={isAdmin && !isOwner ? 'Delete as admin' : 'Delete comment'}
-                >
-                  ✕
-                </button>
-              )}
             </div>
-          );
-        })}
+
+            {/* Delete */}
+            {canDelete && (
+              <button
+                onClick={() => handleDelete(comment.id)}
+                className={`comment-delete ${isAdmin && !isOwner ? 'comment-delete--admin' : ''}`}
+                title={isAdmin && !isOwner ? 'Delete as admin' : 'Delete comment'}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        );
+      })}
       </div>
 
       {currentUserId && (
