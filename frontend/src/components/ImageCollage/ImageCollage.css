@@ -10,7 +10,7 @@
 /* Shared image cell */
 .collage-img {
   overflow: hidden;
-  cursor: pointer;
+  cursor: zoom-in;
   position: relative;
   background: var(--cream);
 }
@@ -23,46 +23,53 @@
 }
 .collage-img:hover img { transform: scale(1.03); }
 
-/* 1 image — fixed height like Facebook */
-.collage--1 {
-  height: 380px;
+/* Expand hint */
+.collage-expand-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0);
+  font-size: 1.4rem;
+  opacity: 0;
+  transition: background 0.2s, opacity 0.2s;
 }
-.collage--1 .collage-img {
-  height: 100%;
+.collage-img:hover .collage-expand-hint {
+  background: rgba(0,0,0,0.25);
+  opacity: 1;
 }
 
-/* 2 images — side by side */
+/* 1 image */
+.collage--1 { height: 380px; }
+.collage--1 .collage-img { height: 100%; }
+
+/* 2 images */
 .collage--2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2px;
   height: 300px;
 }
-.collage--2 .collage-img {
-  height: 100%;
-}
+.collage--2 .collage-img { height: 100%; }
 
-/* 3 images — 1 big left, 2 stacked right */
+/* 3 images */
 .collage--3 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2px;
   height: 300px;
 }
-.collage-img--main {
-  height: 100%;
-}
+.collage-img--main { height: 100%; }
 .collage-side {
   display: grid;
   grid-template-rows: 1fr 1fr;
   gap: 2px;
   height: 300px;
 }
-.collage-side .collage-img {
-  height: 100%;
-}
+.collage-side .collage-img { height: 100%; }
 
-/* 4 images — 2x2 grid */
+/* 4 images */
 .collage--4 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -70,15 +77,13 @@
   gap: 2px;
   height: 300px;
 }
-.collage--4 .collage-img {
-  height: 100%;
-}
+.collage--4 .collage-img { height: 100%; }
 
-/* +X overflow overlay */
+/* +X overflow */
 .collage-overflow {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0,0,0,0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -87,4 +92,5 @@
   font-weight: 700;
   color: white;
   letter-spacing: -0.02em;
+  cursor: zoom-in;
 }

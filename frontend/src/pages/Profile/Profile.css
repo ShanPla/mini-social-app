@@ -256,3 +256,11 @@
   .edit-actions .btn-primary,
   .edit-actions .btn-ghost { width: 100%; text-align: center; padding: 12px; }
 }
+
+.profile-avatar-lg--clickable {
+  cursor: zoom-in;
+  transition: opacity 0.2s;
+}
+.profile-avatar-lg--clickable:hover {
+  opacity: 0.85;
+}

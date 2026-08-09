@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import Lightbox from '../../components/Lightbox/Lightbox';
 import type { Profile, Post } from '../../lib/supabaseClient';
 import PostCard from '../../components/PostCard/PostCard';
 import EmptyState from '../../components/EmptyState/EmptyState';
@@ -26,6 +27,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const [editBio, setEditBio] = useState('');
   const [editUsername, setEditUsername] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
+  const [showAvatarLightbox, setShowAvatarLightbox] = useState(false);
 
   // Avatar state
   const [avatarMode, setAvatarMode] = useState<'file' | 'url'>('file');
@@ -219,10 +221,19 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
 
   return (
     <div className="profile-page">
+      {showAvatarLightbox && profile.avatar_url && (
+        <Lightbox
+          images={[profile.avatar_url]}
+          onClose={() => setShowAvatarLightbox(false)}
+        />
+      )}
       <div className="profile-inner">
         <header className="profile-header">
           <div className="profile-avatar-section">
-            <div className="profile-avatar-lg">
+            <div
+              className={`profile-avatar-lg ${profile.avatar_url ? 'profile-avatar-lg--clickable' : ''}`}
+              onClick={() => profile.avatar_url && setShowAvatarLightbox(true)}
+            >
               {profile.avatar_url
                 ? <img src={profile.avatar_url} alt={profile.username} />
                 : <span>{profile.username[0].toUpperCase()}</span>
