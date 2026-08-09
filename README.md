@@ -13,6 +13,35 @@ mini-social/
         └── policies.sql    ← Row Level Security rules
 ```
 
+## Frontend Structure
+
+```
+frontend/
+├── src/
+│   ├── lib/
+│   │   ├── supabaseClient.ts
+│   │   └── usePageTitle.ts
+│   ├── styles/
+│   │   └── global.css
+│   ├── components/
+│   │   ├── Navbar/
+│   │   ├── SearchBar/
+│   │   ├── NotificationBell/
+│   │   ├── PostCard/
+│   │   ├── CommentSection/
+│   │   ├── ImageCollage/
+│   │   ├── ConfirmModal/
+│   │   └── EmptyState/
+│   └── pages/
+│       ├── Login/
+│       ├── Register/
+│       ├── Feed/
+│       ├── Profile/
+│       ├── Post/
+│       ├── Search/
+│       └── Notifications/
+```
+
 ## Features
 
 **Auth**
@@ -21,8 +50,10 @@ mini-social/
 - Friendly error messages for common issues
 
 **Posts**
-- Create posts with text and/or image (file upload or URL)
-- Delete your own posts
+- Create posts with text and/or images (up to 10, file upload or URL)
+- Image collage layout — 1, 2, 3, or 4+ images with Facebook-style grid
+- Text truncation with "see more / see less"
+- Delete your own posts with confirmation modal
 - Real-time feed — banner appears when new posts are available
 
 **Interactions**
@@ -40,6 +71,7 @@ mini-social/
 - Edit your own username and bio
 - Upload a profile picture (file upload or URL)
 - Follower / following counts
+- Skeleton loaders while data fetches
 
 **Search**
 - Search bar below the navbar on every page
@@ -52,11 +84,18 @@ mini-social/
 - Dropdown preview of latest 5, links to full notifications page
 - Real-time updates via Supabase subscriptions
 
+**Admin**
+- Admin role via `is_admin` flag on profiles
+- Admin can delete any post or comment
+- Shield icon (🛡️) visible only to admin on others' content
+- Confirmation modal before any deletion
+
 **Polish**
 - Skeleton loaders on feed and profile
 - Empty state illustrations on all pages
 - Page titles on every route
 - Mobile responsive
+- Dark panel auth pages (Login + Register)
 
 ## Tech Stack
 
@@ -71,8 +110,9 @@ mini-social/
 
 | Table | Purpose |
 |---|---|
-| `profiles` | Extended user info (username, bio, avatar) |
+| `profiles` | Extended user info (username, bio, avatar, is_admin) |
 | `posts` | User posts with optional image |
+| `post_images` | Multiple images per post (up to 10) |
 | `likes` | Many-to-many: users ↔ posts |
 | `comments` | Comments on posts |
 | `follows` | Follow relationships between users |
@@ -115,6 +155,3 @@ npm run dev
 ```
 
 App runs at `http://localhost:5173`.
-fix: better register errors, live username check, realtime feed updates
-polish: skeleton loaders, empty states, page titles, mobile fixes
-```
