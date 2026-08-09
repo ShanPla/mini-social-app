@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import './Navbar.css';
@@ -9,11 +9,14 @@ type NavbarProps = {
 
 export default function Navbar({ userId }: NavbarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/login');
   };
+
+  const isActive = (path: string) => location.pathname.startsWith(path);
 
   return (
     <nav className="navbar">
@@ -25,8 +28,8 @@ export default function Navbar({ userId }: NavbarProps) {
 
         {userId && (
           <div className="navbar-links">
-            <Link to="/feed" className="nav-link">Feed</Link>
-            <Link to={`/profile/${userId}`} className="nav-link">Profile</Link>
+            <Link to="/feed" className={`nav-link ${isActive('/feed') ? 'nav-link--active' : ''}`}>Feed</Link>
+            <Link to={`/profile/${userId}`} className={`nav-link ${isActive('/profile') ? 'nav-link--active' : ''}`}>Profile</Link>
             <NotificationBell currentUserId={userId} />
             <button onClick={handleLogout} className="nav-logout">Logout</button>
           </div>

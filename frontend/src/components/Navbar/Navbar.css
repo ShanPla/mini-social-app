@@ -81,3 +81,9 @@
   .navbar-links { gap: 16px; }
   .nav-link { font-size: 0.75rem; }
 }
+
+.nav-link--active {
+  color: var(--ink);
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 2px;
+}
