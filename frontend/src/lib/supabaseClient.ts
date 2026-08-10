@@ -31,6 +31,7 @@ export type Post = {
   user_id: string;
   content: string;
   image_url: string | null;
+  visibility: 'public' | 'followers' | 'private';
   created_at: string;
   profiles?: Profile;
   likes?: { id: string; user_id: string }[];

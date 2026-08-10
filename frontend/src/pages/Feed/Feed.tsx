@@ -21,6 +21,7 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
   const [feedType, setFeedType] = useState<'all' | 'following'>('all');
   const [newPostsBanner, setNewPostsBanner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [visibility, setVisibility] = useState<'public' | 'followers' | 'private'>('public');
 
   usePageTitle('Feed');
 
@@ -79,10 +80,10 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
     if (!userId || (!newPostContent.trim() && !imageFiles.length) || posting) return;
     setPosting(true);
 
-    // Create the post first
+    // Create the post with visibility
     const { data: postData, error: postError } = await supabase
       .from('posts')
-      .insert({ user_id: userId, content: newPostContent.trim() })
+      .insert({ user_id: userId, content: newPostContent.trim(), visibility })
       .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id)')
       .single();
 
@@ -176,6 +177,18 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
                   {imageFiles.length > 0 && (
                     <button type="button" className="clear-images-btn" onClick={clearImages}>Clear all</button>
                   )}
+                </div>
+
+                <div className="compose-visibility">
+                  <select
+                    value={visibility}
+                    onChange={(e) => setVisibility(e.target.value as any)}
+                    className="visibility-select"
+                  >
+                    <option value="public">🌐 Public</option>
+                    <option value="followers">👥 Followers</option>
+                    <option value="private">🔒 Private</option>
+                  </select>
                 </div>
 
                 <div className="compose-footer">

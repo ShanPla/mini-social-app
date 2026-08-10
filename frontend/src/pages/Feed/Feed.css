@@ -241,3 +241,21 @@
   .compose-card { padding: 16px; }
   .feed-tab { padding: 10px 14px; font-size: 0.75rem; }
 }
+
+.compose-visibility {
+  padding-top: 8px;
+}
+
+.visibility-select {
+  border: 1px solid var(--border);
+  background: var(--warm-white);
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  outline: none;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.visibility-select:focus { border-color: var(--ink); }
