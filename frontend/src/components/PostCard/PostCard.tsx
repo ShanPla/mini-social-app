@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Globe, Users, Lock } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Users, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import { timeAgo } from '../../lib/timeAgo';

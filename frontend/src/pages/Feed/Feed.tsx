@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ImagePlus, Globe, Users, Lock, X } from 'lucide-react';
+import { ImagePlus, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import PostCard from '../../components/PostCard/PostCard';
