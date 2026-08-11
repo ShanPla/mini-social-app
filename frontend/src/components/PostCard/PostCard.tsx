@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Globe, Users, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import { timeAgo } from '../../lib/timeAgo';
@@ -23,7 +24,10 @@ const VisibilityBadge = ({ visibility }: { visibility?: string }) => {
   if (!visibility || visibility === 'public') return null;
   return (
     <span className="post-visibility-badge">
-      {visibility === 'followers' ? '👥 Followers' : '🔒 Private'}
+      {visibility === 'followers'
+        ? <><Users size={11} /> Followers</>
+        : <><Lock size={11} /> Private</>
+      }
     </span>
   );
 };
@@ -112,7 +116,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
             </div>
           </Link>
 
-          {/* Actions menu — only for owner or admin */}
+          {/* Actions menu */}
           {canDelete && (
             <div className="post-actions-wrap">
               <button
@@ -120,25 +124,28 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
                 onClick={() => setShowActions(!showActions)}
                 title="Post options"
               >
-                ···
+                <MoreHorizontal size={18} />
               </button>
               {showActions && (
                 <div className="post-actions-dropdown">
-                  {/* Edit — only for owner */}
+                  {/* Edit — owner only */}
                   {isOwner && (
                     <button
                       className="post-action-item"
                       onClick={() => { setShowActions(false); setShowEditModal(true); }}
                     >
-                      ✏️ Edit post
+                      <Pencil size={14} /> Edit post
                     </button>
                   )}
-                  {/* Delete — for owner or admin */}
+                  {/* Delete */}
                   <button
                     className="post-action-item post-action-item--danger"
                     onClick={() => { setShowActions(false); setShowDeleteModal(true); }}
                   >
-                    {isAdmin && !isOwner ? '🛡️ Delete as admin' : '🗑️ Delete post'}
+                    {isAdmin && !isOwner
+                      ? <><Shield size={14} /> Delete as admin</>
+                      : <><Trash2 size={14} /> Delete post</>
+                    }
                   </button>
                 </div>
               )}
@@ -174,13 +181,13 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
             disabled={!currentUserId}
           >
             <span className={`like-icon ${likeAnim === 'pop' ? 'like-icon--popping' : likeAnim === 'unpop' ? 'like-icon--unpopping' : ''}`}>
-              {isLiked ? '♥' : '♡'}
+              <Heart size={15} fill={isLiked ? 'currentColor' : 'none'} />
             </span>
             <span>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</span>
           </button>
 
           <button className="post-action comment-btn" onClick={() => setShowComments(!showComments)}>
-            <span>✦</span>
+            <MessageCircle size={15} />
             <span>{currentPost.comments?.length || 0} {(currentPost.comments?.length || 0) === 1 ? 'comment' : 'comments'}</span>
           </button>
         </footer>

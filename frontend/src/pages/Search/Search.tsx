@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
 import './Search.css';
+import EmptyState from '../../components/EmptyState/EmptyState';
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
@@ -50,11 +51,7 @@ export default function SearchPage() {
             ))}
           </div>
         ) : results.length === 0 ? (
-          <div className="search-empty">
-            <span>🔍</span>
-            <p>No users found for "<strong>{query}</strong>"</p>
-            <small>Try a different username.</small>
-          </div>
+          <EmptyState icon="search" title={`No users found for "${query}"`} subtitle="Try a different username." />
         ) : (
           <div className="search-results-list">
             {results.map((user) => (

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Bell, Heart, MessageCircle, UserPlus } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import './NotificationBell.css';
 
@@ -30,7 +31,7 @@ export default function NotificationBell({ currentUserId }: Props) {
   useEffect(() => {
     fetchNotifications();
 
-    // Realtime subscription for new notifications
+    /* Realtime subscription for new notifications */
     const channel = supabase
       .channel('notifications')
       .on('postgres_changes', {
@@ -38,15 +39,13 @@ export default function NotificationBell({ currentUserId }: Props) {
         schema: 'public',
         table: 'notifications',
         filter: `user_id=eq.${currentUserId}`
-      }, () => {
-        fetchNotifications();
-      })
+      }, () => { fetchNotifications(); })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [currentUserId]);
 
-  // Close on outside click
+  /* Close on outside click */
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
@@ -103,18 +102,19 @@ export default function NotificationBell({ currentUserId }: Props) {
     }
   };
 
+  /* Lucide icon per notification type */
   const getIcon = (type: string) => {
     switch (type) {
-      case 'like': return '♥';
-      case 'comment': return '✦';
-      case 'follow': return '→';
+      case 'like': return <Heart size={12} fill="currentColor" />;
+      case 'comment': return <MessageCircle size={12} />;
+      case 'follow': return <UserPlus size={12} />;
     }
   };
 
   return (
     <div className="bell-wrapper" ref={wrapperRef}>
       <button className="bell-btn" onClick={handleOpen} title="Notifications">
-        <span className="bell-icon">🔔</span>
+        <Bell size={18} />
         {unreadCount > 0 && (
           <span className="bell-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
         )}

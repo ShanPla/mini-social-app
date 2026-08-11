@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { X, ImagePlus, Globe, Users, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import './EditPostModal.css';
@@ -11,10 +12,10 @@ type Props = {
 
 type Visibility = 'public' | 'followers' | 'private';
 
-const VISIBILITY_OPTIONS: { value: Visibility; label: string; desc: string; icon: string }[] = [
-  { value: 'public', label: 'Public', desc: 'Anyone can see this post', icon: '🌐' },
-  { value: 'followers', label: 'Followers', desc: 'Only your followers can see this', icon: '👥' },
-  { value: 'private', label: 'Private', desc: 'Only you can see this', icon: '🔒' },
+const VISIBILITY_OPTIONS: { value: Visibility; label: string; desc: string; icon: React.ReactNode }[] = [
+  { value: 'public', label: 'Public', desc: 'Anyone can see this post', icon: <Globe size={16} /> },
+  { value: 'followers', label: 'Followers', desc: 'Only your followers can see this', icon: <Users size={16} /> },
+  { value: 'private', label: 'Private', desc: 'Only you can see this', icon: <Lock size={16} /> },
 ];
 
 export default function EditPostModal({ post, onClose, onSave }: Props) {
@@ -32,10 +33,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
   const handleNewFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const total = existingImages.length + newFiles.length + files.length;
-    if (total > 10) {
-      setError('Maximum 10 images per post.');
-      return;
-    }
+    if (total > 10) { setError('Maximum 10 images per post.'); return; }
     setNewFiles((prev) => [...prev, ...files]);
     setNewPreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
     setError('');
@@ -57,7 +55,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
     }
     setSaving(true);
 
-    // 1. Update post content and visibility
+    /* Update post content and visibility */
     const { error: updateError } = await supabase
       .from('posts')
       .update({ content: content.trim(), visibility })
@@ -65,7 +63,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
 
     if (updateError) { setError('Failed to save. Please try again.'); setSaving(false); return; }
 
-    // 2. Delete removed images from DB
+    /* Delete removed images */
     const removedIds = (post.post_images || [])
       .filter((img) => !existingImages.find((e) => e.id === img.id))
       .map((img) => img.id);
@@ -74,7 +72,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       await supabase.from('post_images').delete().in('id', removedIds);
     }
 
-    // 3. Upload new images
+    /* Upload new images */
     if (newFiles.length > 0) {
       const startPosition = existingImages.length;
       const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
@@ -95,20 +93,14 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       }
     }
 
-    // 4. Fetch updated post_images
+    /* Fetch updated post_images */
     const { data: updatedImages } = await supabase
       .from('post_images')
       .select('*')
       .eq('post_id', post.id)
       .order('position');
 
-    onSave({
-      ...post,
-      content: content.trim(),
-      visibility,
-      post_images: updatedImages || [],
-    } as Post);
-
+    onSave({ ...post, content: content.trim(), visibility, post_images: updatedImages || [] } as Post);
     setSaving(false);
     onClose();
   };
@@ -120,10 +112,12 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
         {/* Header */}
         <div className="edit-modal-header">
           <h3>Edit Post</h3>
-          <button className="edit-modal-close" onClick={onClose}>✕</button>
+          <button className="edit-modal-close" onClick={onClose}>
+            <X size={16} />
+          </button>
         </div>
 
-        {/* Content */}
+        {/* Body */}
         <div className="edit-modal-body">
 
           {/* Text */}
@@ -171,11 +165,9 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
                 {existingImages.map((img) => (
                   <div key={img.id} className="edit-image-item">
                     <img src={img.image_url} alt="Post image" />
-                    <button
-                      className="edit-image-remove"
-                      onClick={() => removeExisting(img.id)}
-                      type="button"
-                    >✕</button>
+                    <button className="edit-image-remove" onClick={() => removeExisting(img.id)} type="button">
+                      <X size={10} />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -187,23 +179,18 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
                 {newPreviews.map((src, i) => (
                   <div key={i} className="edit-image-item edit-image-item--new">
                     <img src={src} alt={`New image ${i + 1}`} />
-                    <button
-                      className="edit-image-remove"
-                      onClick={() => removeNew(i)}
-                      type="button"
-                    >✕</button>
+                    <button className="edit-image-remove" onClick={() => removeNew(i)} type="button">
+                      <X size={10} />
+                    </button>
                     <span className="edit-image-new-badge">New</span>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Add more */}
+            {/* Add more photos */}
             {(existingImages.length + newFiles.length) < 10 && (
-              <div
-                className="edit-add-images"
-                onClick={() => fileInputRef.current?.click()}
-              >
+              <div className="edit-add-images" onClick={() => fileInputRef.current?.click()}>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -212,7 +199,8 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
                   onChange={handleNewFiles}
                   style={{ display: 'none' }}
                 />
-                <span>📁 Add photos</span>
+                <ImagePlus size={15} />
+                <span>Add photos</span>
               </div>
             )}
           </div>

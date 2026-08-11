@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ZoomIn } from 'lucide-react';
 import Lightbox from '../Lightbox/Lightbox';
 import './ImageCollage.css';
 
@@ -20,13 +21,20 @@ export default function ImageCollage({ images }: Props) {
     setLightboxIndex(index);
   };
 
+  /* Expand hint shown on hover */
+  const ExpandHint = () => (
+    <div className="collage-expand-hint">
+      <ZoomIn size={20} color="white" />
+    </div>
+  );
+
   return (
     <>
       {count === 1 && (
         <div className="collage collage--1">
           <div className="collage-img" onClick={(e) => handleClick(0, e)}>
             <img src={displayImages[0]} alt="Post image" />
-            <div className="collage-expand-hint">🔍</div>
+            <ExpandHint />
           </div>
         </div>
       )}
@@ -36,7 +44,7 @@ export default function ImageCollage({ images }: Props) {
           {displayImages.map((src, i) => (
             <div key={i} className="collage-img" onClick={(e) => handleClick(i, e)}>
               <img src={src} alt={`Post image ${i + 1}`} />
-              <div className="collage-expand-hint">🔍</div>
+              <ExpandHint />
             </div>
           ))}
         </div>
@@ -46,13 +54,13 @@ export default function ImageCollage({ images }: Props) {
         <div className="collage collage--3">
           <div className="collage-img collage-img--main" onClick={(e) => handleClick(0, e)}>
             <img src={displayImages[0]} alt="Post image 1" />
-            <div className="collage-expand-hint">🔍</div>
+            <ExpandHint />
           </div>
           <div className="collage-side">
             {displayImages.slice(1).map((src, i) => (
               <div key={i} className="collage-img" onClick={(e) => handleClick(i + 1, e)}>
                 <img src={src} alt={`Post image ${i + 2}`} />
-                <div className="collage-expand-hint">🔍</div>
+                <ExpandHint />
               </div>
             ))}
           </div>
@@ -64,16 +72,16 @@ export default function ImageCollage({ images }: Props) {
           {displayImages.map((src, i) => (
             <div key={i} className="collage-img" onClick={(e) => handleClick(i, e)}>
               <img src={src} alt={`Post image ${i + 1}`} />
-              {i === 3 && overflow > 0 ? (
-                <div className="collage-overflow">+{overflow}</div>
-              ) : (
-                <div className="collage-expand-hint">🔍</div>
-              )}
+              {i === 3 && overflow > 0
+                ? <div className="collage-overflow">+{overflow}</div>
+                : <ExpandHint />
+              }
             </div>
           ))}
         </div>
       )}
 
+      {/* Lightbox */}
       {lightboxIndex !== null && (
         <Lightbox
           images={images}

@@ -96,7 +96,7 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
           </div>
         ) : notifications.length === 0 ? (
           <EmptyState
-            icon="🔔"
+            icon="bell"
             title="No notifications yet"
             subtitle="When someone likes, comments, or follows you — it'll show up here."
           />

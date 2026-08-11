@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Search, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
 import './SearchBar.css';
@@ -13,7 +14,7 @@ export default function SearchBar() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
+  /* Close dropdown when clicking outside */
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
@@ -24,7 +25,7 @@ export default function SearchBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced search
+  /* Debounced search */
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -52,9 +53,7 @@ export default function SearchBar() {
       setShowDropdown(false);
       navigate(`/search?q=${encodeURIComponent(query.trim())}`);
     }
-    if (e.key === 'Escape') {
-      setShowDropdown(false);
-    }
+    if (e.key === 'Escape') setShowDropdown(false);
   };
 
   const handleResultClick = () => {
@@ -66,7 +65,8 @@ export default function SearchBar() {
     <div className="searchbar-wrapper" ref={wrapperRef}>
       <div className="searchbar-inner">
         <div className="searchbar-input-wrap">
-          <span className="searchbar-icon">⌕</span>
+          {/* Search icon */}
+          <Search size={15} className="searchbar-icon" />
           <input
             type="text"
             className="searchbar-input"
@@ -76,12 +76,16 @@ export default function SearchBar() {
             onKeyDown={handleKeyDown}
             onFocus={() => results.length > 0 && setShowDropdown(true)}
           />
+          {/* Loading spinner */}
           {loading && <span className="searchbar-spinner">✦</span>}
+          {/* Clear button */}
           {query && (
             <button
               className="searchbar-clear"
               onClick={() => { setQuery(''); setResults([]); setShowDropdown(false); }}
-            >✕</button>
+            >
+              <X size={13} />
+            </button>
           )}
         </div>
 

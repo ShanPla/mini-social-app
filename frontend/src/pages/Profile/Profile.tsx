@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import { ImagePlus, Link2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import Lightbox from '../../components/Lightbox/Lightbox';
 import type { Profile, Post } from '../../lib/supabaseClient';
@@ -29,7 +30,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const [saveLoading, setSaveLoading] = useState(false);
   const [showAvatarLightbox, setShowAvatarLightbox] = useState(false);
 
-  // Avatar state
+  /* Avatar state */
   const [avatarMode, setAvatarMode] = useState<'file' | 'url'>('file');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -81,8 +82,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
 
     if (currentUserId && currentUserId !== userId) {
       const { data } = await supabase
-        .from('follows')
-        .select('id')
+        .from('follows').select('id')
         .eq('follower_id', currentUserId)
         .eq('following_id', userId)
         .maybeSingle();
@@ -96,8 +96,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
 
     if (isFollowing) {
       await supabase.from('follows').delete()
-        .eq('follower_id', currentUserId)
-        .eq('following_id', userId);
+        .eq('follower_id', currentUserId).eq('following_id', userId);
       setIsFollowing(false);
       setFollowersCount((c) => c - 1);
     } else {
@@ -105,10 +104,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
       setIsFollowing(true);
       setFollowersCount((c) => c + 1);
       await supabase.from('notifications').insert({
-        user_id: userId,
-        actor_id: currentUserId,
-        type: 'follow',
-        post_id: null,
+        user_id: userId, actor_id: currentUserId, type: 'follow', post_id: null,
       });
     }
     setFollowLoading(false);
@@ -136,8 +132,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
       const ext = avatarFile.name.split('.').pop();
       const path = `${currentUserId}/avatar.${ext}`;
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, avatarFile, { upsert: true });
+        .from('avatars').upload(path, avatarFile, { upsert: true });
       if (!uploadError) {
         const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
         finalUrl = `${urlData.publicUrl}?t=${Date.now()}`;
@@ -147,10 +142,8 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     }
 
     if (finalUrl) {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ avatar_url: finalUrl })
-        .eq('id', currentUserId);
+      const { error } = await supabase.from('profiles')
+        .update({ avatar_url: finalUrl }).eq('id', currentUserId);
       if (!error) {
         setProfile((p) => p ? { ...p, avatar_url: finalUrl } : p);
         setAvatarFile(null);
@@ -164,10 +157,8 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const handleSaveProfile = async () => {
     if (!currentUserId) return;
     setSaveLoading(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ bio: editBio, username: editUsername })
-      .eq('id', currentUserId);
+    const { error } = await supabase.from('profiles')
+      .update({ bio: editBio, username: editUsername }).eq('id', currentUserId);
     if (!error) {
       setProfile((p) => p ? { ...p, bio: editBio, username: editUsername } : p);
       setEditing(false);
@@ -177,7 +168,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
 
   const handleDelete = (postId: string) => setPosts(posts.filter((p) => p.id !== postId));
 
-  // Full page skeleton while loading profile
+  /* Skeleton loading state */
   if (loading) return (
     <div className="profile-page">
       <div className="profile-inner">
@@ -210,26 +201,22 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   if (!profile) return (
     <div className="profile-page">
       <div className="profile-inner">
-        <EmptyState
-          icon="🔍"
-          title="User not found"
-          subtitle="This profile doesn't exist or may have been removed."
-        />
+        <EmptyState icon="search" title="User not found" subtitle="This profile doesn't exist or may have been removed." />
       </div>
     </div>
   );
 
   return (
     <div className="profile-page">
+      {/* Avatar lightbox */}
       {showAvatarLightbox && profile.avatar_url && (
-        <Lightbox
-          images={[profile.avatar_url]}
-          onClose={() => setShowAvatarLightbox(false)}
-        />
+        <Lightbox images={[profile.avatar_url]} onClose={() => setShowAvatarLightbox(false)} />
       )}
+
       <div className="profile-inner">
         <header className="profile-header">
           <div className="profile-avatar-section">
+            {/* Clickable avatar */}
             <div
               className={`profile-avatar-lg ${profile.avatar_url ? 'profile-avatar-lg--clickable' : ''}`}
               onClick={() => profile.avatar_url && setShowAvatarLightbox(true)}
@@ -240,25 +227,47 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
               }
             </div>
 
+            {/* Avatar edit — own profile only */}
             {isOwnProfile && editing && (
               <div className="avatar-edit">
                 <div className="avatar-mode-tabs">
-                  <button type="button" className={`avatar-mode-tab ${avatarMode === 'file' ? 'active' : ''}`} onClick={() => setAvatarMode('file')}>📁 Upload</button>
-                  <button type="button" className={`avatar-mode-tab ${avatarMode === 'url' ? 'active' : ''}`} onClick={() => setAvatarMode('url')}>🔗 URL</button>
+                  <button
+                    type="button"
+                    className={`avatar-mode-tab ${avatarMode === 'file' ? 'active' : ''}`}
+                    onClick={() => setAvatarMode('file')}
+                  >
+                    <ImagePlus size={13} /> Upload
+                  </button>
+                  <button
+                    type="button"
+                    className={`avatar-mode-tab ${avatarMode === 'url' ? 'active' : ''}`}
+                    onClick={() => setAvatarMode('url')}
+                  >
+                    <Link2 size={13} /> URL
+                  </button>
                 </div>
+
                 {avatarMode === 'file' ? (
                   <div className="avatar-file-area" onClick={() => avatarInputRef.current?.click()}>
                     <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarFileChange} style={{ display: 'none' }} />
                     <span>{avatarFile ? avatarFile.name : 'Choose photo…'}</span>
                   </div>
                 ) : (
-                  <input type="url" className="avatar-url-input" placeholder="Paste image URL…" value={avatarUrl} onChange={handleAvatarUrlChange} />
+                  <input
+                    type="url"
+                    className="avatar-url-input"
+                    placeholder="Paste image URL…"
+                    value={avatarUrl}
+                    onChange={handleAvatarUrlChange}
+                  />
                 )}
+
                 {avatarPreview && (
                   <div className="avatar-preview">
                     <img src={avatarPreview} alt="Preview" onError={() => setAvatarPreview(null)} />
                   </div>
                 )}
+
                 {(avatarFile || avatarUrl) && (
                   <button className="btn-primary avatar-save-btn" onClick={handleAvatarSave} disabled={avatarUploading}>
                     {avatarUploading ? 'Saving…' : 'Save Photo'}
@@ -326,7 +335,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
             </div>
           ) : posts.length === 0 ? (
             <EmptyState
-              icon="✍️"
+              icon="pen"
               title="No posts yet"
               subtitle={isOwnProfile ? "Share something with the world — hit Publish on the feed." : "This user hasn't posted anything yet."}
             />

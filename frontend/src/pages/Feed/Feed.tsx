@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ImagePlus, Globe, Users, Lock, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import PostCard from '../../components/PostCard/PostCard';
@@ -20,8 +21,8 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
   const [posting, setPosting] = useState(false);
   const [feedType, setFeedType] = useState<'all' | 'following'>('all');
   const [newPostsBanner, setNewPostsBanner] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [visibility, setVisibility] = useState<'public' | 'followers' | 'private'>('public');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   usePageTitle('Feed');
 
@@ -59,7 +60,7 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).slice(0, 10); // max 10
+    const files = Array.from(e.target.files || []).slice(0, 10);
     setImageFiles(files);
     setImagePreviews(files.map((f) => URL.createObjectURL(f)));
   };
@@ -80,7 +81,6 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
     if (!userId || (!newPostContent.trim() && !imageFiles.length) || posting) return;
     setPosting(true);
 
-    // Create the post with visibility
     const { data: postData, error: postError } = await supabase
       .from('posts')
       .insert({ user_id: userId, content: newPostContent.trim(), visibility })
@@ -89,7 +89,6 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
 
     if (postError || !postData) { setPosting(false); return; }
 
-    // Upload images and insert into post_images
     if (imageFiles.length > 0) {
       const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
 
@@ -97,11 +96,7 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
         const file = imageFiles[i];
         const ext = file.name.split('.').pop();
         const path = `${userId}/${postData.id}/${i}.${ext}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('post-images')
-          .upload(path, file);
-
+        const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file);
         if (!uploadError) {
           const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(path);
           uploadedImages.push({ post_id: postData.id, image_url: urlData.publicUrl, position: i });
@@ -155,7 +150,9 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
                     {imagePreviews.map((src, i) => (
                       <div key={i} className="compose-preview-item">
                         <img src={src} alt={`Preview ${i + 1}`} />
-                        <button type="button" className="preview-remove" onClick={() => removeImage(i)}>✕</button>
+                        <button type="button" className="preview-remove" onClick={() => removeImage(i)}>
+                          <X size={10} />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -172,22 +169,24 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
                       onChange={handleFileChange}
                       style={{ display: 'none' }}
                     />
-                    <span>📁 {imageFiles.length > 0 ? `${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} selected` : 'Add photos (up to 10)…'}</span>
+                    <ImagePlus size={15} />
+                    <span>{imageFiles.length > 0 ? `${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} selected` : 'Add photos (up to 10)…'}</span>
                   </div>
                   {imageFiles.length > 0 && (
                     <button type="button" className="clear-images-btn" onClick={clearImages}>Clear all</button>
                   )}
                 </div>
 
+                {/* Visibility selector */}
                 <div className="compose-visibility">
                   <select
                     value={visibility}
                     onChange={(e) => setVisibility(e.target.value as any)}
                     className="visibility-select"
                   >
-                    <option value="public">🌐 Public</option>
-                    <option value="followers">👥 Followers</option>
-                    <option value="private">🔒 Private</option>
+                    <option value="public">Public</option>
+                    <option value="followers">Followers only</option>
+                    <option value="private">Private</option>
                   </select>
                 </div>
 
@@ -205,6 +204,7 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
             </div>
           )}
 
+          {/* Feed tabs */}
           <div className="feed-tabs">
             <button className={`feed-tab ${feedType === 'all' ? 'active' : ''}`} onClick={() => setFeedType('all')}>All Posts</button>
             {userId && <button className={`feed-tab ${feedType === 'following' ? 'active' : ''}`} onClick={() => setFeedType('following')}>Following</button>}
@@ -228,9 +228,9 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
             </div>
           ) : posts.length === 0 ? (
             feedType === 'following' ? (
-              <EmptyState icon="👥" title="Your following feed is empty" subtitle="Follow some users to see their posts here." />
+              <EmptyState icon="users" title="Your following feed is empty" subtitle="Follow some users to see their posts here." />
             ) : (
-              <EmptyState icon="✦" title="Nothing here yet" subtitle="Be the first to publish something!" />
+              <EmptyState icon="sparkles" title="Nothing here yet" subtitle="Be the first to publish something!" />
             )
           ) : (
             <div className="posts-list">
