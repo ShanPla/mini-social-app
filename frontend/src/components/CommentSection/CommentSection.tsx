@@ -30,7 +30,6 @@ type Props = {
 
 export default function CommentSection({ postId, postAuthorId, currentUserId, isAdmin = false }: Props) {
   const [comments, setComments] = useState<CommentData[]>([]);
-  const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => { fetchComments(); }, [postId]);
