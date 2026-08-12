@@ -5,6 +5,7 @@ import type { Post } from '../../lib/supabaseClient';
 import PostCard from '../../components/PostCard/PostCard';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import { usePageTitle } from '../../lib/usePageTitle';
+import { useCooldown } from '../../lib/useCooldown';
 import './Feed.css';
 
 type FeedProps = {
@@ -23,6 +24,7 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
   const [newPostsBanner, setNewPostsBanner] = useState(false);
   const [visibility, setVisibility] = useState<'public' | 'followers' | 'private'>('public');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isOnCooldown, triggerCooldown] = useCooldown(3000);
 
   usePageTitle('Feed');
 
@@ -78,7 +80,7 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
 
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId || (!newPostContent.trim() && !imageFiles.length) || posting) return;
+    if (!userId || (!newPostContent.trim() && !imageFiles.length) || posting || isOnCooldown) return;
     setPosting(true);
 
     const { data: postData, error: postError } = await supabase
@@ -118,6 +120,7 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
     setNewPostContent('');
     clearImages();
     setPosting(false);
+    triggerCooldown();
   };
 
   const handleDelete = (postId: string) => setPosts(posts.filter((p) => p.id !== postId));

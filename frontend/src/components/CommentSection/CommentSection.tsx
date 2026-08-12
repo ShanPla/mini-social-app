@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Heart, Reply, Trash2, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { timeAgo } from '../../lib/timeAgo';
+import { useCooldown } from '../../lib/useCooldown';
 import './CommentSection.css';
 
 type CommentData = {
@@ -31,6 +32,8 @@ type Props = {
 export default function CommentSection({ postId, postAuthorId, currentUserId, isAdmin = false }: Props) {
   const [comments, setComments] = useState<CommentData[]>([]);
   const [loading, setLoading] = useState(false);
+  /* Shared cooldown across top-level comments and all replies on this post */
+  const [isOnCooldown, triggerCooldown] = useCooldown(3000);
 
   useEffect(() => { fetchComments(); }, [postId]);
 
@@ -59,9 +62,9 @@ export default function CommentSection({ postId, postAuthorId, currentUserId, is
     setComments(roots);
   };
 
-  const handleSubmit = async (e: React.FormEvent, parentId: string | null = null, content: string, clearFn: () => void) => {
+  const handleSubmit = async (e: React.FormEvent, parentId: string | null, content: string, clearFn: () => void) => {
     e.preventDefault();
-    if (!currentUserId || !content.trim() || loading) return;
+    if (!currentUserId || !content.trim() || loading || isOnCooldown) return;
     setLoading(true);
 
     const { data, error } = await supabase
@@ -87,6 +90,7 @@ export default function CommentSection({ postId, postAuthorId, currentUserId, is
       }
       clearFn();
       fetchComments();
+      triggerCooldown();
     }
     setLoading(false);
   };
@@ -125,6 +129,7 @@ export default function CommentSection({ postId, postAuthorId, currentUserId, is
             onLike={handleLikeComment}
             onReply={handleSubmit}
             loading={loading}
+            isOnCooldown={isOnCooldown}
             depth={0}
           />
         ))}
@@ -132,16 +137,17 @@ export default function CommentSection({ postId, postAuthorId, currentUserId, is
 
       {/* New top-level comment form */}
       {currentUserId && (
-        <TopLevelForm onSubmit={handleSubmit} loading={loading} />
+        <TopLevelForm onSubmit={handleSubmit} loading={loading} isOnCooldown={isOnCooldown} />
       )}
     </div>
   );
 }
 
 /* ── Top-level comment form ── */
-function TopLevelForm({ onSubmit, loading }: {
+function TopLevelForm({ onSubmit, loading, isOnCooldown }: {
   onSubmit: (e: React.FormEvent, parentId: null, content: string, clearFn: () => void) => void;
   loading: boolean;
+  isOnCooldown: boolean;
 }) {
   const [value, setValue] = useState('');
   return (
@@ -156,7 +162,9 @@ function TopLevelForm({ onSubmit, loading }: {
         placeholder="Add a comment..."
         maxLength={300}
       />
-      <button type="submit" disabled={loading || !value.trim()}>Post</button>
+      <button type="submit" disabled={loading || isOnCooldown || !value.trim()}>
+        {isOnCooldown ? 'Wait…' : 'Post'}
+      </button>
     </form>
   );
 }
@@ -171,10 +179,11 @@ type CommentItemProps = {
   onLike: (id: string, isLiked: boolean) => void;
   onReply: (e: React.FormEvent, parentId: string, content: string, clearFn: () => void) => void;
   loading: boolean;
+  isOnCooldown: boolean;
   depth: number;
 };
 
-function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onReply, loading, depth }: CommentItemProps) {
+function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onReply, loading, isOnCooldown, depth }: CommentItemProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showReplies, setShowReplies] = useState(depth < 1);
   const [replyValue, setReplyValue] = useState('');
@@ -274,7 +283,9 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
             maxLength={300}
             autoFocus
           />
-          <button type="submit" disabled={loading || !replyValue.trim()}>Reply</button>
+          <button type="submit" disabled={loading || isOnCooldown || !replyValue.trim()}>
+            {isOnCooldown ? 'Wait…' : 'Reply'}
+          </button>
           <button type="button" className="reply-cancel" onClick={() => setShowReplyForm(false)}>Cancel</button>
         </form>
       )}
@@ -293,6 +304,7 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
               onLike={onLike}
               onReply={onReply}
               loading={loading}
+              isOnCooldown={isOnCooldown}
               depth={depth + 1}
             />
           ))}
