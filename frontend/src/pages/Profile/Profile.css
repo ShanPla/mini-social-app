@@ -264,3 +264,23 @@
 .profile-avatar-lg--clickable:hover {
   opacity: 0.85;
 }
+
+.stat--clickable {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: background 0.2s, transform 0.15s;
+  font-family: var(--font-body);
+}
+.stat--clickable:hover {
+  background: var(--cream);
+  transform: translateY(-1px);
+}
+.stat--clickable:hover .stat-count {
+  color: var(--accent);
+}
+.stat--clickable:hover .stat-label {
+  color: var(--ink);
+}

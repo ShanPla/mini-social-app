@@ -6,6 +6,7 @@ import Lightbox from '../../components/Lightbox/Lightbox';
 import type { Profile, Post } from '../../lib/supabaseClient';
 import PostCard from '../../components/PostCard/PostCard';
 import EmptyState from '../../components/EmptyState/EmptyState';
+import FollowersModal from '../../components/FollowersModal/FollowersModal';
 import { usePageTitle } from '../../lib/usePageTitle';
 import './Profile.css';
 
@@ -29,6 +30,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const [editUsername, setEditUsername] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   const [showAvatarLightbox, setShowAvatarLightbox] = useState(false);
+  const [followModal, setFollowModal] = useState<'followers' | 'following' | null>(null);
 
   /* Avatar state */
   const [avatarMode, setAvatarMode] = useState<'file' | 'url'>('file');
@@ -297,9 +299,24 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
             )}
 
             <div className="profile-stats">
-              <div className="stat"><span className="stat-count">{posts.length}</span><span className="stat-label">Posts</span></div>
-              <div className="stat"><span className="stat-count">{followersCount}</span><span className="stat-label">Followers</span></div>
-              <div className="stat"><span className="stat-count">{followingCount}</span><span className="stat-label">Following</span></div>
+              <div className="stat">
+                <span className="stat-count">{posts.length}</span>
+                <span className="stat-label">Posts</span>
+              </div>
+              <button
+                className="stat stat--clickable"
+                onClick={() => setFollowModal('followers')}
+              >
+                <span className="stat-count">{followersCount}</span>
+                <span className="stat-label">Followers</span>
+              </button>
+              <button
+                className="stat stat--clickable"
+                onClick={() => setFollowModal('following')}
+              >
+                <span className="stat-count">{followingCount}</span>
+                <span className="stat-label">Following</span>
+              </button>
             </div>
 
             <div className="profile-actions">
@@ -347,6 +364,13 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
             </div>
           )}
         </section>
+        {followModal && userId && (
+          <FollowersModal
+            userId={userId}
+            type={followModal}
+            onClose={() => setFollowModal(null)}
+          />
+        )}
       </div>
     </div>
   );
