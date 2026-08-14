@@ -4,6 +4,7 @@ import { Heart, Reply, Trash2, Shield, ChevronDown, ChevronUp } from 'lucide-rea
 import { supabase } from '../../lib/supabaseClient';
 import { timeAgo } from '../../lib/timeAgo';
 import { useCooldown } from '../../lib/useCooldown';
+import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import './CommentSection.css';
 
 type CommentData = {
@@ -32,7 +33,6 @@ type Props = {
 export default function CommentSection({ postId, postAuthorId, currentUserId, isAdmin = false }: Props) {
   const [comments, setComments] = useState<CommentData[]>([]);
   const [loading, setLoading] = useState(false);
-  /* Shared cooldown across top-level comments and all replies on this post */
   const [isOnCooldown, triggerCooldown] = useCooldown(3000);
 
   useEffect(() => { fetchComments(); }, [postId]);
@@ -187,129 +187,147 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showReplies, setShowReplies] = useState(depth < 1);
   const [replyValue, setReplyValue] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const isOwner = currentUserId === comment.user_id;
   const canDelete = isOwner || isAdmin;
   const isLiked = comment.comment_likes?.some((l) => l.user_id === currentUserId) ?? false;
   const likeCount = comment.comment_likes?.length ?? 0;
   const replyCount = comment.replies?.length ?? 0;
-
-  /* Max depth for visual indentation */
   const indentDepth = Math.min(depth, 3);
 
   return (
-    <div className={`comment-thread depth-${indentDepth}`}>
-      <div className="comment-item">
-        {/* Avatar */}
-        <Link to={`/profile/${comment.user_id}`} className="comment-avatar">
-          {comment.profiles?.avatar_url
-            ? <img src={comment.profiles.avatar_url} alt={comment.profiles.username} />
-            : <span>{comment.profiles?.username?.[0]?.toUpperCase() || '?'}</span>
-          }
-        </Link>
-
-        {/* Content bubble */}
-        <div className="comment-body">
-          <Link to={`/profile/${comment.user_id}`} className="comment-author">
-            {comment.profiles?.username || 'Unknown'}
+    <>
+      <div className={`comment-thread depth-${indentDepth}`}>
+        <div className="comment-item">
+          {/* Avatar */}
+          <Link to={`/profile/${comment.user_id}`} className="comment-avatar">
+            {comment.profiles?.avatar_url
+              ? <img src={comment.profiles.avatar_url} alt={comment.profiles.username} />
+              : <span>{comment.profiles?.username?.[0]?.toUpperCase() || '?'}</span>
+            }
           </Link>
-          <span className="comment-content">{comment.content}</span>
+
+          {/* Content bubble */}
+          <div className="comment-body">
+            <Link to={`/profile/${comment.user_id}`} className="comment-author">
+              {comment.profiles?.username || 'Unknown'}
+            </Link>
+            <span className="comment-content">{comment.content}</span>
+          </div>
+
+          {/* Delete — opens confirmation modal */}
+          {canDelete && (
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className={`comment-delete ${isAdmin && !isOwner ? 'comment-delete--admin' : ''}`}
+              title={isAdmin && !isOwner ? 'Delete as admin' : 'Delete comment'}
+            >
+              {isAdmin && !isOwner ? <Shield size={11} /> : <Trash2 size={11} />}
+            </button>
+          )}
         </div>
 
-        {/* Delete */}
-        {canDelete && (
+        {/* Actions row */}
+        <div className="comment-actions">
+          <span className="comment-time">{timeAgo(comment.created_at)}</span>
+
+          {/* Like */}
           <button
-            onClick={() => onDelete(comment.id)}
-            className={`comment-delete ${isAdmin && !isOwner ? 'comment-delete--admin' : ''}`}
-            title={isAdmin && !isOwner ? 'Delete as admin' : 'Delete comment'}
+            className={`comment-action-btn ${isLiked ? 'liked' : ''}`}
+            onClick={() => onLike(comment.id, isLiked)}
+            disabled={!currentUserId}
           >
-            {isAdmin && !isOwner ? <Shield size={11} /> : <Trash2 size={11} />}
+            <Heart size={11} fill={isLiked ? 'currentColor' : 'none'} />
+            {likeCount > 0 && <span>{likeCount}</span>}
           </button>
-        )}
-      </div>
 
-      {/* Actions row */}
-      <div className="comment-actions">
-        <span className="comment-time">{timeAgo(comment.created_at)}</span>
+          {/* Reply */}
+          {currentUserId && (
+            <button
+              className="comment-action-btn"
+              onClick={() => setShowReplyForm(!showReplyForm)}
+            >
+              <Reply size={11} />
+              <span>Reply</span>
+            </button>
+          )}
 
-        {/* Like */}
-        <button
-          className={`comment-action-btn ${isLiked ? 'liked' : ''}`}
-          onClick={() => onLike(comment.id, isLiked)}
-          disabled={!currentUserId}
-        >
-          <Heart size={11} fill={isLiked ? 'currentColor' : 'none'} />
-          {likeCount > 0 && <span>{likeCount}</span>}
-        </button>
+          {/* Toggle replies */}
+          {replyCount > 0 && (
+            <button
+              className="comment-action-btn comment-toggle-replies"
+              onClick={() => setShowReplies(!showReplies)}
+            >
+              {showReplies ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+              <span>{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
+            </button>
+          )}
+        </div>
 
-        {/* Reply */}
-        {currentUserId && (
-          <button
-            className="comment-action-btn"
-            onClick={() => setShowReplyForm(!showReplyForm)}
+        {/* Reply form */}
+        {showReplyForm && (
+          <form
+            className="comment-reply-form"
+            onSubmit={(e) => onReply(e, comment.id, replyValue, () => {
+              setReplyValue('');
+              setShowReplyForm(false);
+              setShowReplies(true);
+            })}
           >
-            <Reply size={11} />
-            <span>Reply</span>
-          </button>
-        )}
-
-        {/* Toggle replies */}
-        {replyCount > 0 && (
-          <button
-            className="comment-action-btn comment-toggle-replies"
-            onClick={() => setShowReplies(!showReplies)}
-          >
-            {showReplies ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-            <span>{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
-          </button>
-        )}
-      </div>
-
-      {/* Reply form */}
-      {showReplyForm && (
-        <form
-          className="comment-reply-form"
-          onSubmit={(e) => onReply(e, comment.id, replyValue, () => {
-            setReplyValue('');
-            setShowReplyForm(false);
-            setShowReplies(true);
-          })}
-        >
-          <input
-            type="text"
-            value={replyValue}
-            onChange={(e) => setReplyValue(e.target.value)}
-            placeholder={`Reply to @${comment.profiles?.username}…`}
-            maxLength={300}
-            autoFocus
-          />
-          <button type="submit" disabled={loading || isOnCooldown || !replyValue.trim()}>
-            {isOnCooldown ? 'Wait…' : 'Reply'}
-          </button>
-          <button type="button" className="reply-cancel" onClick={() => setShowReplyForm(false)}>Cancel</button>
-        </form>
-      )}
-
-      {/* Nested replies */}
-      {showReplies && replyCount > 0 && (
-        <div className="comment-replies">
-          {comment.replies!.map((reply) => (
-            <CommentItem
-              key={reply.id}
-              comment={reply}
-              currentUserId={currentUserId}
-              isAdmin={isAdmin}
-              postId={comment.post_id}
-              onDelete={onDelete}
-              onLike={onLike}
-              onReply={onReply}
-              loading={loading}
-              isOnCooldown={isOnCooldown}
-              depth={depth + 1}
+            <input
+              type="text"
+              value={replyValue}
+              onChange={(e) => setReplyValue(e.target.value)}
+              placeholder={`Reply to @${comment.profiles?.username}…`}
+              maxLength={300}
+              autoFocus
             />
-          ))}
-        </div>
+            <button type="submit" disabled={loading || isOnCooldown || !replyValue.trim()}>
+              {isOnCooldown ? 'Wait…' : 'Reply'}
+            </button>
+            <button type="button" className="reply-cancel" onClick={() => setShowReplyForm(false)}>Cancel</button>
+          </form>
+        )}
+
+        {/* Nested replies */}
+        {showReplies && replyCount > 0 && (
+          <div className="comment-replies">
+            {comment.replies!.map((reply) => (
+              <CommentItem
+                key={reply.id}
+                comment={reply}
+                currentUserId={currentUserId}
+                isAdmin={isAdmin}
+                postId={comment.post_id}
+                onDelete={onDelete}
+                onLike={onLike}
+                onReply={onReply}
+                loading={loading}
+                isOnCooldown={isOnCooldown}
+                depth={depth + 1}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <ConfirmModal
+          title="Delete comment?"
+          message={
+            isAdmin && !isOwner
+              ? `You are deleting @${comment.profiles?.username || 'this user'}'s comment as an admin. This cannot be undone.`
+              : "This can't be undone. The comment and all its replies will be removed."
+          }
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          danger
+          onConfirm={() => { onDelete(comment.id); setShowDeleteModal(false); }}
+          onCancel={() => setShowDeleteModal(false)}
+        />
       )}
-    </div>
+    </>
   );
 }
