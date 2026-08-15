@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Users, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
-import { timeAgo } from '../../lib/timeAgo';
+import { useTimeAgo } from '../../lib/timeAgo';
 import CommentSection from '../CommentSection/CommentSection';
 import ImageCollage from '../ImageCollage/ImageCollage';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
@@ -42,6 +42,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
   const [showEditModal, setShowEditModal] = useState(false);
   const [likeAnim, setLikeAnim] = useState<'pop' | 'unpop' | null>(null);
   const [showActions, setShowActions] = useState(false);
+  const postDate = useTimeAgo(currentPost.created_at);
 
   const isLiked = likes.some((l) => l.user_id === currentUserId);
   const likeCount = likes.length;
@@ -112,7 +113,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
             </div>
             <div>
               <span className="author-name">{currentPost.profiles?.username || 'Unknown'}</span>
-              <span className="post-date">{timeAgo(currentPost.created_at)}</span>
+              <span className="post-date">{postDate}</span>
             </div>
           </Link>
 

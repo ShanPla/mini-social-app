@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, Reply, Trash2, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { timeAgo } from '../../lib/timeAgo';
+import { useTimeAgo } from '../../lib/timeAgo';
 import { useCooldown } from '../../lib/useCooldown';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import './CommentSection.css';
@@ -188,6 +188,7 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
   const [showReplies, setShowReplies] = useState(depth < 1);
   const [replyValue, setReplyValue] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const commentTime = useTimeAgo(comment.created_at);
 
   const isOwner = currentUserId === comment.user_id;
   const canDelete = isOwner || isAdmin;
@@ -230,7 +231,7 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
 
         {/* Actions row */}
         <div className="comment-actions">
-          <span className="comment-time">{timeAgo(comment.created_at)}</span>
+          <span className="comment-time">{commentTime}</span>
 
           {/* Like */}
           <button

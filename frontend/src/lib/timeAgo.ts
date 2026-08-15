@@ -1,5 +1,8 @@
+import { useState, useEffect } from 'react';
+
 export function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const date = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
+  const diff = Date.now() - date.getTime();
   const mins = Math.floor(diff / 60000);
   const hrs = Math.floor(mins / 60);
   const days = Math.floor(hrs / 24);
@@ -14,4 +17,19 @@ export function timeAgo(dateStr: string): string {
   if (weeks < 5) return `${weeks}w ago`;
   if (months < 12) return `${months}mo ago`;
   return `${years}y ago`;
+}
+
+/* Hook version — auto-updates every 30 seconds */
+export function useTimeAgo(dateStr: string): string {
+  const [label, setLabel] = useState(() => timeAgo(dateStr));
+
+  useEffect(() => {
+    setLabel(timeAgo(dateStr));
+    const interval = setInterval(() => {
+      setLabel(timeAgo(dateStr));
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [dateStr]);
+
+  return label;
 }
