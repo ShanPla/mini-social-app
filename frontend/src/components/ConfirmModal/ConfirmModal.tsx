@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import './ConfirmModal.css';
 
 type Props = {
@@ -20,22 +21,19 @@ export default function ConfirmModal({
   onCancel,
   danger = false,
 }: Props) {
-  // Close on Escape key
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
     };
     document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = '';
+    };
   }, [onCancel]);
 
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, []);
-
-  return (
+  return createPortal(
     <div className="modal-backdrop" onClick={onCancel}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <h3 className="modal-title">{title}</h3>
@@ -52,6 +50,7 @@ export default function ConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
