@@ -204,7 +204,7 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
           {/* Avatar */}
           <Link to={`/profile/${comment.user_id}`} className="comment-avatar">
             {comment.profiles?.avatar_url
-              ? <img src={comment.profiles.avatar_url} alt={comment.profiles.username} />
+              ? <img src={comment.profiles.avatar_url} alt={comment.profiles.username} loading="lazy" />
               : <span>{comment.profiles?.username?.[0]?.toUpperCase() || '?'}</span>
             }
           </Link>

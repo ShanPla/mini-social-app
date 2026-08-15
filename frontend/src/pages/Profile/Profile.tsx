@@ -224,7 +224,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
               onClick={() => profile.avatar_url && setShowAvatarLightbox(true)}
             >
               {profile.avatar_url
-                ? <img src={profile.avatar_url} alt={profile.username} />
+                ? <img src={profile.avatar_url} alt={profile.username} loading="lazy" />
                 : <span>{profile.username[0].toUpperCase()}</span>
               }
             </div>

@@ -107,7 +107,7 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
                 <div className={`notif-icon notif-icon--${n.type}`}>{getIcon(n.type)}</div>
                 <div className="notif-avatar">
                   {n.actor.avatar_url
-                    ? <img src={n.actor.avatar_url} alt={n.actor.username} />
+                    ? <img src={n.actor.avatar_url} alt={n.actor.username} loading="lazy" />
                     : <span>{n.actor.username[0].toUpperCase()}</span>
                   }
                 </div>

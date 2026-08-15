@@ -33,7 +33,7 @@ export default function ImageCollage({ images }: Props) {
       {count === 1 && (
         <div className="collage collage--1">
           <div className="collage-img" onClick={(e) => handleClick(0, e)}>
-            <img src={displayImages[0]} alt="Post image" />
+            <img src={displayImages[0]} alt="Post image" loading="lazy" />
             <ExpandHint />
           </div>
         </div>
@@ -43,7 +43,7 @@ export default function ImageCollage({ images }: Props) {
         <div className="collage collage--2">
           {displayImages.map((src, i) => (
             <div key={i} className="collage-img" onClick={(e) => handleClick(i, e)}>
-              <img src={src} alt={`Post image ${i + 1}`} />
+              <img src={src} alt={`Post image ${i + 1}`} loading="lazy" />
               <ExpandHint />
             </div>
           ))}
@@ -53,13 +53,13 @@ export default function ImageCollage({ images }: Props) {
       {count === 3 && (
         <div className="collage collage--3">
           <div className="collage-img collage-img--main" onClick={(e) => handleClick(0, e)}>
-            <img src={displayImages[0]} alt="Post image 1" />
+            <img src={displayImages[0]} alt="Post image 1" loading="lazy" />
             <ExpandHint />
           </div>
           <div className="collage-side">
             {displayImages.slice(1).map((src, i) => (
               <div key={i} className="collage-img" onClick={(e) => handleClick(i + 1, e)}>
-                <img src={src} alt={`Post image ${i + 2}`} />
+                <img src={src} alt={`Post image ${i + 2}`} loading="lazy" />
                 <ExpandHint />
               </div>
             ))}
@@ -71,7 +71,7 @@ export default function ImageCollage({ images }: Props) {
         <div className="collage collage--4">
           {displayImages.map((src, i) => (
             <div key={i} className="collage-img" onClick={(e) => handleClick(i, e)}>
-              <img src={src} alt={`Post image ${i + 1}`} />
+              <img src={src} alt={`Post image ${i + 1}`} loading="lazy" />
               {i === 3 && overflow > 0
                 ? <div className="collage-overflow">+{overflow}</div>
                 : <ExpandHint />

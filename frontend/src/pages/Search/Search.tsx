@@ -58,7 +58,7 @@ export default function SearchPage() {
               <Link to={`/profile/${user.id}`} key={user.id} className="search-result-card">
                 <div className="result-avatar">
                   {user.avatar_url
-                    ? <img src={user.avatar_url} alt={user.username} />
+                    ? <img src={user.avatar_url} alt={user.username} loading="lazy" />
                     : <span>{user.username[0].toUpperCase()}</span>
                   }
                 </div>

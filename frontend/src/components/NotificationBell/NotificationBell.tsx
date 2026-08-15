@@ -145,7 +145,7 @@ export default function NotificationBell({ currentUserId }: Props) {
                   </div>
                   <div className="bell-item-avatar">
                     {n.actor.avatar_url
-                      ? <img src={n.actor.avatar_url} alt={n.actor.username} />
+                      ? <img src={n.actor.avatar_url} alt={n.actor.username} loading="lazy" />
                       : <span>{n.actor.username[0].toUpperCase()}</span>
                     }
                   </div>

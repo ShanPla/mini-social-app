@@ -107,7 +107,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
           <Link to={`/profile/${currentPost.user_id}`} className="post-author">
             <div className="author-avatar">
               {currentPost.profiles?.avatar_url
-                ? <img src={currentPost.profiles.avatar_url} alt={currentPost.profiles.username} />
+                ? <img src={currentPost.profiles.avatar_url} alt={currentPost.profiles.username} loading="lazy" />
                 : <span>{currentPost.profiles?.username?.[0]?.toUpperCase() || '?'}</span>
               }
             </div>

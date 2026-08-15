@@ -50,7 +50,7 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
 
       {/* Image */}
       <div className="lightbox-image-wrap" onClick={(e) => e.stopPropagation()}>
-        <img src={images[current]} alt={`Image ${current + 1}`} className="lightbox-image" />
+        <img src={images[current]} alt={`Image ${current + 1}`} className="lightbox-image" loading="lazy" />
       </div>
 
       {/* Next */}
@@ -70,7 +70,7 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
               className={`lightbox-thumb ${i === current ? 'active' : ''}`}
               onClick={() => setCurrent(i)}
             >
-              <img src={src} alt={`Thumb ${i + 1}`} />
+              <img src={src} alt={`Thumb ${i + 1}`} loading="lazy" />
             </div>
           ))}
         </div>
