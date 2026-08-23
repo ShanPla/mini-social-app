@@ -3,12 +3,13 @@
 -- Run these in order in the Supabase SQL Editor
 -- ============================================
 
--- 1. PROFILES TABLE (extends Supabase Auth users)
+-- 1. PROFILES TABLE
 create table profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text unique not null,
   bio text,
   avatar_url text,
+  is_admin boolean default false,
   created_at timestamp default now()
 );
 
@@ -18,39 +19,58 @@ create table posts (
   user_id uuid references profiles(id) on delete cascade not null,
   content text not null,
   image_url text,
+  visibility text not null default 'public'
+    check (visibility in ('public', 'followers', 'private')),
   created_at timestamp default now()
 );
 
--- 3. LIKES TABLE (many-to-many: users ↔ posts)
+-- 3. POST IMAGES TABLE
+create table post_images (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid references posts(id) on delete cascade not null,
+  image_url text not null,
+  position integer not null default 0,
+  created_at timestamp default now()
+);
+
+-- 4. LIKES TABLE
 create table likes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references profiles(id) on delete cascade not null,
   post_id uuid references posts(id) on delete cascade not null,
   created_at timestamp default now(),
-
   unique (user_id, post_id)
 );
 
--- 4. COMMENTS TABLE
+-- 5. COMMENTS TABLE
 create table comments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references profiles(id) on delete cascade not null,
   post_id uuid references posts(id) on delete cascade not null,
+  parent_id uuid references comments(id) on delete cascade,
   content text not null,
   created_at timestamp default now()
 );
 
--- 5. FOLLOWS TABLE (self-referencing many-to-many)
+-- 6. COMMENT LIKES TABLE
+create table comment_likes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) on delete cascade not null,
+  comment_id uuid references comments(id) on delete cascade not null,
+  created_at timestamp default now(),
+  unique (user_id, comment_id)
+);
+
+-- 7. FOLLOWS TABLE
 create table follows (
   id uuid primary key default gen_random_uuid(),
   follower_id uuid references profiles(id) on delete cascade not null,
   following_id uuid references profiles(id) on delete cascade not null,
   created_at timestamp default now(),
-
   unique (follower_id, following_id)
 );
 
--- 6. NOTIFICATIONS TABLE
+-- 8. NOTIFICATIONS TABLE
 create table notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references profiles(id) on delete cascade not null,
@@ -61,7 +81,7 @@ create table notifications (
   created_at timestamp default now()
 );
 
--- 7. AUTO-CREATE PROFILE ON SIGNUP
+-- 9. AUTO-CREATE PROFILE ON SIGNUP
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -75,10 +95,12 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
 
--- 8. PERFORMANCE INDEXES
+-- 10. PERFORMANCE INDEXES
 create index idx_posts_user_id on posts(user_id);
+create index idx_post_images_post_id on post_images(post_id);
 create index idx_likes_post_id on likes(post_id);
 create index idx_comments_post_id on comments(post_id);
+create index idx_comment_likes_comment_id on comment_likes(comment_id);
 create index idx_follows_follower on follows(follower_id);
 create index idx_follows_following on follows(following_id);
 create index idx_notifications_user_id on notifications(user_id);

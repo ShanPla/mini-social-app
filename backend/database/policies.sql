@@ -17,17 +17,57 @@ using (auth.uid() = id);
 -- POSTS RLS
 alter table posts enable row level security;
 
-create policy "Anyone can view posts"
+create policy "Anyone can view public posts"
 on posts for select
-using (true);
+using (
+  visibility = 'public'
+  or auth.uid() = user_id
+  or (
+    visibility = 'followers'
+    and exists (
+      select 1 from follows
+      where follower_id = auth.uid()
+      and following_id = posts.user_id
+    )
+  )
+);
 
 create policy "Authenticated users can create posts"
 on posts for insert
 with check (auth.uid() = user_id);
 
+create policy "Users can update own posts"
+on posts for update
+using (auth.uid() = user_id);
+
 create policy "Users can delete own posts"
 on posts for delete
 using (auth.uid() = user_id);
+
+create policy "Admins can delete any post"
+on posts for delete
+using (
+  exists (
+    select 1 from profiles
+    where id = auth.uid()
+    and is_admin = true
+  )
+);
+
+-- POST IMAGES RLS
+alter table post_images enable row level security;
+
+create policy "Anyone can view post images"
+on post_images for select
+using (true);
+
+create policy "Authenticated users can insert post images"
+on post_images for insert
+with check (auth.uid() = (select user_id from posts where id = post_id));
+
+create policy "Users can delete own post images"
+on post_images for delete
+using (auth.uid() = (select user_id from posts where id = post_id));
 
 -- LIKES RLS
 alter table likes enable row level security;
@@ -57,6 +97,31 @@ with check (auth.uid() = user_id);
 
 create policy "Users can delete own comments"
 on comments for delete
+using (auth.uid() = user_id);
+
+create policy "Admins can delete any comment"
+on comments for delete
+using (
+  exists (
+    select 1 from profiles
+    where id = auth.uid()
+    and is_admin = true
+  )
+);
+
+-- COMMENT LIKES RLS
+alter table comment_likes enable row level security;
+
+create policy "Anyone can view comment likes"
+on comment_likes for select
+using (true);
+
+create policy "Users can like comments"
+on comment_likes for insert
+with check (auth.uid() = user_id);
+
+create policy "Users can unlike comments"
+on comment_likes for delete
 using (auth.uid() = user_id);
 
 -- FOLLOWS RLS
