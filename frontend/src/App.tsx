@@ -54,15 +54,18 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  /*
+   * Only updates isAdmin when the DB actually answers.
+   * A timeout or network error keeps the previous value — never downgrades
+   * an admin to false just because Supabase was slow (e.g. after TOKEN_REFRESHED).
+   */
   const fetchAdminStatus = async (uid: string) => {
     try {
-      const { data } = await Promise.race([
-        supabase.from('profiles').select('is_admin').eq('id', uid).single(),
-        new Promise<{ data: null }>((resolve) => setTimeout(() => resolve({ data: null }), 1500))
-      ]);
-      setIsAdmin((data as any)?.is_admin ?? false);
-    } catch {
-      setIsAdmin(false);
+      const { data, error } = await supabase.from('profiles').select('is_admin').eq('id', uid).single();
+      if (error || !data) return;
+      setIsAdmin(!!data.is_admin);
+    } catch (e) {
+      console.error('Admin check failed:', e);
     }
   };
 
@@ -70,24 +73,22 @@ function App() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       const uid = session?.user?.id ?? null;
       setUserId(uid);
-      try {
-        if (uid) await fetchAdminStatus(uid);
-      } catch (e) {
-        console.error('Admin check failed:', e);
-      } finally {
-        setLoading(false);
+      if (uid) {
+        // Gate the loading screen for at most 1.5s; the fetch itself keeps
+        // running and applies its result whenever it arrives.
+        await Promise.race([
+          fetchAdminStatus(uid),
+          new Promise<void>((resolve) => setTimeout(resolve, 1500)),
+        ]);
       }
+      setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const uid = session?.user?.id ?? null;
       setUserId(uid);
-      try {
-        if (uid) await fetchAdminStatus(uid);
-        else setIsAdmin(false);
-      } catch (e) {
-        setIsAdmin(false);
-      }
+      if (uid) fetchAdminStatus(uid);
+      else setIsAdmin(false);
     });
 
     return () => subscription.unsubscribe();

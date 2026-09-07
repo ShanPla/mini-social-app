@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Users, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
@@ -42,7 +42,20 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
   const [showEditModal, setShowEditModal] = useState(false);
   const [likeAnim, setLikeAnim] = useState<'pop' | 'unpop' | null>(null);
   const [showActions, setShowActions] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
   const postDate = useTimeAgo(currentPost.created_at);
+
+  /* Close actions dropdown on outside click — listener only lives while open */
+  useEffect(() => {
+    if (!showActions) return;
+    const handleClick = (e: MouseEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
+        setShowActions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showActions]);
 
   const isLiked = likes.some((l) => l.user_id === currentUserId);
   const likeCount = likes.length;
@@ -119,7 +132,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
 
           {/* Actions menu */}
           {canDelete && (
-            <div className="post-actions-wrap">
+            <div className="post-actions-wrap" ref={actionsRef}>
               <button
                 className="post-actions-btn"
                 onClick={() => setShowActions(!showActions)}
