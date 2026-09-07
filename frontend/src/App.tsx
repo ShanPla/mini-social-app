@@ -12,6 +12,7 @@ import SearchPage from './pages/Search/Search';
 import NotificationsPage from './pages/Notifications/Notifications';
 import MessagesPage from './pages/Messages/Messages';
 import ChatProvider from './context/ChatProvider';
+import PresenceProvider from './context/PresenceProvider';
 import ChatDock from './components/ChatDock/ChatDock';
 import './styles/global.css';
 import './styles/animations.css';
@@ -34,6 +35,7 @@ function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean
 
   return (
     <ChatProvider key={userId ?? 'signed-out'} userId={userId}>
+    <PresenceProvider key={`presence:${userId ?? 'signed-out'}`} userId={userId}>
       {!isAuthPage && <Navbar userId={userId} />}
       {!isAuthPage && userId && <SearchBar />}
       {/* Floating chat popups — global, outside PageWrapper so they survive route changes */}
@@ -51,6 +53,7 @@ function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean
           <Route path="*" element={<Navigate to={userId ? "/feed" : "/login"} />} />
         </Routes>
       </PageWrapper>
+    </PresenceProvider>
     </ChatProvider>
   );
 }

@@ -1,0 +1,39 @@
+.online-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 8px;
+  padding: 8px 14px 10px;
+  align-items: flex-start;
+}
+
+.online-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 48px;
+}
+.online-item:hover .online-name { color: var(--accent); }
+
+.online-name {
+  font-size: 0.62rem;
+  color: var(--ink-muted);
+  max-width: 48px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s;
+}
+
+.online-more {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  align-self: flex-start;
+}

@@ -1,0 +1,31 @@
+.wtf-row { gap: 8px; }
+
+.wtf-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.wtf-link:hover .widget-row-name { color: var(--accent); }
+
+.wtf-btn {
+  background: var(--ink);
+  color: var(--cream);
+  border: 1px solid var(--ink);
+  padding: 4px 10px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.wtf-btn:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
+.wtf-btn--on {
+  background: transparent;
+  color: var(--ink-muted);
+  border-color: var(--border);
+}
+.wtf-btn--on:hover:not(:disabled) { background: transparent; color: var(--accent); border-color: var(--accent); }
+.wtf-btn:disabled { opacity: 0.6; cursor: default; }

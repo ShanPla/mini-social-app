@@ -1,0 +1,44 @@
+.quick-links {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.quick-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-light);
+  transition: background 0.15s, color 0.15s;
+}
+.quick-link:hover { background: var(--cream); color: var(--ink); }
+.quick-link--active {
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: inset 3px 0 0 var(--ink);
+}
+
+.quick-link-icon { color: var(--ink-muted); display: flex; align-items: center; }
+.quick-link--active .quick-link-icon { color: var(--ink); }
+
+.quick-link-label { flex: 1; }
+
+.quick-link-badge {
+  background: var(--accent);
+  color: white;
+  font-size: 0.62rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}

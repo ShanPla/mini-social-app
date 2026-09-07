@@ -4,6 +4,12 @@ import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import PostCard from '../../components/PostCard/PostCard';
 import EmptyState from '../../components/EmptyState/EmptyState';
+import ProfileCard from '../../components/ProfileCard/ProfileCard';
+import QuickLinks from '../../components/QuickLinks/QuickLinks';
+import WhoToFollow from '../../components/WhoToFollow/WhoToFollow';
+import RecentChats from '../../components/RecentChats/RecentChats';
+import ActiveThisWeek from '../../components/ActiveThisWeek/ActiveThisWeek';
+import OnlineNow from '../../components/OnlineNow/OnlineNow';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { useCooldown } from '../../lib/useCooldown';
 import './Feed.css';
@@ -128,6 +134,14 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
   return (
     <div className="feed-page">
       <div className="feed-inner">
+        {/* Left column: you + shortcuts */}
+        {userId && (
+          <aside className="feed-sidebar feed-sidebar--left">
+            <ProfileCard userId={userId} />
+            <QuickLinks userId={userId} />
+          </aside>
+        )}
+
         <div className="feed-main">
           {newPostsBanner && (
             <button className="new-posts-banner" onClick={fetchPosts}>
@@ -244,11 +258,12 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
           )}
         </div>
 
-        <aside className="feed-sidebar">
-          <div className="sidebar-card">
-            <h4>The Chronicle</h4>
-            <p>Share thoughts, connect with others, build your story — one post at a time.</p>
-          </div>
+        {/* Right column: discovery + activity */}
+        <aside className="feed-sidebar feed-sidebar--right">
+          {userId && <OnlineNow userId={userId} />}
+          {userId && <WhoToFollow userId={userId} />}
+          <RecentChats />
+          <ActiveThisWeek />
         </aside>
       </div>
     </div>

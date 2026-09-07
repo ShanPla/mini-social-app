@@ -1,0 +1,32 @@
+.rc-row {
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+.rc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.rc-time {
+  font-size: 0.66rem;
+  color: var(--ink-muted);
+  flex-shrink: 0;
+}
+
+.rc-row--unread .widget-row-name { font-weight: 600; }
+.rc-row--unread .widget-row-sub { color: var(--ink); }
+
+.rc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
