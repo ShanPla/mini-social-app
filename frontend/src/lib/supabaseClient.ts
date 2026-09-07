@@ -50,3 +50,31 @@ export type Comment = {
   comment_likes?: { id: string; user_id: string }[];
   replies?: Comment[];
 };
+
+/* ── Chat types ── */
+export type ChatMember = {
+  user_id: string;
+  username: string;
+  avatar_url: string | null;
+  last_read_at: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string | null;
+  image_url: string | null;
+  created_at: string;
+};
+
+export type Conversation = {
+  id: string;
+  is_group: boolean;
+  name: string | null;
+  created_by: string | null;
+  last_message_at: string;
+  last_message: Pick<ChatMessage, 'id' | 'sender_id' | 'content' | 'image_url' | 'created_at'> | null;
+  unread_count: number;
+  members: ChatMember[];
+};

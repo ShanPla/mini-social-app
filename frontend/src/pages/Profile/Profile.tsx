@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { ImagePlus, Link2 } from 'lucide-react';
+import { ImagePlus, Link2, MessageCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { useChat } from '../../context/ChatContext';
 import Lightbox from '../../components/Lightbox/Lightbox';
 import type { Profile, Post } from '../../lib/supabaseClient';
 import PostCard from '../../components/PostCard/PostCard';
@@ -17,6 +18,8 @@ type ProfilePageProps = {
 
 export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps) {
   const { userId } = useParams<{ userId: string }>();
+  const { startDm } = useChat();
+  const [messageLoading, setMessageLoading] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [followersCount, setFollowersCount] = useState(0);
@@ -169,6 +172,14 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   };
 
   const handleDelete = (postId: string) => setPosts(posts.filter((p) => p.id !== postId));
+
+  /* Open (or create) a DM with this user */
+  const handleMessage = async () => {
+    if (!userId || messageLoading) return;
+    setMessageLoading(true);
+    await startDm(userId);
+    setMessageLoading(false);
+  };
 
   /* Skeleton loading state */
   if (loading) return (
@@ -330,6 +341,12 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                   disabled={followLoading}
                 >
                   {followLoading ? '…' : isFollowing ? 'Unfollow' : 'Follow'}
+                </button>
+              )}
+              {/* Message button — other people's profiles only */}
+              {!isOwnProfile && currentUserId && (
+                <button className="btn-ghost profile-message-btn" onClick={handleMessage} disabled={messageLoading}>
+                  <MessageCircle size={14} /> {messageLoading ? 'Opening…' : 'Message'}
                 </button>
               )}
             </div>

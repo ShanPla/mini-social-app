@@ -284,3 +284,10 @@
 .stat--clickable:hover .stat-label {
   color: var(--ink);
 }
+
+/* Message button (chat) */
+.profile-message-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

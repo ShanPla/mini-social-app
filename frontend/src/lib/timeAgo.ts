@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 
+/* Supabase returns `timestamp` columns with no timezone suffix — treat them as UTC. */
+export function parseDbDate(dateStr: string): Date {
+  return new Date(/Z$|[+-]\d\d:?\d\d$/.test(dateStr) ? dateStr : dateStr + 'Z');
+}
+
 export function timeAgo(dateStr: string): string {
-  const date = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
+  const date = parseDbDate(dateStr);
   const diff = Date.now() - date.getTime();
   const mins = Math.floor(diff / 60000);
   const hrs = Math.floor(mins / 60);

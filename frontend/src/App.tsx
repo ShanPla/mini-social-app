@@ -10,6 +10,9 @@ import ProfilePage from './pages/Profile/Profile';
 import PostPage from './pages/Post/Post';
 import SearchPage from './pages/Search/Search';
 import NotificationsPage from './pages/Notifications/Notifications';
+import MessagesPage from './pages/Messages/Messages';
+import ChatProvider from './context/ChatProvider';
+import ChatDock from './components/ChatDock/ChatDock';
 import './styles/global.css';
 import './styles/animations.css';
 
@@ -30,9 +33,11 @@ function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean
   const isAuthPage = AUTH_ROUTES.includes(location.pathname);
 
   return (
-    <>
+    <ChatProvider key={userId ?? 'signed-out'} userId={userId}>
       {!isAuthPage && <Navbar userId={userId} />}
       {!isAuthPage && userId && <SearchBar />}
+      {/* Floating chat popups — global, outside PageWrapper so they survive route changes */}
+      {!isAuthPage && userId && <ChatDock />}
       <PageWrapper>
         <Routes>
           <Route path="/login" element={!userId ? <Login /> : <Navigate to="/feed" />} />
@@ -42,10 +47,11 @@ function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean
           <Route path="/post/:postId" element={userId ? <PostPage currentUserId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
           <Route path="/search" element={userId ? <SearchPage /> : <Navigate to="/login" />} />
           <Route path="/notifications" element={userId ? <NotificationsPage currentUserId={userId} /> : <Navigate to="/login" />} />
+          <Route path="/messages/:conversationId?" element={userId ? <MessagesPage /> : <Navigate to="/login" />} />
           <Route path="*" element={<Navigate to={userId ? "/feed" : "/login"} />} />
         </Routes>
       </PageWrapper>
-    </>
+    </ChatProvider>
   );
 }
 

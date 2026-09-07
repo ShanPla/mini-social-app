@@ -1,6 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import NotificationBell from '../NotificationBell/NotificationBell';
+import MessagesButton from '../MessagesButton/MessagesButton';
 import './Navbar.css';
 
 type NavbarProps = {
@@ -30,6 +31,7 @@ export default function Navbar({ userId }: NavbarProps) {
           <div className="navbar-links">
             <Link to="/feed" className={`nav-link ${isActive('/feed') ? 'nav-link--active' : ''}`}>Feed</Link>
             <Link to={`/profile/${userId}`} className={`nav-link ${isActive('/profile') ? 'nav-link--active' : ''}`}>Profile</Link>
+            <MessagesButton />
             <NotificationBell currentUserId={userId} />
             <button onClick={handleLogout} className="nav-logout">Logout</button>
           </div>
