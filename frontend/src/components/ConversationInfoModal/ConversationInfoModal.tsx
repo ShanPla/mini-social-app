@@ -128,7 +128,7 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
                 <div className="ci-avatar">
                   {m.avatar_url
                     ? <img src={m.avatar_url} alt={m.username} loading="lazy" />
-                    : <span>{m.username[0].toUpperCase()}</span>
+                    : <span>{(m.username[0] || '?').toUpperCase()}</span>
                   }
                 </div>
                 <span className="ci-username">@{m.username}</span>

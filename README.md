@@ -21,9 +21,12 @@ frontend/
 │   │   ├── supabaseClient.ts
 │   │   ├── chat.ts             ← Conversation helpers and chat constants
 │   │   ├── timeAgo.ts          ← Relative time + UTC-safe timestamp parsing
+│   │   ├── errors.ts           ← Supabase error to one readable line
 │   │   ├── useCooldown.ts      ← Client-side submission rate limiting
 │   │   └── usePageTitle.ts
 │   ├── context/
+│   │   ├── ToastContext.ts     ← success / error / info toasts, useToast()
+│   │   ├── ToastProvider.tsx
 │   │   ├── ChatContext.ts      ← Conversation list, popups, chat actions
 │   │   ├── ChatProvider.tsx
 │   │   ├── PresenceContext.ts  ← Who is online right now
@@ -32,6 +35,8 @@ frontend/
 │   │   ├── global.css
 │   │   └── animations.css
 │   ├── components/
+│   │   ├── ErrorBoundary/          ← Recovery card instead of a blank page
+│   │   ├── Toaster/                ← Toast stack, top-centre under the navbar
 │   │   ├── Navbar/
 │   │   ├── MobileNav/              ← Bottom tab bar for phones
 │   │   ├── SearchBar/
@@ -156,6 +161,12 @@ frontend/
 - Notifications are written only by database triggers, so they cannot be forged or spammed
 - Server-side rate limits on posts, comments and messages, on top of the client cooldowns
 - Uploads are limited to images, 5 MB, and the uploader's own folder
+
+**Feedback**
+- Toast confirmations on saves: profile, photo, post published, updated, deleted
+- Every failed write says so, with the server's own message for rate limits
+- Error boundary per route: a render crash shows a recovery card, not a blank page
+- Partial image uploads report how many failed instead of silently dropping them
 
 **UI/UX**
 - Warm editorial design system — Playfair Display + DM Sans

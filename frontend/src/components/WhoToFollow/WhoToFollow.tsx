@@ -4,6 +4,8 @@ import { UserPlus } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { usePresence } from '../../context/PresenceContext';
 import SidebarWidget, { WidgetAvatar, WidgetSkeleton, WidgetEmpty } from '../SidebarWidget/SidebarWidget';
+import { useToast } from '../../context/ToastContext';
+import { describeError } from '../../lib/errors';
 import './WhoToFollow.css';
 
 type Props = {
@@ -27,6 +29,7 @@ export default function WhoToFollow({ userId }: Props) {
   const [loading, setLoading] = useState(true);
   const [followed, setFollowed] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -58,12 +61,14 @@ export default function WhoToFollow({ userId }: Props) {
     const isFollowed = followed.has(target.id);
 
     if (isFollowed) {
-      await supabase.from('follows').delete().eq('follower_id', userId).eq('following_id', target.id);
-      setFollowed((prev) => { const n = new Set(prev); n.delete(target.id); return n; });
+      const { error } = await supabase.from('follows').delete().eq('follower_id', userId).eq('following_id', target.id);
+      if (error) toast.error(describeError(error, 'Could not unfollow. Please try again.'));
+      else setFollowed((prev) => { const n = new Set(prev); n.delete(target.id); return n; });
     } else {
       const { error } = await supabase.from('follows').insert({ follower_id: userId, following_id: target.id });
       /* The bell notification is raised server-side by trg_notify_follow */
-      if (!error) setFollowed((prev) => new Set(prev).add(target.id));
+      if (error) toast.error(describeError(error, 'Could not follow. Please try again.'));
+      else setFollowed((prev) => new Set(prev).add(target.id));
     }
     setBusy(null);
   };

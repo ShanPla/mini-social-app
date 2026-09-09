@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { X, ImagePlus, Globe, Users, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
+import { useToast } from '../../context/ToastContext';
+import { describeError } from '../../lib/errors';
 import './EditPostModal.css';
 
 type Props = {
@@ -30,6 +32,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
 
   /* Escape closes and the page stops scrolling underneath, same as ConfirmModal */
   useEffect(() => {
@@ -73,7 +76,11 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       .update({ content: content.trim(), visibility })
       .eq('id', post.id);
 
-    if (updateError) { setError('Failed to save. Please try again.'); setSaving(false); return; }
+    if (updateError) {
+      setError(describeError(updateError, 'Could not save your changes. Please try again.'));
+      setSaving(false);
+      return;
+    }
 
     /* Delete removed images */
     const removedIds = (post.post_images || [])
@@ -81,27 +88,44 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       .map((img) => img.id);
 
     if (removedIds.length > 0) {
-      await supabase.from('post_images').delete().in('id', removedIds);
+      const { error: removeError } = await supabase.from('post_images').delete().in('id', removedIds);
+      if (removeError) {
+        setError('The text was saved, but the removed images could not be taken off. Try Save again.');
+        setSaving(false);
+        return;
+      }
     }
 
     /* Upload new images */
     if (newFiles.length > 0) {
       const startPosition = existingImages.length;
       const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
+      let failed = 0;
 
       for (let i = 0; i < newFiles.length; i++) {
         const file = newFiles[i];
         const ext = file.name.split('.').pop();
         const path = `${post.user_id}/${post.id}/${Date.now()}-${i}.${ext}`;
         const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file);
-        if (!uploadError) {
+        if (uploadError) {
+          failed += 1;
+        } else {
           const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(path);
           uploadedImages.push({ post_id: post.id, image_url: urlData.publicUrl, position: startPosition + i });
         }
       }
 
+      if (failed > 0) {
+        toast.error(`${failed} of ${newFiles.length} new image${newFiles.length > 1 ? 's' : ''} could not be uploaded. Images only, up to 5 MB each.`);
+      }
+
       if (uploadedImages.length > 0) {
-        await supabase.from('post_images').insert(uploadedImages);
+        const { error: insertError } = await supabase.from('post_images').insert(uploadedImages);
+        if (insertError) {
+          setError('The text was saved, but the new images could not be attached. Try Save again.');
+          setSaving(false);
+          return;
+        }
       }
     }
 
@@ -113,6 +137,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       .order('position');
 
     onSave({ ...post, content: content.trim(), visibility, post_images: updatedImages || [] } as Post);
+    toast.success('Post updated');
     setSaving(false);
     onClose();
   };

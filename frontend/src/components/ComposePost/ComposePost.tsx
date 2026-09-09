@@ -3,6 +3,8 @@ import { ImagePlus, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import { useCooldown } from '../../lib/useCooldown';
+import { useToast } from '../../context/ToastContext';
+import { describeError } from '../../lib/errors';
 import './ComposePost.css';
 
 type Visibility = 'public' | 'followers' | 'private';
@@ -30,6 +32,7 @@ export default function ComposePost({
   const [posting, setPosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isOnCooldown, triggerCooldown] = useCooldown(3000);
+  const toast = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []).slice(0, 10);
@@ -61,34 +64,50 @@ export default function ComposePost({
       .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id)')
       .single();
 
-    if (postError || !postData) { setPosting(false); return; }
+    if (postError || !postData) {
+      toast.error(describeError(postError, 'Could not publish your post. Please try again.'));
+      setPosting(false);
+      return;
+    }
 
     if (imageFiles.length > 0) {
       const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
+      let failed = 0;
 
       for (let i = 0; i < imageFiles.length; i++) {
         const file = imageFiles[i];
         const ext = file.name.split('.').pop();
         const path = `${userId}/${postData.id}/${i}.${ext}`;
         const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file);
-        if (!uploadError) {
+        if (uploadError) {
+          failed += 1;
+        } else {
           const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(path);
           uploadedImages.push({ post_id: postData.id, image_url: urlData.publicUrl, position: i });
         }
       }
 
+      if (failed > 0) {
+        toast.error(`${failed} of ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} could not be uploaded. Images only, up to 5 MB each.`);
+      }
+
       if (uploadedImages.length > 0) {
-        await supabase.from('post_images').insert(uploadedImages);
-        (postData as Post).post_images = uploadedImages.map((img, i) => ({
-          id: `temp-${i}`,
-          post_id: postData.id,
-          image_url: img.image_url,
-          position: img.position,
-        }));
+        const { error: imagesError } = await supabase.from('post_images').insert(uploadedImages);
+        if (imagesError) {
+          toast.error('The post went up, but its images could not be attached.');
+        } else {
+          (postData as Post).post_images = uploadedImages.map((img, i) => ({
+            id: `temp-${i}`,
+            post_id: postData.id,
+            image_url: img.image_url,
+            position: img.position,
+          }));
+        }
       }
     }
 
     onPosted(postData as Post);
+    toast.success('Post published');
     setContent('');
     clearImages();
     setPosting(false);

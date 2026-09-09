@@ -15,6 +15,8 @@ import ChatProvider from './context/ChatProvider';
 import PresenceProvider from './context/PresenceProvider';
 import ChatDock from './components/ChatDock/ChatDock';
 import MobileNav from './components/MobileNav/MobileNav';
+import ToastProvider from './context/ToastProvider';
+import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import './styles/global.css';
 import './styles/animations.css';
 
@@ -46,6 +48,7 @@ function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean
   const isAuthPage = AUTH_ROUTES.includes(location.pathname);
 
   return (
+    <ToastProvider>
     <ChatProvider key={userId ?? 'signed-out'} userId={userId}>
     <PresenceProvider key={`presence:${userId ?? 'signed-out'}`} userId={userId}>
       <ScrollToTop />
@@ -56,6 +59,8 @@ function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean
       {/* Phones lose the feed sidebars, so navigation moves to a bottom bar */}
       {!isAuthPage && userId && <MobileNav userId={userId} />}
       <PageWrapper withMobileNav={!isAuthPage && !!userId}>
+        {/* Keyed by route so a crash on one page clears when you leave it */}
+        <ErrorBoundary key={location.pathname}>
         <Routes>
           <Route path="/login" element={!userId ? <Login /> : <Navigate to="/feed" />} />
           <Route path="/register" element={!userId ? <Register /> : <Navigate to="/feed" />} />
@@ -67,9 +72,11 @@ function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean
           <Route path="/messages/:conversationId?" element={userId ? <MessagesPage /> : <Navigate to="/login" />} />
           <Route path="*" element={<Navigate to={userId ? "/feed" : "/login"} />} />
         </Routes>
+        </ErrorBoundary>
       </PageWrapper>
     </PresenceProvider>
     </ChatProvider>
+    </ToastProvider>
   );
 }
 

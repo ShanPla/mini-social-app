@@ -10,6 +10,8 @@ import ComposePost from '../../components/ComposePost/ComposePost';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import FollowersModal from '../../components/FollowersModal/FollowersModal';
 import { usePageTitle } from '../../lib/usePageTitle';
+import { useToast } from '../../context/ToastContext';
+import { describeError } from '../../lib/errors';
 import './Profile.css';
 
 type ProfilePageProps = {
@@ -20,6 +22,7 @@ type ProfilePageProps = {
 export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps) {
   const { userId } = useParams<{ userId: string }>();
   const { startDm } = useChat();
+  const toast = useToast();
   const [messageLoading, setMessageLoading] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -102,15 +105,23 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     setFollowLoading(true);
 
     if (isFollowing) {
-      await supabase.from('follows').delete()
+      const { error } = await supabase.from('follows').delete()
         .eq('follower_id', currentUserId).eq('following_id', userId);
-      setIsFollowing(false);
-      setFollowersCount((c) => c - 1);
+      if (error) {
+        toast.error(describeError(error, 'Could not unfollow. Please try again.'));
+      } else {
+        setIsFollowing(false);
+        setFollowersCount((c) => c - 1);
+      }
     } else {
-      await supabase.from('follows').insert({ follower_id: currentUserId, following_id: userId });
+      const { error } = await supabase.from('follows').insert({ follower_id: currentUserId, following_id: userId });
       /* The bell notification is raised server-side by trg_notify_follow */
-      setIsFollowing(true);
-      setFollowersCount((c) => c + 1);
+      if (error) {
+        toast.error(describeError(error, 'Could not follow. Please try again.'));
+      } else {
+        setIsFollowing(true);
+        setFollowersCount((c) => c + 1);
+      }
     }
     setFollowLoading(false);
   };
@@ -138,22 +149,34 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
       const path = `${currentUserId}/avatar.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from('avatars').upload(path, avatarFile, { upsert: true });
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-        finalUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      if (uploadError) {
+        toast.error(describeError(uploadError, 'Could not upload the photo. Images only, up to 5 MB.'));
+        setAvatarUploading(false);
+        return;
       }
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      finalUrl = `${urlData.publicUrl}?t=${Date.now()}`;
     } else if (avatarMode === 'url' && avatarUrl.trim()) {
+      /* Only http(s) may land in an img src */
+      if (!/^https?:\/\//i.test(avatarUrl.trim())) {
+        toast.error('Enter a full image link starting with https://');
+        setAvatarUploading(false);
+        return;
+      }
       finalUrl = avatarUrl.trim();
     }
 
     if (finalUrl) {
       const { error } = await supabase.from('profiles')
         .update({ avatar_url: finalUrl }).eq('id', currentUserId);
-      if (!error) {
+      if (error) {
+        toast.error(describeError(error, 'Could not save your photo. Please try again.'));
+      } else {
         setProfile((p) => p ? { ...p, avatar_url: finalUrl } : p);
         setAvatarFile(null);
         setAvatarUrl('');
         setAvatarPreview(null);
+        toast.success('Profile photo updated');
       }
     }
     setAvatarUploading(false);
@@ -176,6 +199,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     } else {
       setProfile((p) => p ? { ...p, bio: editBio, username } : p);
       setEditing(false);
+      toast.success('Profile saved');
     }
     setSaveLoading(false);
   };
@@ -186,7 +210,8 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const handleMessage = async () => {
     if (!userId || messageLoading) return;
     setMessageLoading(true);
-    await startDm(userId);
+    const id = await startDm(userId);
+    if (!id) toast.error('Could not open a chat with this user.');
     setMessageLoading(false);
   };
 
@@ -245,7 +270,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
             >
               {profile.avatar_url
                 ? <img src={profile.avatar_url} alt={profile.username} loading="lazy" />
-                : <span>{profile.username[0].toUpperCase()}</span>
+                : <span>{(profile.username[0] || '?').toUpperCase()}</span>
               }
             </div>
 

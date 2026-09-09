@@ -107,7 +107,7 @@ export default function UserPicker({ excludeIds, selected, onChange, placeholder
               <div className="picker-avatar">
                 {u.avatar_url
                   ? <img src={u.avatar_url} alt={u.username} loading="lazy" />
-                  : <span>{u.username[0].toUpperCase()}</span>
+                  : <span>{(u.username[0] || '?').toUpperCase()}</span>
                 }
               </div>
               <span className="picker-username">@{u.username}</span>

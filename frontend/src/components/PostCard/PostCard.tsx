@@ -8,6 +8,8 @@ import CommentSection from '../CommentSection/CommentSection';
 import ImageCollage from '../ImageCollage/ImageCollage';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import EditPostModal from '../EditPostModal/EditPostModal';
+import { useToast } from '../../context/ToastContext';
+import { describeError } from '../../lib/errors';
 import './PostCard.css';
 
 type PostCardProps = {
@@ -63,6 +65,8 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
   const canDelete = isOwner || isAdmin;
   const isTruncated = currentPost.content && currentPost.content.length > CHAR_LIMIT;
 
+  const toast = useToast();
+
   const handleLike = async () => {
     if (!currentUserId || loading) return;
     setLoading(true);
@@ -71,7 +75,8 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
       setLikeAnim('unpop');
       const { error } = await supabase.from('likes').delete()
         .eq('post_id', currentPost.id).eq('user_id', currentUserId);
-      if (!error) setLikes(likes.filter((l) => l.user_id !== currentUserId));
+      if (error) toast.error(describeError(error, 'Could not remove your like.'));
+      else setLikes(likes.filter((l) => l.user_id !== currentUserId));
     } else {
       setLikeAnim('pop');
       const { data, error } = await supabase.from('likes')
@@ -79,7 +84,8 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
         .select().single();
 
       /* The bell notification is raised server-side by trg_notify_like */
-      if (!error && data) setLikes([...likes, data]);
+      if (error || !data) toast.error(describeError(error, 'Could not like this post.'));
+      else setLikes([...likes, data]);
     }
     setTimeout(() => setLikeAnim(null), 400);
     setLoading(false);
@@ -87,7 +93,12 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
 
   const handleDeleteConfirmed = async () => {
     const { error } = await supabase.from('posts').delete().eq('id', currentPost.id);
-    if (!error && onDelete) onDelete(currentPost.id);
+    if (error) {
+      toast.error(describeError(error, 'Could not delete the post.'));
+    } else {
+      toast.success('Post deleted');
+      onDelete?.(currentPost.id);
+    }
     setShowDeleteModal(false);
   };
 
@@ -100,7 +111,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
     : currentPost.content;
 
   const images = currentPost.post_images?.length
-    ? currentPost.post_images.sort((a, b) => a.position - b.position).map((img) => img.image_url)
+    ? [...currentPost.post_images].sort((a, b) => a.position - b.position).map((img) => img.image_url)
     : currentPost.image_url ? [currentPost.image_url] : [];
 
   return (
@@ -159,7 +170,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
         </header>
 
         {/* Visibility badge */}
-        <VisibilityBadge visibility={(currentPost as any).visibility} />
+        <VisibilityBadge visibility={currentPost.visibility} />
 
         {/* Content */}
         {currentPost.content && (

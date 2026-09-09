@@ -59,7 +59,7 @@ export default function SearchPage() {
                 <div className="result-avatar">
                   {user.avatar_url
                     ? <img src={user.avatar_url} alt={user.username} loading="lazy" />
-                    : <span>{user.username[0].toUpperCase()}</span>
+                    : <span>{(user.username[0] || '?').toUpperCase()}</span>
                   }
                 </div>
                 <div className="result-info">

@@ -30,7 +30,7 @@ export function ConversationAvatar({ conversation, currentUserId, size = 44 }: {
     <div className="conv-avatar" style={style}>
       {other.avatar_url
         ? <img src={other.avatar_url} alt={other.username} loading="lazy" />
-        : <span>{other.username[0].toUpperCase()}</span>
+        : <span>{(other.username[0] || '?').toUpperCase()}</span>
       }
     </div>
   );

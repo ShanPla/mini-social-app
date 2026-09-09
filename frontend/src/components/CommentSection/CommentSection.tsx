@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabaseClient';
 import { useTimeAgo } from '../../lib/timeAgo';
 import { useCooldown } from '../../lib/useCooldown';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
+import { useToast } from '../../context/ToastContext';
+import { describeError } from '../../lib/errors';
 import './CommentSection.css';
 
 type CommentData = {
@@ -61,6 +63,8 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false 
     setComments(roots);
   };
 
+  const toast = useToast();
+
   const handleSubmit = async (e: React.FormEvent, parentId: string | null, content: string, clearFn: () => void) => {
     e.preventDefault();
     if (!currentUserId || !content.trim() || loading || isOnCooldown) return;
@@ -82,23 +86,24 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false 
       clearFn();
       fetchComments();
       triggerCooldown();
+    } else {
+      toast.error(describeError(error, 'Could not post your comment. Please try again.'));
     }
     setLoading(false);
   };
 
   const handleDelete = async (commentId: string) => {
-    await supabase.from('comments').delete().eq('id', commentId);
+    const { error } = await supabase.from('comments').delete().eq('id', commentId);
+    if (error) { toast.error(describeError(error, 'Could not delete the comment.')); return; }
     fetchComments();
   };
 
   const handleLikeComment = async (commentId: string, isLiked: boolean) => {
     if (!currentUserId) return;
-    if (isLiked) {
-      await supabase.from('comment_likes').delete()
-        .eq('comment_id', commentId).eq('user_id', currentUserId);
-    } else {
-      await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: currentUserId });
-    }
+    const { error } = isLiked
+      ? await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', currentUserId)
+      : await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: currentUserId });
+    if (error) { toast.error(describeError(error, 'Could not update your like.')); return; }
     fetchComments();
   };
 

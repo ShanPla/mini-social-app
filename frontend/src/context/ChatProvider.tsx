@@ -113,9 +113,11 @@ export default function ChatProvider({ userId, children }: Props) {
       unread_count: 0,
       members: c.members.map((m) => m.user_id === userId ? { ...m, last_read_at: now } : m),
     }));
-    /* Also clears the conversation's bell entry (see mark_conversation_read in schema.sql) */
-    await supabase.rpc('mark_conversation_read', { conv_id: conversationId });
-  }, [userId, commit]);
+    /* Also clears the conversation's bell entry (see mark_conversation_read in schema.sql).
+       The list above was zeroed optimistically; on failure pull the truth back. */
+    const { error } = await supabase.rpc('mark_conversation_read', { conv_id: conversationId });
+    if (error) refreshConversations();
+  }, [userId, commit, refreshConversations]);
 
   const startDm = useCallback(async (otherUserId: string) => {
     if (!userId) return null;
