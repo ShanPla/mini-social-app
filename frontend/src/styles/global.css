@@ -16,6 +16,14 @@
   --radius: 2px;
   --font-display: 'Playfair Display', Georgia, serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
+  /* Mobile bottom tab bar — pages subtract or pad by this below 680px */
+  --mobile-nav-h: 56px;
+  --mobile-nav-total: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Keep page content clear of the fixed mobile tab bar */
+@media (max-width: 680px) {
+  .page-enter--mobile-nav { padding-bottom: var(--mobile-nav-total); }
 }
 
 #root {

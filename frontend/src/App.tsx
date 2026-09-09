@@ -14,16 +14,17 @@ import MessagesPage from './pages/Messages/Messages';
 import ChatProvider from './context/ChatProvider';
 import PresenceProvider from './context/PresenceProvider';
 import ChatDock from './components/ChatDock/ChatDock';
+import MobileNav from './components/MobileNav/MobileNav';
 import './styles/global.css';
 import './styles/animations.css';
 
 const AUTH_ROUTES = ['/login', '/register'];
 
 // Wraps each page in a fade+slide entrance
-function PageWrapper({ children }: { children: React.ReactNode }) {
+function PageWrapper({ children, withMobileNav }: { children: React.ReactNode; withMobileNav: boolean }) {
   const location = useLocation();
   return (
-    <div key={location.pathname} className="page-enter">
+    <div key={location.pathname} className={`page-enter ${withMobileNav ? 'page-enter--mobile-nav' : ''}`}>
       {children}
     </div>
   );
@@ -40,7 +41,9 @@ function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean
       {!isAuthPage && userId && <SearchBar />}
       {/* Floating chat popups — global, outside PageWrapper so they survive route changes */}
       {!isAuthPage && userId && <ChatDock />}
-      <PageWrapper>
+      {/* Phones lose the feed sidebars, so navigation moves to a bottom bar */}
+      {!isAuthPage && userId && <MobileNav userId={userId} />}
+      <PageWrapper withMobileNav={!isAuthPage && !!userId}>
         <Routes>
           <Route path="/login" element={!userId ? <Login /> : <Navigate to="/feed" />} />
           <Route path="/register" element={!userId ? <Register /> : <Navigate to="/feed" />} />

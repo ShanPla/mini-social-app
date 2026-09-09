@@ -1,0 +1,64 @@
+/* Desktop and tablet keep the sidebar quick links — no bar needed there */
+.mobile-nav { display: none; }
+
+@media (max-width: 680px) {
+  .mobile-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 400;
+    height: var(--mobile-nav-total);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    display: flex;
+    align-items: stretch;
+    background: var(--warm-white);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+  }
+}
+
+.mobile-nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--ink-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.mobile-nav-tab--active { color: var(--ink); }
+
+.mobile-nav-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-nav-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.mobile-nav-badge {
+  position: absolute;
+  top: -5px;
+  right: -8px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.58rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+}

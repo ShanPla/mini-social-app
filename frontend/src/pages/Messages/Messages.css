@@ -165,3 +165,8 @@
   .messages-inner--thread .messages-main { display: flex; }
   .messages-back { display: flex; }
 }
+
+/* The bottom tab bar appears at 680px — give it back its strip of the viewport */
+@media (max-width: 680px) {
+  .messages-page { height: calc(100vh - 112px - var(--mobile-nav-total)); }
+}
