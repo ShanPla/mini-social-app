@@ -9,8 +9,10 @@ mini-social/
 ├── frontend/          ← React + Vite + TypeScript app
 └── backend/
     └── database/
-        ├── schema.sql      ← Table definitions + trigger
-        └── policies.sql    ← Row Level Security rules
+        ├── schema.sql              ← Table definitions + trigger
+        ├── policies.sql            ← Row Level Security rules
+        ├── chat.sql                ← Conversations, messages, chat RLS + realtime
+        └── chat_notifications.sql  ← Chat messages in the notification bell
 ```
 
 ## Frontend Structure
@@ -20,13 +22,21 @@ frontend/
 ├── src/
 │   ├── lib/
 │   │   ├── supabaseClient.ts
-│   │   ├── usePageTitle.ts
-│   │   └── timeAgo.ts
+│   │   ├── chat.ts             ← Conversation helpers and chat constants
+│   │   ├── timeAgo.ts          ← Relative time + UTC-safe timestamp parsing
+│   │   ├── useCooldown.ts      ← Client-side submission rate limiting
+│   │   └── usePageTitle.ts
+│   ├── context/
+│   │   ├── ChatContext.ts      ← Conversation list, popups, chat actions
+│   │   ├── ChatProvider.tsx
+│   │   ├── PresenceContext.ts  ← Who is online right now
+│   │   └── PresenceProvider.tsx
 │   ├── styles/
 │   │   ├── global.css
 │   │   └── animations.css
 │   ├── components/
 │   │   ├── Navbar/
+│   │   ├── MobileNav/              ← Bottom tab bar for phones
 │   │   ├── SearchBar/
 │   │   ├── NotificationBell/
 │   │   ├── PostCard/
@@ -35,7 +45,23 @@ frontend/
 │   │   ├── Lightbox/
 │   │   ├── EditPostModal/
 │   │   ├── ConfirmModal/
-│   │   └── EmptyState/
+│   │   ├── FollowersModal/
+│   │   ├── EmptyState/
+│   │   ├── ChatDock/               ← Floating chat popups
+│   │   ├── ChatPopup/
+│   │   ├── ChatThread/
+│   │   ├── MessageBubble/
+│   │   ├── ConversationList/
+│   │   ├── ConversationInfoModal/
+│   │   ├── NewChatModal/
+│   │   ├── UserPicker/
+│   │   ├── SidebarWidget/          ← Shared shell for feed sidebar cards
+│   │   ├── ProfileCard/
+│   │   ├── QuickLinks/
+│   │   ├── WhoToFollow/
+│   │   ├── RecentChats/
+│   │   ├── ActiveThisWeek/
+│   │   └── OnlineNow/
 │   └── pages/
 │       ├── Login/
 │       ├── Register/
@@ -43,7 +69,8 @@ frontend/
 │       ├── Profile/
 │       ├── Post/
 │       ├── Search/
-│       └── Notifications/
+│       ├── Notifications/
+│       └── Messages/
 ```
 
 ## Features
@@ -62,6 +89,7 @@ frontend/
 - Visibility settings: Public, Followers only, Private (enforced via RLS)
 - Text truncation with "see more / see less"
 - Real-time feed — banner appears when new posts are available
+- Cooldown between submissions to stop accidental double posts
 
 **Interactions**
 - Like / unlike posts with animated heart
@@ -70,20 +98,33 @@ frontend/
 - Like individual comments
 - Delete own comments or replies (admin can delete any)
 - Follow / unfollow users
+- Followers / following modal listing both sides of a profile
 
 **Feed**
+- Three-column layout: quick navigation, posts, discovery widgets
 - All Posts tab and Following tab
 - Sorted by newest first
 - Skeleton loaders while fetching
 - Staggered post entrance animations
+- Left column: mini profile card (avatar, online dot, bio, post/follower/following counts) and quick links
+- Right column: Online now, Who to follow, Recent chats, Active this week
+- Columns collapse progressively — left drops at 1000px, both hide at 680px
 
-**Profile**
-- View any user's profile and post history
-- Edit username and bio
-- Upload profile picture via file upload or URL
-- Clickable avatar opens fullscreen lightbox
-- Follower / following counts
-- Follow/unfollow directly from profile
+**Messaging**
+- Direct messages and group conversations
+- Dedicated /messages page (list + thread) and floating popups on desktop, up to 3 at once
+- Minimize a chat to a bubble, or close it
+- Typing indicator over a private Supabase broadcast channel
+- Seen receipts driven by each member's last_read_at
+- Send images, stored in a private bucket and served through short-lived signed URLs
+- Unsend your own messages, which also removes the uploaded file
+- Create groups, name them, add members, leave a group
+- Unread badge on the quick links and the mobile tab bar
+- Cooldown between sends
+
+**Presence**
+- Supabase Presence channel tracks who is online
+- Green dot on avatars across the feed sidebar and chat
 
 **Search**
 - Persistent search bar below navbar on all pages
@@ -92,7 +133,9 @@ frontend/
 
 **Notifications**
 - Bell icon in navbar with unread badge
-- Notified when someone likes your post, comments, or follows you
+- Notified when someone likes your post, comments, follows you, or sends you a chat message
+- Chat notifications collapse to one unread entry per conversation, so a burst of messages never floods the bell
+- Reading a conversation clears its bell entry; leaving a group deletes it
 - Dropdown preview of latest 5, links to full notifications page
 - Real-time updates via Supabase subscriptions
 
@@ -116,22 +159,23 @@ frontend/
 - Navbar slide-down entrance
 - Dropdown scale-in animations
 - Empty state illustrations
-- Mobile responsive layout
+- Mobile responsive layout with a bottom tab bar below 680px (Feed, Messages, Profile)
+- Native lazy loading on every image; chat threads page their history
 - Dark auth pages (Login + Register) with dot grid and decorative typography
 - Page titles on every route
-- Relative timestamps ("2h ago", "3d ago")
+- Relative timestamps ("2h ago", "3d ago"), parsed as UTC to match Postgres
 - Accessibility: respects prefers-reduced-motion
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18, TypeScript, Vite |
+| Frontend | React 19, TypeScript, Vite 8 |
 | Styling | Plain CSS with CSS custom properties |
 | Backend | Supabase (PostgreSQL, Auth, Storage, Realtime) |
-| Routing | React Router v6 |
+| Routing | React Router v7 |
 | Icons | Lucide React |
-| Deployment | Vercel |
+| Deployment | Vercel (root directory set to frontend) |
 
 ## Database Tables
 
@@ -144,14 +188,18 @@ frontend/
 | comments | Comments with parent_id for nested replies |
 | comment_likes | Likes on individual comments |
 | follows | Follow relationships between users |
-| notifications | Like, comment, follow events |
+| notifications | Like, comment, follow and chat message events |
+| conversations | A DM or a named group |
+| conversation_members | Membership plus last_read_at, which powers unread counts and Seen |
+| messages | Text and/or image, immutable, deletable by the sender |
 
 ## Storage Buckets
 
-| Bucket | Purpose |
-|---|---|
-| avatars | Profile pictures |
-| post-images | Images attached to posts |
+| Bucket | Visibility | Purpose |
+|---|---|---|
+| avatars | Public | Profile pictures |
+| post-images | Public | Images attached to posts |
+| chat-images | Private | Chat attachments, read through signed URLs by members only |
 
 ## Setup
 
@@ -160,8 +208,11 @@ The SQL files in backend/database/ have already been run.
 If setting up fresh, run in order in the Supabase SQL Editor:
 1. schema.sql
 2. policies.sql
+3. chat.sql
+4. chat_notifications.sql
 
-Also create two public storage buckets: avatars and post-images.
+Create two public storage buckets: avatars and post-images.
+The private chat-images bucket is created by chat.sql, so leave it alone.
 
 ### 2. Frontend
 
