@@ -31,6 +31,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const [editing, setEditing] = useState(false);
   const [editBio, setEditBio] = useState('');
   const [editUsername, setEditUsername] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   const [showAvatarLightbox, setShowAvatarLightbox] = useState(false);
   const [followModal, setFollowModal] = useState<'followers' | 'following' | null>(null);
@@ -106,11 +107,9 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
       setFollowersCount((c) => c - 1);
     } else {
       await supabase.from('follows').insert({ follower_id: currentUserId, following_id: userId });
+      /* The bell notification is raised server-side by trg_notify_follow */
       setIsFollowing(true);
       setFollowersCount((c) => c + 1);
-      await supabase.from('notifications').insert({
-        user_id: userId, actor_id: currentUserId, type: 'follow', post_id: null,
-      });
     }
     setFollowLoading(false);
   };
@@ -161,11 +160,20 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
 
   const handleSaveProfile = async () => {
     if (!currentUserId) return;
+    const username = editUsername.trim().toLowerCase();
+    /* Same rule as Register and the DB CHECK: 3-30 chars, a-z 0-9 _ */
+    if (!/^[a-z0-9_]{3,30}$/.test(username)) {
+      setSaveError('Username must be 3 to 30 characters: letters, numbers and underscores only.');
+      return;
+    }
+    setSaveError('');
     setSaveLoading(true);
     const { error } = await supabase.from('profiles')
-      .update({ bio: editBio, username: editUsername }).eq('id', currentUserId);
-    if (!error) {
-      setProfile((p) => p ? { ...p, bio: editBio, username: editUsername } : p);
+      .update({ bio: editBio, username }).eq('id', currentUserId);
+    if (error) {
+      setSaveError(error.code === '23505' ? 'That username is already taken.' : 'Could not save your profile. Please try again.');
+    } else {
+      setProfile((p) => p ? { ...p, bio: editBio, username } : p);
       setEditing(false);
     }
     setSaveLoading(false);
@@ -293,14 +301,21 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
           <div className="profile-info">
             {editing ? (
               <div className="profile-edit-form">
-                <input value={editUsername} onChange={(e) => setEditUsername(e.target.value)} placeholder="Username" className="edit-input" />
+                <input
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  placeholder="Username"
+                  maxLength={30}
+                  className="edit-input"
+                />
                 <textarea value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder="Write a short bio…" maxLength={200} className="edit-bio" rows={3} />
                 <div className="edit-actions">
                   <button className="btn-primary" onClick={handleSaveProfile} disabled={saveLoading}>
                     {saveLoading ? 'Saving…' : 'Save'}
                   </button>
-                  <button className="btn-ghost" onClick={() => setEditing(false)}>Cancel</button>
+                  <button className="btn-ghost" onClick={() => { setEditing(false); setSaveError(''); }}>Cancel</button>
                 </div>
+                {saveError && <p className="edit-error">{saveError}</p>}
               </div>
             ) : (
               <>

@@ -113,16 +113,8 @@ export default function ChatProvider({ userId, children }: Props) {
       unread_count: 0,
       members: c.members.map((m) => m.user_id === userId ? { ...m, last_read_at: now } : m),
     }));
+    /* Also clears the conversation's bell entry (see mark_conversation_read in schema.sql) */
     await supabase.rpc('mark_conversation_read', { conv_id: conversationId });
-
-    /* Reading the thread also clears its bell entry (see chat_notifications.sql) */
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('user_id', userId)
-      .eq('conversation_id', conversationId)
-      .eq('type', 'message')
-      .eq('is_read', false);
   }, [userId, commit]);
 
   const startDm = useCallback(async (otherUserId: string) => {

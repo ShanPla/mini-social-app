@@ -78,17 +78,8 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
         .insert({ post_id: currentPost.id, user_id: currentUserId })
         .select().single();
 
-      if (!error && data) {
-        setLikes([...likes, data]);
-        if (currentPost.user_id !== currentUserId) {
-          await supabase.from('notifications').insert({
-            user_id: currentPost.user_id,
-            actor_id: currentUserId,
-            type: 'like',
-            post_id: currentPost.id,
-          });
-        }
-      }
+      /* The bell notification is raised server-side by trg_notify_like */
+      if (!error && data) setLikes([...likes, data]);
     }
     setTimeout(() => setLikeAnim(null), 400);
     setLoading(false);
@@ -210,7 +201,6 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
         {showComments && (
           <CommentSection
             postId={currentPost.id}
-            postAuthorId={currentPost.user_id}
             currentUserId={currentUserId}
             isAdmin={isAdmin}
           />

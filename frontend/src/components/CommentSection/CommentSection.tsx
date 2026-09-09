@@ -25,12 +25,11 @@ type CommentData = {
 
 type Props = {
   postId: string;
-  postAuthorId: string;
   currentUserId: string | null;
   isAdmin?: boolean;
 };
 
-export default function CommentSection({ postId, postAuthorId, currentUserId, isAdmin = false }: Props) {
+export default function CommentSection({ postId, currentUserId, isAdmin = false }: Props) {
   const [comments, setComments] = useState<CommentData[]>([]);
   const [loading, setLoading] = useState(false);
   const [isOnCooldown, triggerCooldown] = useCooldown(3000);
@@ -79,15 +78,7 @@ export default function CommentSection({ postId, postAuthorId, currentUserId, is
       .single();
 
     if (!error && data) {
-      /* Fire notification only for top-level comments on others' posts */
-      if (!parentId && postAuthorId !== currentUserId) {
-        await supabase.from('notifications').insert({
-          user_id: postAuthorId,
-          actor_id: currentUserId,
-          type: 'comment',
-          post_id: postId,
-        });
-      }
+      /* The post owner's bell notification is raised server-side by trg_notify_comment */
       clearFn();
       fetchComments();
       triggerCooldown();

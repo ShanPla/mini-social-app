@@ -226,6 +226,7 @@
 .edit-bio { resize: vertical; }
 
 .edit-actions { display: flex; gap: 10px; }
+.edit-error { color: var(--accent); font-size: 0.82rem; margin-top: 8px; }
 
 /* Posts section */
 .profile-posts-title {

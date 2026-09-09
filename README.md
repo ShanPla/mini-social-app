@@ -9,10 +9,7 @@ mini-social/
 ├── frontend/          ← React + Vite + TypeScript app
 └── backend/
     └── database/
-        ├── schema.sql              ← Table definitions + trigger
-        ├── policies.sql            ← Row Level Security rules
-        ├── chat.sql                ← Conversations, messages, chat RLS + realtime
-        └── chat_notifications.sql  ← Chat messages in the notification bell
+        └── schema.sql   ← The whole database: tables, triggers, RPCs, RLS, storage, realtime
 ```
 
 ## Frontend Structure
@@ -150,6 +147,14 @@ frontend/
 - Admin can delete any post or comment
 - Enforced server-side via Supabase RLS policies
 
+**Security**
+- Row Level Security on every table; the app is login-only, so the anon key has no table access
+- Private and followers-only posts hide their images, likes and comments too, not just the post row
+- Column-level grants: clients cannot touch ids, timestamps, ownership or is_admin
+- Notifications are written only by database triggers, so they cannot be forged or spammed
+- Server-side rate limits on posts, comments and messages, on top of the client cooldowns
+- Uploads are limited to images, 5 MB, and the uploader's own folder
+
 **UI/UX**
 - Warm editorial design system — Playfair Display + DM Sans
 - Lucide React icons throughout
@@ -204,15 +209,11 @@ frontend/
 ## Setup
 
 ### 1. Supabase (Backend)
-The SQL files in backend/database/ have already been run.
-If setting up fresh, run in order in the Supabase SQL Editor:
-1. schema.sql
-2. policies.sql
-3. chat.sql
-4. chat_notifications.sql
+Run backend/database/schema.sql in the Supabase SQL Editor. One file, the whole backend.
 
-Create two public storage buckets: avatars and post-images.
-The private chat-images bucket is created by chat.sql, so leave it alone.
+It is idempotent: a fresh install and an upgrade are the same action. After any
+schema change, edit the file and run it again. It also creates and configures all
+three storage buckets, so there is nothing to click in the dashboard.
 
 ### 2. Frontend
 

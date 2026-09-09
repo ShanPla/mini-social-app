@@ -10,6 +10,7 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'taken' | 'available'>('idle');
   const [loading, setLoading] = useState(false);
 
@@ -21,8 +22,9 @@ export default function Register() {
     setError('');
     if (cleaned.length < 3) { setUsernameStatus('idle'); return; }
     setUsernameStatus('checking');
-    const { data } = await supabase.from('profiles').select('id').eq('username', cleaned).maybeSingle();
-    setUsernameStatus(data ? 'taken' : 'available');
+    /* Logged-out users have no table access; this RPC is the one open door */
+    const { data } = await supabase.rpc('username_available', { name: cleaned });
+    setUsernameStatus(data === true ? 'available' : 'taken');
   };
 
   const getFriendlyError = (message: string): string => {
@@ -48,10 +50,20 @@ export default function Register() {
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
 
     setLoading(true);
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+    /* The username travels in the auth metadata; handle_new_user() in
+       schema.sql reads it when it creates the profile row, so it works
+       even when the account is not confirmed yet. */
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { username } },
+    });
     if (signUpError) { setError(getFriendlyError(signUpError.message)); setLoading(false); return; }
-    if (data.user) {
-      await supabase.from('profiles').update({ username }).eq('id', data.user.id);
+    if (!data.session) {
+      /* Email confirmation is on: there is no session until the link is clicked */
+      setNotice('Almost there. Check your inbox for a confirmation link, then sign in.');
+      setLoading(false);
+      return;
     }
     navigate('/feed');
     setLoading(false);
@@ -111,6 +123,7 @@ export default function Register() {
           </div>
 
           {error && <p className="error-msg">{error}</p>}
+          {notice && <p className="notice-msg">{notice}</p>}
 
           <button
             type="submit"

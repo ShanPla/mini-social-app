@@ -144,6 +144,17 @@ input, textarea {
   margin-top: 4px;
 }
 
+/* Non-error feedback, e.g. [check your inbox] after signup */
+.notice-msg {
+  color: var(--ink-light);
+  background: var(--cream);
+  border-left: 3px solid var(--gold);
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
 .divider {
   border: none;
   border-top: 1px solid var(--border);

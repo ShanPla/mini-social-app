@@ -62,12 +62,8 @@ export default function WhoToFollow({ userId }: Props) {
       setFollowed((prev) => { const n = new Set(prev); n.delete(target.id); return n; });
     } else {
       const { error } = await supabase.from('follows').insert({ follower_id: userId, following_id: target.id });
-      if (!error) {
-        setFollowed((prev) => new Set(prev).add(target.id));
-        await supabase.from('notifications').insert({
-          user_id: target.id, actor_id: userId, type: 'follow', post_id: null,
-        });
-      }
+      /* The bell notification is raised server-side by trg_notify_follow */
+      if (!error) setFollowed((prev) => new Set(prev).add(target.id));
     }
     setBusy(null);
   };
