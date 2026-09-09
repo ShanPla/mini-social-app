@@ -4,6 +4,7 @@ import { Search, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
 import { escapeLike } from '../../lib/search';
+import { displayName } from '../../lib/names';
 import './SearchBar.css';
 
 export default function SearchBar() {
@@ -40,7 +41,7 @@ export default function SearchBar() {
     debounceRef.current = setTimeout(async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('id, username, bio, avatar_url')
+        .select('id, username, display_name, bio, avatar_url')
         .ilike('username', `%${escapeLike(q)}%`)
         .limit(6);
       if (cancelled) return;
@@ -116,7 +117,8 @@ export default function SearchBar() {
                       }
                     </div>
                     <div className="dropdown-info">
-                      <span className="dropdown-username">@{user.username}</span>
+                      <span className="dropdown-username">{displayName(user)}</span>
+                      {user.display_name && <span className="dropdown-handle">@{user.username}</span>}
                       {user.bio && <span className="dropdown-bio">{user.bio}</span>}
                     </div>
                   </Link>

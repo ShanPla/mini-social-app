@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
 import Navbar from './components/Navbar/Navbar';
@@ -18,6 +18,8 @@ import PresenceProvider from './context/PresenceProvider';
 import ChatDock from './components/ChatDock/ChatDock';
 import MobileNav from './components/MobileNav/MobileNav';
 import ToastProvider from './context/ToastProvider';
+import { useToast } from './context/ToastContext';
+import { consumeIntentionalSignOut } from './lib/session';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import './styles/global.css';
 import './styles/animations.css';
@@ -28,6 +30,20 @@ const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password
    broadcast to every open tab through a BroadcastChannel, so without this every
    tab the user had open would be steered to the reset form. */
 const landedOnRecoveryLink = /(^#|&)type=recovery(&|$)/.test(window.location.hash);
+
+// Says so when the session ends without the user clicking Logout (a refresh
+// token that stopped working). Lives under ToastProvider so it can toast.
+function SessionWatch({ userId }: { userId: string | null }) {
+  const toast = useToast();
+  const prev = useRef(userId);
+  useEffect(() => {
+    if (prev.current && !userId && !consumeIntentionalSignOut()) {
+      toast.error('Your session has expired. Please sign in again.');
+    }
+    prev.current = userId;
+  }, [userId, toast]);
+  return null;
+}
 
 // New pages open at the top. Back/forward (POP) is left to the browser so
 // it can restore where the reader was.
@@ -80,6 +96,7 @@ function AppInner({ userId, isAdmin, recovery, onRecoverySteered }: AppInnerProp
 
   return (
     <ToastProvider>
+    <SessionWatch userId={userId} />
     <ChatProvider key={userId ?? 'signed-out'} userId={userId}>
     <PresenceProvider key={`presence:${userId ?? 'signed-out'}`} userId={userId}>
       <ScrollToTop />

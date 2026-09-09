@@ -7,6 +7,7 @@ import { useCooldown } from '../../lib/useCooldown';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
+import { displayName } from '../../lib/names';
 import './CommentSection.css';
 
 type CommentData = {
@@ -46,7 +47,7 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
     (async () => {
       const { data } = await supabase
         .from('comments')
-        .select('*, profiles(id, username, avatar_url), comment_likes(id, user_id)')
+        .select('*, profiles(id, username, display_name, avatar_url), comment_likes(id, user_id)')
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
       if (cancelled || !data) return;
@@ -86,7 +87,7 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
         content: content.trim(),
         parent_id: parentId,
       })
-      .select('*, profiles(id, username, avatar_url), comment_likes(id, user_id)')
+      .select('*, profiles(id, username, display_name, avatar_url), comment_likes(id, user_id)')
       .single();
 
     if (!error && data) {
@@ -216,7 +217,7 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
           {/* Content bubble */}
           <div className="comment-body">
             <Link to={`/profile/${comment.user_id}`} className="comment-author">
-              {comment.profiles?.username || 'Unknown'}
+              {comment.profiles ? displayName(comment.profiles) : 'Unknown'}
             </Link>
             <span className="comment-content">{comment.content}</span>
           </div>

@@ -13,6 +13,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export type Profile = {
   id: string;
   username: string;
+  display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
   is_admin: boolean;
@@ -55,6 +56,7 @@ export type Comment = {
 export type ChatMember = {
   user_id: string;
   username: string;
+  display_name?: string | null;
   avatar_url: string | null;
   last_read_at: string;
 };
@@ -62,7 +64,8 @@ export type ChatMember = {
 export type ChatMessage = {
   id: string;
   conversation_id: string;
-  sender_id: string;
+  /* null once the sender deleted their account; the message stays */
+  sender_id: string | null;
   content: string | null;
   image_url: string | null;
   created_at: string;

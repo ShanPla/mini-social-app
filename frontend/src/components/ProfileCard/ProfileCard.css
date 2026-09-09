@@ -31,6 +31,8 @@
   white-space: nowrap;
 }
 
+.profile-card-handle { font-size: 0.75rem; color: var(--ink-muted); margin-top: -2px; }
+
 .profile-card-bio {
   font-size: 0.78rem;
   color: var(--ink-muted);

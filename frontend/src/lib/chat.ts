@@ -1,18 +1,18 @@
 import type { ChatMember, Conversation } from './supabaseClient';
 import { parseDbDate } from './timeAgo';
+import { displayName } from './names';
 
 /* Members of a conversation other than the current user */
 export function otherMembers(conv: Conversation, meId: string | null): ChatMember[] {
   return (conv.members || []).filter((m) => m.user_id !== meId);
 }
 
-/* Display title: group name, or the other people's usernames */
+/* Display title: group name, or the other people's names */
 export function conversationTitle(conv: Conversation, meId: string | null): string {
   if (conv.is_group && conv.name) return conv.name;
   const others = otherMembers(conv, meId);
   if (others.length === 0) return conv.is_group ? 'Just you' : 'Deleted user';
-  if (!conv.is_group) return `@${others[0].username}`;
-  return others.map((m) => m.username).join(', ');
+  return others.map((m) => displayName(m)).join(', ');
 }
 
 /* Avatar for a conversation: the other person's avatar in a DM, null for groups */
@@ -25,9 +25,11 @@ export function conversationAvatar(conv: Conversation, meId: string | null): Cha
 export function lastMessagePreview(conv: Conversation, meId: string | null): string {
   const lm = conv.last_message;
   if (!lm) return conv.is_group ? 'Group created' : 'Say hello';
+  const member = lm.sender_id ? (conv.members || []).find((m) => m.user_id === lm.sender_id) : undefined;
   const sender = lm.sender_id === meId
     ? 'You'
-    : (conv.members || []).find((m) => m.user_id === lm.sender_id)?.username || 'Someone';
+    : lm.sender_id === null ? 'Deleted user'
+    : member ? displayName(member) : 'Someone';
   const body = lm.content?.trim()
     ? lm.content.trim()
     : lm.image_url ? 'Sent a photo' : '';
@@ -77,7 +79,7 @@ export function isDifferentDay(a: string, b: string): boolean {
 }
 
 /* Members (other than the sender) who have read a message sent at `createdAt` */
-export function seenBy(conv: Conversation, senderId: string, createdAt: string): ChatMember[] {
+export function seenBy(conv: Conversation, senderId: string | null, createdAt: string): ChatMember[] {
   const t = parseDbDate(createdAt).getTime();
   return (conv.members || []).filter(
     (m) => m.user_id !== senderId && parseDbDate(m.last_read_at).getTime() >= t

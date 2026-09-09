@@ -37,7 +37,7 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
     (async () => {
       let query = supabase
         .from('posts')
-        .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id), post_images(id, image_url, position)')
+        .select('*, profiles(id, username, display_name, avatar_url), likes(id, user_id), comments(id), post_images(id, image_url, position)')
         .order('created_at', { ascending: false });
 
       if (feedType === 'following' && userId) {

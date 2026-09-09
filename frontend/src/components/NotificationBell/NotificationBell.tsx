@@ -4,6 +4,7 @@ import { Bell, Heart, MessageCircle, MessageSquare, UserPlus } from 'lucide-reac
 import { supabase } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import { shortTime } from '../../lib/chat';
+import { displayName } from '../../lib/names';
 import './NotificationBell.css';
 
 type Notification = {
@@ -16,6 +17,7 @@ type Notification = {
   actor: {
     id: string;
     username: string;
+    display_name: string | null;
     avatar_url: string | null;
   };
   conversation: {
@@ -31,7 +33,7 @@ type Props = {
 
 const SELECT =
   'id, type, is_read, created_at, post_id, conversation_id, ' +
-  'actor:actor_id(id, username, avatar_url), ' +
+  'actor:actor_id(id, username, display_name, avatar_url), ' +
   'conversation:conversation_id(id, is_group, name)';
 
 export default function NotificationBell({ currentUserId }: Props) {
@@ -176,7 +178,7 @@ export default function NotificationBell({ currentUserId }: Props) {
                     }
                   </div>
                   <div className="bell-item-body">
-                    <p><strong>@{n.actor.username}</strong> {getMessage(n)}</p>
+                    <p><strong>{displayName(n.actor)}</strong> {getMessage(n)}</p>
                     <span className="bell-item-time">{shortTime(n.created_at)}</span>
                   </div>
                 </div>

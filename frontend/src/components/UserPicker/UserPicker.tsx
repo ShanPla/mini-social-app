@@ -3,9 +3,10 @@ import { Search, X, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
 import { escapeLike } from '../../lib/search';
+import { displayName } from '../../lib/names';
 import './UserPicker.css';
 
-type PickedUser = Pick<Profile, 'id' | 'username' | 'avatar_url'>;
+type PickedUser = Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
 
 type Props = {
   /* Users that cannot be picked (yourself, existing members) */
@@ -45,7 +46,7 @@ export default function UserPicker({ excludeIds, selected, onChange, placeholder
       setLoading(true);
       const { data } = await supabase
         .from('profiles')
-        .select('id, username, avatar_url')
+        .select('id, username, display_name, avatar_url')
         .ilike('username', `%${escapeLike(q)}%`)
         .limit(8);
       setResults(((data as PickedUser[]) || []).filter((u) => !excludeIds.includes(u.id)));
@@ -71,7 +72,7 @@ export default function UserPicker({ excludeIds, selected, onChange, placeholder
         <div className="picker-chips">
           {selected.map((u) => (
             <span key={u.id} className="picker-chip">
-              @{u.username}
+              {displayName(u)}
               <button type="button" onClick={() => toggle(u)} title="Remove"><X size={11} /></button>
             </span>
           ))}
@@ -111,7 +112,7 @@ export default function UserPicker({ excludeIds, selected, onChange, placeholder
                   : <span>{(u.username[0] || '?').toUpperCase()}</span>
                 }
               </div>
-              <span className="picker-username">@{u.username}</span>
+              <span className="picker-username">{displayName(u)}</span>
               <span className="picker-check">{on && <Check size={14} />}</span>
             </button>
           );

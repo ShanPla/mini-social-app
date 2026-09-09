@@ -10,6 +10,7 @@ import ComposePost from '../../components/ComposePost/ComposePost';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import FollowersModal from '../../components/FollowersModal/FollowersModal';
 import { usePageTitle } from '../../lib/usePageTitle';
+import { displayName } from '../../lib/names';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import './Profile.css';
@@ -35,6 +36,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const [editing, setEditing] = useState(false);
   const [editBio, setEditBio] = useState('');
   const [editUsername, setEditUsername] = useState('');
+  const [editDisplayName, setEditDisplayName] = useState('');
   const [saveError, setSaveError] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   const [showAvatarLightbox, setShowAvatarLightbox] = useState(false);
@@ -66,6 +68,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
         setProfile(data);
         setEditBio(data.bio || '');
         setEditUsername(data.username);
+        setEditDisplayName(data.display_name || '');
       }
       setLoading(false);
     })();
@@ -73,7 +76,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     (async () => {
       const { data } = await supabase
         .from('posts')
-        .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id), post_images(id, image_url, position)')
+        .select('*, profiles(id, username, display_name, avatar_url), likes(id, user_id), comments(id), post_images(id, image_url, position)')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (cancelled) return;
@@ -196,12 +199,13 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     }
     setSaveError('');
     setSaveLoading(true);
+    const display_name = editDisplayName.trim() || null;
     const { error } = await supabase.from('profiles')
-      .update({ bio: editBio, username }).eq('id', currentUserId);
+      .update({ bio: editBio, username, display_name }).eq('id', currentUserId);
     if (error) {
       setSaveError(error.code === '23505' ? 'That username is already taken.' : 'Could not save your profile. Please try again.');
     } else {
-      setProfile((p) => p ? { ...p, bio: editBio, username } : p);
+      setProfile((p) => p ? { ...p, bio: editBio, username, display_name } : p);
       setEditing(false);
       toast.success('Profile saved');
     }
@@ -332,6 +336,13 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
             {editing ? (
               <div className="profile-edit-form">
                 <input
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                  placeholder="Display name (optional)"
+                  maxLength={40}
+                  className="edit-input"
+                />
+                <input
                   value={editUsername}
                   onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                   placeholder="Username"
@@ -350,7 +361,8 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
               </div>
             ) : (
               <>
-                <h1 className="profile-username">@{profile.username}</h1>
+                <h1 className="profile-username">{displayName(profile)}</h1>
+                {profile.display_name && <p className="profile-handle">@{profile.username}</p>}
                 <p className="profile-bio">{profile.bio || <em>No bio yet.</em>}</p>
               </>
             )}

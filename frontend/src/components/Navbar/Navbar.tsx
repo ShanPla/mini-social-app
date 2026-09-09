@@ -1,6 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
+import { markIntentionalSignOut } from '../../lib/session';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import './Navbar.css';
 
@@ -14,6 +15,8 @@ export default function Navbar({ userId }: NavbarProps) {
   const { unreadConversations } = useChat();
 
   const handleLogout = async () => {
+    /* So the session watcher does not announce an expired session for this */
+    markIntentionalSignOut();
     await supabase.auth.signOut();
     navigate('/login');
   };

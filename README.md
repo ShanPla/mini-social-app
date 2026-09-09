@@ -24,6 +24,9 @@ frontend/
 │   │   ├── errors.ts           ← Supabase error to one readable line
 │   │   ├── authErrors.ts       ← Auth error text to one readable line
 │   │   ├── search.ts           ← Escapes % and _ for ilike patterns
+│   │   ├── names.ts            ← displayName(): display name, else handle
+│   │   ├── session.ts          ← Tells apart Logout from an expired session
+│   │   ├── useScrollLock.ts    ← Counted body scroll lock shared by modals
 │   │   ├── useCooldown.ts      ← Client-side submission rate limiting
 │   │   └── usePageTitle.ts
 │   ├── context/
@@ -111,6 +114,14 @@ frontend/
 - Follow / unfollow users
 - Followers / following modal listing both sides of a profile
 
+**Profile**
+- View any user's profile and post history
+- Edit handle, bio and an optional display name (capitals and spaces allowed), shown everywhere with the lowercase handle beneath it
+- Upload profile picture via file upload or URL
+- Clickable avatar opens fullscreen lightbox
+- Follower / following counts, follow and message buttons
+- Publish straight from your own profile
+
 **Feed**
 - Three-column layout: quick navigation, posts, discovery widgets
 - All Posts tab and Following tab
@@ -129,6 +140,7 @@ frontend/
 - Seen receipts driven by each member's last_read_at
 - Send images, stored in a private bucket and served through short-lived signed URLs
 - Unsend your own messages, which also removes the uploaded file
+- Messages outlive their author: a deleted account shows as [Deleted user], the thread stays intact
 - Create groups, name them, add members, leave a group
 - Unread badge on the quick links and the mobile tab bar
 - Cooldown between sends
@@ -173,6 +185,7 @@ frontend/
 - Toast confirmations on saves: profile, photo, post published, updated, deleted
 - Every failed write says so, with the server's own message for rate limits
 - Error boundary per route: a render crash shows a recovery card, not a blank page
+- An expired session says so instead of silently dropping you on the sign-in page
 - Partial image uploads report how many failed instead of silently dropping them
 - Comment counter on a card tracks the thread as you post and delete
 - A post opened from a notification shows its comments straight away
@@ -210,7 +223,7 @@ frontend/
 
 | Table | Purpose |
 |---|---|
-| profiles | Extended user info (username, bio, avatar, is_admin) |
+| profiles | Extended user info (username, display_name, bio, avatar, is_admin) |
 | posts | Posts with text, image_url, and visibility setting |
 | post_images | Multiple images per post (up to 10) |
 | likes | Many-to-many: users and posts |
@@ -220,7 +233,7 @@ frontend/
 | notifications | Like, comment, follow and chat message events |
 | conversations | A DM or a named group |
 | conversation_members | Membership plus last_read_at, which powers unread counts and Seen |
-| messages | Text and/or image, immutable, deletable by the sender |
+| messages | Text and/or image, immutable, deletable by the sender; kept when the sender's account is deleted |
 
 ## Storage Buckets
 

@@ -61,7 +61,7 @@ export default function ComposePost({
     const { data: postData, error: postError } = await supabase
       .from('posts')
       .insert({ user_id: userId, content: content.trim(), visibility })
-      .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id)')
+      .select('*, profiles(id, username, display_name, avatar_url), likes(id, user_id), comments(id)')
       .single();
 
     if (postError || !postData) {

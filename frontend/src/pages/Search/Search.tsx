@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { escapeLike } from '../../lib/search';
+import { displayName } from '../../lib/names';
 import './Search.css';
 import EmptyState from '../../components/EmptyState/EmptyState';
 
@@ -70,7 +71,8 @@ export default function SearchPage() {
                   }
                 </div>
                 <div className="result-info">
-                  <span className="result-username">@{user.username}</span>
+                  <span className="result-username">{displayName(user)}</span>
+                  {user.display_name && <span className="result-handle">@{user.username}</span>}
                   {user.bio && <span className="result-bio">{user.bio}</span>}
                 </div>
                 <span className="result-arrow">→</span>

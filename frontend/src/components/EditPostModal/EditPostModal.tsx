@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useScrollLock } from '../../lib/useScrollLock';
 import { X, ImagePlus, Globe, Users, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
@@ -34,14 +35,14 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
+  useScrollLock();
+
   /* Escape closes and the page stops scrolling underneath, same as ConfirmModal */
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleKey);
-    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
     };
   }, [onClose]);
 

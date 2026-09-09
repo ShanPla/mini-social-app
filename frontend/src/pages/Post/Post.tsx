@@ -28,7 +28,7 @@ export default function PostPage({ currentUserId, isAdmin }: PostPageProps) {
       /* maybeSingle: a missing or hidden post is null, not an error */
       const { data } = await supabase
         .from('posts')
-        .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id, user_id, content, created_at, profiles(id, username)), post_images(id, image_url, position)')
+        .select('*, profiles(id, username, display_name, avatar_url), likes(id, user_id), comments(id, user_id, content, created_at, profiles(id, username, display_name)), post_images(id, image_url, position)')
         .eq('id', postId)
         .maybeSingle();
       if (cancelled) return;

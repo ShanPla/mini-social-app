@@ -4,11 +4,13 @@ import { Flame } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { usePresence } from '../../context/PresenceContext';
 import SidebarWidget, { WidgetAvatar, WidgetSkeleton, WidgetEmpty } from '../SidebarWidget/SidebarWidget';
+import { displayName } from '../../lib/names';
 import './ActiveThisWeek.css';
 
 type Poster = {
   id: string;
   username: string;
+  display_name?: string | null;
   avatar_url: string | null;
   posts: number;
 };
@@ -28,17 +30,17 @@ export default function ActiveThisWeek() {
       const since = new Date(Date.now() - WEEK_MS).toISOString();
       const { data } = await supabase
         .from('posts')
-        .select('user_id, profiles(id, username, avatar_url)')
+        .select('user_id, profiles(id, username, display_name, avatar_url)')
         .gte('created_at', since)
         .limit(500);
       if (cancelled) return;
 
       const tally = new Map<string, Poster>();
-      for (const row of (data || []) as unknown as { user_id: string; profiles: { id: string; username: string; avatar_url: string | null } | null }[]) {
+      for (const row of (data || []) as unknown as { user_id: string; profiles: { id: string; username: string; display_name: string | null; avatar_url: string | null } | null }[]) {
         if (!row.profiles) continue;
         const existing = tally.get(row.user_id);
         if (existing) existing.posts += 1;
-        else tally.set(row.user_id, { id: row.profiles.id, username: row.profiles.username, avatar_url: row.profiles.avatar_url, posts: 1 });
+        else tally.set(row.user_id, { id: row.profiles.id, username: row.profiles.username, display_name: row.profiles.display_name, avatar_url: row.profiles.avatar_url, posts: 1 });
       }
       setPosters([...tally.values()].sort((a, b) => b.posts - a.posts).slice(0, LIMIT));
       setLoading(false);
@@ -58,7 +60,7 @@ export default function ActiveThisWeek() {
             <span className="atw-rank">{i + 1}</span>
             <WidgetAvatar username={p.username} avatarUrl={p.avatar_url} size={30} online={isOnline(p.id)} />
             <span className="widget-row-info">
-              <span className="widget-row-name">@{p.username}</span>
+              <span className="widget-row-name">{displayName(p)}</span>
               <span className="widget-row-sub">{p.posts} post{p.posts === 1 ? '' : 's'}</span>
             </span>
           </Link>

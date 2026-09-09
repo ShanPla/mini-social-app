@@ -4,13 +4,14 @@ import { Radio } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { usePresence } from '../../context/PresenceContext';
 import SidebarWidget, { WidgetAvatar, WidgetEmpty } from '../SidebarWidget/SidebarWidget';
+import { displayName } from '../../lib/names';
 import './OnlineNow.css';
 
 type Props = {
   userId: string;
 };
 
-type Mini = { id: string; username: string; avatar_url: string | null };
+type Mini = { id: string; username: string; display_name?: string | null; avatar_url: string | null };
 
 const LIMIT = 8;
 
@@ -26,7 +27,7 @@ export default function OnlineNow({ userId }: Props) {
     const missing = others.filter((id) => !profiles[id]);
     if (missing.length === 0) return;
     let cancelled = false;
-    supabase.from('profiles').select('id, username, avatar_url').in('id', missing).then(({ data }) => {
+    supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', missing).then(({ data }) => {
       if (cancelled || !data) return;
       setProfiles((prev) => {
         const next = { ...prev };
@@ -50,7 +51,7 @@ export default function OnlineNow({ userId }: Props) {
           {visible.map((p) => (
             <Link key={p.id} to={`/profile/${p.id}`} className="online-item" title={`@${p.username}`}>
               <WidgetAvatar username={p.username} avatarUrl={p.avatar_url} size={36} online />
-              <span className="online-name">{p.username}</span>
+              <span className="online-name">{displayName(p)}</span>
             </Link>
           ))}
           {extra > 0 && <span className="online-more">+{extra}</span>}

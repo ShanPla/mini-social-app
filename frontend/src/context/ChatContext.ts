@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { ChatMessage, Conversation } from '../lib/supabaseClient';
 
-export type MeProfile = { id: string; username: string; avatar_url: string | null };
+export type MeProfile = { id: string; username: string; display_name?: string | null; avatar_url: string | null };
 
 /* Realtime message events fanned out to open threads */
 export type MessageEvent =

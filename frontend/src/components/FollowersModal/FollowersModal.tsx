@@ -4,6 +4,8 @@ import { X, UserCheck, Users } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
+import { displayName } from '../../lib/names';
+import { useScrollLock } from '../../lib/useScrollLock';
 import './FollowersModal.css';
 
 type Props = {
@@ -21,18 +23,15 @@ export default function FollowersModal({ userId, type, onClose }: Props) {
   const key = `${userId}:${type}`;
   const loading = loadedFor !== key;
 
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, []);
+  useScrollLock();
 
   useEffect(() => {
     /* Flipping followers/following mid-fetch must not show the wrong list */
     let cancelled = false;
     (async () => {
       const { data } = type === 'followers'
-        ? await supabase.from('follows').select('profiles!follows_follower_id_fkey(id, username, avatar_url, bio)').eq('following_id', userId)
-        : await supabase.from('follows').select('profiles!follows_following_id_fkey(id, username, avatar_url, bio)').eq('follower_id', userId);
+        ? await supabase.from('follows').select('profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, bio)').eq('following_id', userId)
+        : await supabase.from('follows').select('profiles!follows_following_id_fkey(id, username, display_name, avatar_url, bio)').eq('follower_id', userId);
       if (cancelled) return;
       const rows = (data as unknown as FollowRow[]) || [];
       setUsers(rows.map((r) => r.profiles).filter((p): p is Profile => !!p));
@@ -100,7 +99,8 @@ export default function FollowersModal({ userId, type, onClose }: Props) {
 
                 {/* Info */}
                 <div className="fw-user-info">
-                  <span className="fw-username">@{user.username}</span>
+                  <span className="fw-username">{displayName(user)}</span>
+                  {user.display_name && <span className="fw-handle">@{user.username}</span>}
                   {user.bio && <span className="fw-bio">{user.bio}</span>}
                 </div>
 

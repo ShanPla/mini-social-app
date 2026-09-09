@@ -4,6 +4,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabaseClient';
 import type { ChatMember, ChatMessage } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
+import { displayName } from '../../lib/names';
 import { useCooldown } from '../../lib/useCooldown';
 import { parseDbDate } from '../../lib/timeAgo';
 import {
@@ -28,6 +29,8 @@ type Props = {
 };
 
 type TypingMap = Record<string, { username: string; until: number }>;
+
+const DELETED_SENDER: ChatMember = { user_id: '', username: 'Deleted user', avatar_url: null, last_read_at: '' };
 type SenderMap = Record<string, ChatMember>;
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -123,13 +126,14 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     return onMessage(conversationId, (e) => {
       if (e.type === 'INSERT') {
         setMessages((prev) => (prev.some((m) => m.id === e.message.id) ? prev : [...prev, e.message]));
+        const senderId = e.message.sender_id;
         setTyping((prev) => {
-          if (!prev[e.message.sender_id]) return prev;
+          if (!senderId || !prev[senderId]) return prev;
           const next = { ...prev };
-          delete next[e.message.sender_id];
+          delete next[senderId];
           return next;
         });
-        if (e.message.sender_id !== userId && document.visibilityState === 'visible') {
+        if (senderId !== userId && document.visibilityState === 'visible') {
           markRead(conversationId);
         }
       } else {
@@ -165,19 +169,19 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
       ...(conv?.members || []).map((m) => m.user_id),
       ...Object.keys(extraSenders),
     ]);
-    const missing = Array.from(new Set(messages.map((m) => m.sender_id))).filter((id) => !known.has(id));
+    const missing = Array.from(new Set(messages.map((m) => m.sender_id).filter((id): id is string => !!id))).filter((id) => !known.has(id));
     if (missing.length === 0) return;
     let cancelled = false;
-    supabase.from('profiles').select('id, username, avatar_url').in('id', missing).then(({ data }) => {
+    supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', missing).then(({ data }) => {
       if (cancelled) return;
       setExtraSenders((prev) => {
         const next = { ...prev };
-        for (const p of (data || []) as { id: string; username: string; avatar_url: string | null }[]) {
+        for (const p of (data || []) as { id: string; username: string; display_name: string | null; avatar_url: string | null }[]) {
           next[p.id] = { user_id: p.id, username: p.username, avatar_url: p.avatar_url, last_read_at: '' };
         }
         /* deleted accounts: no profile row — show a placeholder */
         for (const id of missing) {
-          if (!next[id]) next[id] = { user_id: id, username: 'deleted user', avatar_url: null, last_read_at: '' };
+          if (!next[id]) next[id] = { user_id: id, username: 'Deleted user', avatar_url: null, last_read_at: '' };
         }
         return next;
       });
@@ -238,9 +242,9 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     channel.send({
       type: 'broadcast',
       event: 'typing',
-      payload: { user_id: userId, username: me?.username || 'Someone', typing: isTyping },
+      payload: { user_id: userId, username: me ? displayName(me) : 'Someone', typing: isTyping },
     });
-  }, [userId, me?.username]);
+  }, [userId, me]);
 
   /* ── Scrolling ── */
   useEffect(() => {
@@ -394,8 +398,9 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     if (image_url) supabase.storage.from('chat-images').remove([image_url]);
   };
 
-  const senderFor = (senderId: string): ChatMember | undefined =>
-    conv?.members.find((x) => x.user_id === senderId) || extraSenders[senderId];
+  /* null sender: the account was deleted but the message was kept */
+  const senderFor = (senderId: string | null): ChatMember | undefined =>
+    senderId ? (conv?.members.find((x) => x.user_id === senderId) || extraSenders[senderId]) : DELETED_SENDER;
 
   /* ── Derived render data ── */
   const lastOwnIndex = (() => {
@@ -410,7 +415,7 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     const readers = seenBy(conv, userId, msg.created_at);
     if (readers.length === 0) return null;
     if (!conv.is_group) return 'Seen';
-    const names = readers.map((r) => r.username);
+    const names = readers.map((r) => displayName(r));
     if (names.length === conv.members.length - 1) return 'Seen by everyone';
     return `Seen by ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` +${names.length - 3}` : ''}`;
   };

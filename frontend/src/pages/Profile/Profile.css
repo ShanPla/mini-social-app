@@ -191,6 +191,8 @@
   word-break: break-word;
 }
 
+.profile-handle { font-size: 0.9rem; color: var(--ink-muted); margin: -4px 0 6px; }
+
 .profile-bio {
   font-size: 0.92rem;
   color: var(--ink-light);

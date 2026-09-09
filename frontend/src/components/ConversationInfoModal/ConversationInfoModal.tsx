@@ -8,9 +8,11 @@ import { useChat } from '../../context/ChatContext';
 import { conversationTitle } from '../../lib/chat';
 import UserPicker from '../UserPicker/UserPicker';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
+import { displayName } from '../../lib/names';
+import { useScrollLock } from '../../lib/useScrollLock';
 import './ConversationInfoModal.css';
 
-type PickedUser = Pick<Profile, 'id' | 'username' | 'avatar_url'>;
+type PickedUser = Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
 
 type Props = {
   conversationId: string;
@@ -32,13 +34,13 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useScrollLock();
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleKey);
-    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
     };
   }, [onClose]);
 
@@ -131,7 +133,7 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
                     : <span>{(m.username[0] || '?').toUpperCase()}</span>
                   }
                 </div>
-                <span className="ci-username">@{m.username}</span>
+                <span className="ci-username">{displayName(m)}</span>
                 {m.user_id === userId && <span className="ci-you">you</span>}
                 {conv.is_group && m.user_id === conv.created_by && <span className="ci-you">creator</span>}
               </Link>

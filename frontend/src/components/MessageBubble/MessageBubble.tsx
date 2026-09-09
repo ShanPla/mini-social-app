@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import type { ChatMember, ChatMessage } from '../../lib/supabaseClient';
 import { messageTime } from '../../lib/chat';
+import { displayName } from '../../lib/names';
 import './MessageBubble.css';
 
 type Props = {
@@ -42,12 +43,17 @@ export default function MessageBubble({
       {!isOwn && (
         <div className="msg-avatar-col">
           {showAvatar && (
-            <Link to={`/profile/${message.sender_id}`} className="msg-avatar" title={sender ? `@${sender.username}` : ''}>
-              {sender?.avatar_url
-                ? <img src={sender.avatar_url} alt={sender.username} loading="lazy" />
-                : <span>{sender?.username?.[0]?.toUpperCase() || '?'}</span>
-              }
-            </Link>
+            message.sender_id ? (
+              <Link to={`/profile/${message.sender_id}`} className="msg-avatar" title={sender ? `@${sender.username}` : ''}>
+                {sender?.avatar_url
+                  ? <img src={sender.avatar_url} alt={sender.username} loading="lazy" />
+                  : <span>{sender?.username?.[0]?.toUpperCase() || '?'}</span>
+                }
+              </Link>
+            ) : (
+              /* Deleted account: nowhere to link to */
+              <span className="msg-avatar"><span>?</span></span>
+            )
           )}
         </div>
       )}
@@ -55,7 +61,7 @@ export default function MessageBubble({
       <div className="msg-body">
         {/* Sender name (group chats) */}
         {showSender && sender && (
-          <span className="msg-sender">@{sender.username}</span>
+          <span className="msg-sender">{displayName(sender)}</span>
         )}
 
         <div className="msg-bubble-wrap">

@@ -6,6 +6,7 @@ import { usePresence } from '../../context/PresenceContext';
 import SidebarWidget, { WidgetAvatar, WidgetSkeleton, WidgetEmpty } from '../SidebarWidget/SidebarWidget';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
+import { displayName } from '../../lib/names';
 import './WhoToFollow.css';
 
 type Props = {
@@ -15,6 +16,7 @@ type Props = {
 type Suggestion = {
   id: string;
   username: string;
+  display_name: string | null;
   avatar_url: string | null;
   bio: string | null;
   followerCount: number;
@@ -38,7 +40,7 @@ export default function WhoToFollow({ userId }: Props) {
       const [{ data: myFollows }, { data: allFollows }, { data: profiles }] = await Promise.all([
         supabase.from('follows').select('following_id').eq('follower_id', userId),
         supabase.from('follows').select('following_id').limit(5000),
-        supabase.from('profiles').select('id, username, avatar_url, bio').neq('id', userId).limit(100),
+        supabase.from('profiles').select('id, username, display_name, avatar_url, bio').neq('id', userId).limit(100),
       ]);
       if (cancelled) return;
       const followingIds = new Set((myFollows || []).map((f) => f.following_id as string));
@@ -87,7 +89,7 @@ export default function WhoToFollow({ userId }: Props) {
               <Link to={`/profile/${u.id}`} className="wtf-link">
                 <WidgetAvatar username={u.username} avatarUrl={u.avatar_url} online={isOnline(u.id)} />
                 <span className="widget-row-info">
-                  <span className="widget-row-name">@{u.username}</span>
+                  <span className="widget-row-name">{displayName(u)}</span>
                   <span className="widget-row-sub">
                     {u.followerCount} follower{u.followerCount === 1 ? '' : 's'}
                   </span>

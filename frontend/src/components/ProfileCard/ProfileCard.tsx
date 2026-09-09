@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
 import { usePresence } from '../../context/PresenceContext';
 import { WidgetAvatar } from '../SidebarWidget/SidebarWidget';
+import { displayName } from '../../lib/names';
 import './ProfileCard.css';
 
 type Props = {
@@ -52,7 +53,8 @@ export default function ProfileCard({ userId }: Props) {
     <div className="profile-card">
       <Link to={`/profile/${profile.id}`} className="profile-card-top">
         <WidgetAvatar username={profile.username} avatarUrl={profile.avatar_url} size={56} online={isOnline(profile.id)} />
-        <span className="profile-card-name">@{profile.username}</span>
+        <span className="profile-card-name">{displayName(profile)}</span>
+        {profile.display_name && <span className="profile-card-handle">@{profile.username}</span>}
       </Link>
       {profile.bio && <p className="profile-card-bio">{profile.bio}</p>}
 

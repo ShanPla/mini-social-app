@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { useChat } from '../../context/ChatContext';
 import { timeAgo } from '../../lib/timeAgo';
+import { displayName } from '../../lib/names';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import './Notifications.css';
 
@@ -14,7 +15,7 @@ type Notification = {
   created_at: string;
   post_id: string | null;
   conversation_id: string | null;
-  actor: { id: string; username: string; avatar_url: string | null; };
+  actor: { id: string; username: string; display_name: string | null; avatar_url: string | null; };
   conversation: { id: string; is_group: boolean; name: string | null } | null;
 };
 
@@ -37,7 +38,7 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
         .from('notifications')
         .select(
           'id, type, is_read, created_at, post_id, conversation_id, ' +
-          'actor:actor_id(id, username, avatar_url), ' +
+          'actor:actor_id(id, username, display_name, avatar_url), ' +
           'conversation:conversation_id(id, is_group, name)'
         )
         .eq('user_id', currentUserId)
@@ -119,7 +120,7 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
                 </div>
                 <div className="notif-body">
                   <p>
-                    <Link to={`/profile/${n.actor.id}`} className="notif-actor">@{n.actor.username}</Link>
+                    <Link to={`/profile/${n.actor.id}`} className="notif-actor">{displayName(n.actor)}</Link>
                     {' '}{getMessage(n)}
                     {n.post_id && <>{' '}<Link to={`/post/${n.post_id}`} className="notif-post-link">→ view post</Link></>}
                     {n.type === 'message' && n.conversation && (

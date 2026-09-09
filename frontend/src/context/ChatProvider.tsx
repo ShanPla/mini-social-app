@@ -75,7 +75,7 @@ export default function ChatProvider({ userId, children }: Props) {
   /* ── Own profile (typing indicator needs the username) ── */
   useEffect(() => {
     if (!userId) return;
-    supabase.from('profiles').select('id, username, avatar_url').eq('id', userId).single()
+    supabase.from('profiles').select('id, username, display_name, avatar_url').eq('id', userId).single()
       .then(({ data }) => { if (data) setMe(data as MeProfile); });
   }, [userId]);
 

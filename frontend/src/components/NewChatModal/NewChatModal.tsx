@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom';
 import { X, SquarePen } from 'lucide-react';
 import type { Profile } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
+import { useScrollLock } from '../../lib/useScrollLock';
 import UserPicker from '../UserPicker/UserPicker';
 import './NewChatModal.css';
 
-type PickedUser = Pick<Profile, 'id' | 'username' | 'avatar_url'>;
+type PickedUser = Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
 
 type Props = {
   onClose: () => void;
@@ -21,13 +22,13 @@ export default function NewChatModal({ onClose, onCreated }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useScrollLock();
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleKey);
-    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
     };
   }, [onClose]);
 

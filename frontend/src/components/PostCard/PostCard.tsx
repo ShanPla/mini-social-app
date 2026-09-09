@@ -10,6 +10,7 @@ import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import EditPostModal from '../EditPostModal/EditPostModal';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
+import { displayName } from '../../lib/names';
 import './PostCard.css';
 
 type PostCardProps = {
@@ -131,7 +132,10 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
               }
             </div>
             <div>
-              <span className="author-name">{currentPost.profiles?.username || 'Unknown'}</span>
+              <span className="author-name">
+                {currentPost.profiles ? displayName(currentPost.profiles) : 'Unknown'}
+                {currentPost.profiles?.display_name && <span className="author-handle">@{currentPost.profiles.username}</span>}
+              </span>
               <span className="post-date">{postDate}</span>
             </div>
           </Link>

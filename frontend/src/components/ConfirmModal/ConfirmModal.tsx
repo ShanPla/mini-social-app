@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useScrollLock } from '../../lib/useScrollLock';
 import './ConfirmModal.css';
 
 type Props = {
@@ -21,15 +22,15 @@ export default function ConfirmModal({
   onCancel,
   danger = false,
 }: Props) {
+  useScrollLock();
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
     };
     document.addEventListener('keydown', handleKey);
-    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
     };
   }, [onCancel]);
 

@@ -124,6 +124,7 @@
 
 .result-info { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .result-username { font-size: 0.95rem; font-weight: 500; color: var(--ink); }
+.result-handle { font-size: 0.8rem; color: var(--ink-muted); }
 .result-bio { font-size: 0.82rem; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .result-arrow { color: var(--ink-muted); font-size: 1rem; transition: transform 0.2s, color 0.2s; }

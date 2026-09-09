@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useScrollLock } from '../../lib/useScrollLock';
 import './Lightbox.css';
 
 type Props = {
@@ -14,8 +15,9 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
   const hasPrev = current > 0;
   const hasNext = current < images.length - 1;
 
+  useScrollLock();
+
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
 
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -26,7 +28,6 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
     document.addEventListener('keydown', handleKey);
     return () => {
       document.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
     };
   }, [hasPrev, hasNext, onClose]);
 

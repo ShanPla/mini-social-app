@@ -37,11 +37,20 @@
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text unique not null,
+  display_name text,
   bio text,
   avatar_url text,
   is_admin boolean default false,
   created_at timestamp default now()
 );
+
+-- Handle stays lowercase and URL-safe; the display name is free text shown
+-- in its place wherever there is room, with the handle underneath.
+alter table profiles add column if not exists display_name text;
+
+alter table profiles drop constraint if exists profiles_display_name_check;
+alter table profiles add constraint profiles_display_name_check
+  check (display_name is null or (display_name ~ '\S' and length(display_name) <= 40));
 
 alter table profiles drop constraint if exists profiles_username_check;
 alter table profiles add constraint profiles_username_check
@@ -149,10 +158,12 @@ create table if not exists conversation_members (
 -- image_url stores the STORAGE PATH inside the private chat-images bucket:
 --   {conversation_id}/{sender_id}/{uuid}.{ext}
 -- The client turns it into a signed URL when rendering.
+-- sender_id goes null when the account is deleted: the conversation keeps
+-- its history and the client shows [Deleted user].
 create table if not exists messages (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid references conversations(id) on delete cascade not null,
-  sender_id uuid references profiles(id) on delete cascade not null,
+  sender_id uuid references profiles(id) on delete set null,
   content text,
   image_url text,
   created_at timestamp default now(),
@@ -165,6 +176,33 @@ create table if not exists messages (
     or image_url ~ ('^' || conversation_id::text || '/' || sender_id::text || '/[0-9a-f-]{36}\.(jpe?g|png|gif|webp)$')
   )
 );
+
+
+-- Upgrade path: the original sender_id was NOT NULL with ON DELETE CASCADE.
+-- Drop whatever FK sits on that column, whatever it is called, and re-add.
+do $$
+declare c record;
+begin
+  for c in
+    select con.conname
+      from pg_constraint con
+      join pg_class rel on rel.oid = con.conrelid
+      join pg_namespace nsp on nsp.oid = rel.relnamespace
+     where nsp.nspname = 'public'
+       and rel.relname = 'messages'
+       and con.contype = 'f'
+       and con.conkey = array[
+             (select attnum from pg_attribute
+               where attrelid = rel.oid and attname = 'sender_id' and not attisdropped)
+           ]
+  loop
+    execute format('alter table public.messages drop constraint %I', c.conname);
+  end loop;
+end $$;
+
+alter table messages alter column sender_id drop not null;
+alter table messages add constraint messages_sender_id_fkey
+  foreign key (sender_id) references profiles(id) on delete set null;
 
 
 -- Notifications are written ONLY by the triggers in section 3. Each type
@@ -755,7 +793,7 @@ as $$
       select count(*)
       from messages m
       where m.conversation_id = c.id
-        and m.sender_id <> auth.uid()
+        and m.sender_id is distinct from auth.uid()
         and m.created_at > me.last_read_at
     ) as unread_count,
     (
@@ -763,6 +801,7 @@ as $$
         jsonb_build_object(
           'user_id', cm.user_id,
           'username', p.username,
+          'display_name', p.display_name,
           'avatar_url', p.avatar_url,
           'last_read_at', cm.last_read_at
         ) order by p.username
@@ -835,7 +874,7 @@ using (auth.uid() = id)
 with check (auth.uid() = id);
 
 revoke insert, update on profiles from authenticated;
-grant update (username, bio, avatar_url) on profiles to authenticated;
+grant update (username, display_name, bio, avatar_url) on profiles to authenticated;
 
 
 -- POSTS

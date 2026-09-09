@@ -137,6 +137,7 @@
   color: var(--ink);
 }
 
+.dropdown-handle { font-size: 0.74rem; color: var(--ink-muted); }
 .dropdown-bio {
   font-size: 0.78rem;
   color: var(--ink-muted);
