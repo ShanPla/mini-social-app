@@ -37,6 +37,7 @@ frontend/
 │   │   ├── SearchBar/
 │   │   ├── NotificationBell/
 │   │   ├── PostCard/
+│   │   ├── ComposePost/            ← Post composer, shared by feed and own profile
 │   │   ├── CommentSection/
 │   │   ├── ImageCollage/
 │   │   ├── Lightbox/
@@ -87,6 +88,7 @@ frontend/
 - Text truncation with "see more / see less"
 - Real-time feed — banner appears when new posts are available
 - Cooldown between submissions to stop accidental double posts
+- Compose from the feed or straight from your own profile page
 
 **Interactions**
 - Like / unlike posts with animated heart
@@ -168,6 +170,7 @@ frontend/
 - Native lazy loading on every image; chat threads page their history
 - Dark auth pages (Login + Register) with dot grid and decorative typography
 - Page titles on every route
+- Every new page opens at the top; back and forward keep your place
 - Relative timestamps ("2h ago", "3d ago"), parsed as UTC to match Postgres
 - Accessibility: respects prefers-reduced-motion
 

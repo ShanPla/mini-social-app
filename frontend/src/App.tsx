@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
 import Navbar from './components/Navbar/Navbar';
 import SearchBar from './components/SearchBar/SearchBar';
@@ -20,6 +20,17 @@ import './styles/animations.css';
 
 const AUTH_ROUTES = ['/login', '/register'];
 
+// New pages open at the top. Back/forward (POP) is left to the browser so
+// it can restore where the reader was.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  const navigationType = useNavigationType();
+  useEffect(() => {
+    if (navigationType !== 'POP') window.scrollTo(0, 0);
+  }, [pathname, navigationType]);
+  return null;
+}
+
 // Wraps each page in a fade+slide entrance
 function PageWrapper({ children, withMobileNav }: { children: React.ReactNode; withMobileNav: boolean }) {
   const location = useLocation();
@@ -37,6 +48,7 @@ function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean
   return (
     <ChatProvider key={userId ?? 'signed-out'} userId={userId}>
     <PresenceProvider key={`presence:${userId ?? 'signed-out'}`} userId={userId}>
+      <ScrollToTop />
       {!isAuthPage && <Navbar userId={userId} />}
       {!isAuthPage && userId && <SearchBar />}
       {/* Floating chat popups — global, outside PageWrapper so they survive route changes */}

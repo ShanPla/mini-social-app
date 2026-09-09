@@ -6,6 +6,7 @@ import { useChat } from '../../context/ChatContext';
 import Lightbox from '../../components/Lightbox/Lightbox';
 import type { Profile, Post } from '../../lib/supabaseClient';
 import PostCard from '../../components/PostCard/PostCard';
+import ComposePost from '../../components/ComposePost/ComposePost';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import FollowersModal from '../../components/FollowersModal/FollowersModal';
 import { usePageTitle } from '../../lib/usePageTitle';
@@ -308,6 +309,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                   maxLength={30}
                   className="edit-input"
                 />
+                <span className="edit-hint">Your handle: lowercase letters, numbers and underscores, 3 to 30 characters.</span>
                 <textarea value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder="Write a short bio…" maxLength={200} className="edit-bio" rows={3} />
                 <div className="edit-actions">
                   <button className="btn-primary" onClick={handleSaveProfile} disabled={saveLoading}>
@@ -371,6 +373,10 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
         <hr className="divider" />
 
         <section className="profile-posts">
+          {/* Your own profile doubles as a place to publish from */}
+          {isOwnProfile && currentUserId && (
+            <ComposePost userId={currentUserId} onPosted={(post) => setPosts((prev) => [post, ...prev])} />
+          )}
           <h2 className="profile-posts-title">Posts</h2>
           {postsLoading ? (
             <div className="skeleton-posts">
@@ -386,7 +392,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
             <EmptyState
               icon="pen"
               title="No posts yet"
-              subtitle={isOwnProfile ? "Share something with the world — hit Publish on the feed." : "This user hasn't posted anything yet."}
+              subtitle={isOwnProfile ? "Share something with the world." : "This user hasn't posted anything yet."}
             />
           ) : (
             <div className="posts-list">

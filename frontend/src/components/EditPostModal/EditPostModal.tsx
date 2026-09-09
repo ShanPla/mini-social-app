@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ImagePlus, Globe, Users, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
@@ -20,15 +21,26 @@ const VISIBILITY_OPTIONS: { value: Visibility; label: string; desc: string; icon
 
 export default function EditPostModal({ post, onClose, onSave }: Props) {
   const [content, setContent] = useState(post.content);
-  const [visibility, setVisibility] = useState<Visibility>((post as any).visibility || 'public');
+  const [visibility, setVisibility] = useState<Visibility>(post.visibility || 'public');
   const [existingImages, setExistingImages] = useState(
-    post.post_images?.sort((a, b) => a.position - b.position) || []
+    [...(post.post_images || [])].sort((a, b) => a.position - b.position)
   );
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [newPreviews, setNewPreviews] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /* Escape closes and the page stops scrolling underneath, same as ConfirmModal */
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
 
   const handleNewFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -105,7 +117,10 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
     onClose();
   };
 
-  return (
+  /* Portaled to body: the page wrapper keeps a transform after its entrance
+     animation, which would otherwise anchor this fixed overlay to the page
+     instead of the viewport */
+  return createPortal(
     <div className="edit-modal-backdrop" onClick={onClose}>
       <div className="edit-modal-box" onClick={(e) => e.stopPropagation()}>
 
@@ -216,6 +231,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
