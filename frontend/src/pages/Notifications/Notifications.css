@@ -107,6 +107,7 @@
 .notif-icon--like { background: #fde8e4; color: var(--accent); }
 .notif-icon--comment { background: #e8f0fe; color: #3b5bdb; }
 .notif-icon--follow { background: #e8fde4; color: #2f9e44; }
+.notif-icon--message { background: #f3e8fd; color: #7048e8; }
 
 .notif-avatar {
   width: 36px;
@@ -133,6 +134,15 @@
 
 .notif-post-link { color: var(--ink-muted); text-decoration: none; font-size: 0.8rem; transition: color 0.2s; }
 .notif-post-link:hover { color: var(--accent); }
+
+/* Chat notifications open a popup instead of navigating, so this one is a button */
+.notif-chat-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
 
 .notif-time { display: block; font-size: 0.75rem; color: var(--ink-muted); margin-top: 3px; }
 

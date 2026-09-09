@@ -2,16 +2,20 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
+import { useChat } from '../../context/ChatContext';
+import { parseDbDate } from '../../lib/timeAgo';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import './Notifications.css';
 
 type Notification = {
   id: string;
-  type: 'like' | 'comment' | 'follow';
+  type: 'like' | 'comment' | 'follow' | 'message';
   is_read: boolean;
   created_at: string;
   post_id: string | null;
+  conversation_id: string | null;
   actor: { id: string; username: string; avatar_url: string | null; };
+  conversation: { id: string; is_group: boolean; name: string | null } | null;
 };
 
 type NotificationsPageProps = {
@@ -19,6 +23,7 @@ type NotificationsPageProps = {
 };
 
 export default function NotificationsPage({ currentUserId }: NotificationsPageProps) {
+  const { openChat } = useChat();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +36,11 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
   const fetchNotifications = async () => {
     const { data } = await supabase
       .from('notifications')
-      .select('id, type, is_read, created_at, post_id, actor:actor_id(id, username, avatar_url)')
+      .select(
+        'id, type, is_read, created_at, post_id, conversation_id, ' +
+        'actor:actor_id(id, username, avatar_url), ' +
+        'conversation:conversation_id(id, is_group, name)'
+      )
       .eq('user_id', currentUserId)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -47,7 +56,7 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
   };
 
   const formatTime = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
+    const diff = Date.now() - parseDbDate(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
     const hrs = Math.floor(mins / 60);
     const days = Math.floor(hrs / 24);
@@ -62,6 +71,9 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
       case 'like': return 'liked your post';
       case 'comment': return 'commented on your post';
       case 'follow': return 'started following you';
+      case 'message': return n.conversation?.is_group
+        ? `messaged ${n.conversation.name || 'the group'}`
+        : 'sent you a message';
     }
   };
 
@@ -70,6 +82,7 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
       case 'like': return '♥';
       case 'comment': return '✦';
       case 'follow': return '→';
+      case 'message': return '✉';
     }
   };
 
@@ -98,7 +111,7 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
           <EmptyState
             icon="bell"
             title="No notifications yet"
-            subtitle="When someone likes, comments, or follows you — it'll show up here."
+            subtitle="When someone likes, comments, follows you, or sends a message — it'll show up here."
           />
         ) : (
           <div className="notif-list">
@@ -116,6 +129,9 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
                     <Link to={`/profile/${n.actor.id}`} className="notif-actor">@{n.actor.username}</Link>
                     {' '}{getMessage(n)}
                     {n.post_id && <>{' '}<Link to={`/post/${n.post_id}`} className="notif-post-link">→ view post</Link></>}
+                    {n.type === 'message' && n.conversation && (
+                      <>{' '}<button className="notif-post-link notif-chat-link" onClick={() => openChat(n.conversation!.id)}>→ open chat</button></>
+                    )}
                   </p>
                   <span className="notif-time">{formatTime(n.created_at)}</span>
                 </div>

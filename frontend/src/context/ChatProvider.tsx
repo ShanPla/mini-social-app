@@ -114,6 +114,15 @@ export default function ChatProvider({ userId, children }: Props) {
       members: c.members.map((m) => m.user_id === userId ? { ...m, last_read_at: now } : m),
     }));
     await supabase.rpc('mark_conversation_read', { conv_id: conversationId });
+
+    /* Reading the thread also clears its bell entry (see chat_notifications.sql) */
+    await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', userId)
+      .eq('conversation_id', conversationId)
+      .eq('type', 'message')
+      .eq('is_read', false);
   }, [userId, commit]);
 
   const startDm = useCallback(async (otherUserId: string) => {
@@ -145,6 +154,15 @@ export default function ChatProvider({ userId, children }: Props) {
       .eq('conversation_id', conversationId)
       .eq('user_id', userId);
     if (error) return false;
+
+    /* The bell entry would otherwise link to a conversation we can no longer read */
+    await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', userId)
+      .eq('conversation_id', conversationId)
+      .eq('type', 'message');
+
     commit(conversationsRef.current.filter((c) => c.id !== conversationId));
     closeChat(conversationId);
     return true;

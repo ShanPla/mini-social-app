@@ -1,49 +1,88 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Heart, MessageCircle, UserPlus } from 'lucide-react';
+import { Bell, Heart, MessageCircle, MessageSquare, UserPlus } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { useChat } from '../../context/ChatContext';
+import { parseDbDate } from '../../lib/timeAgo';
 import './NotificationBell.css';
 
 type Notification = {
   id: string;
-  type: 'like' | 'comment' | 'follow';
+  type: 'like' | 'comment' | 'follow' | 'message';
   is_read: boolean;
   created_at: string;
   post_id: string | null;
+  conversation_id: string | null;
   actor: {
     id: string;
     username: string;
     avatar_url: string | null;
   };
+  conversation: {
+    id: string;
+    is_group: boolean;
+    name: string | null;
+  } | null;
 };
 
 type Props = {
   currentUserId: string;
 };
 
+const SELECT =
+  'id, type, is_read, created_at, post_id, conversation_id, ' +
+  'actor:actor_id(id, username, avatar_url), ' +
+  'conversation:conversation_id(id, is_group, name)';
+
 export default function NotificationBell({ currentUserId }: Props) {
   const navigate = useNavigate();
+  const { openChat } = useChat();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchNotifications = useCallback(async () => {
+    const { data } = await supabase
+      .from('notifications')
+      .select(SELECT)
+      .eq('user_id', currentUserId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (data) {
+      const rows = data as unknown as Notification[];
+      setNotifications(rows);
+      setUnreadCount(rows.filter((n) => !n.is_read).length);
+    }
+  }, [currentUserId]);
+
+  /* Marking a conversation read updates several rows at once — coalesce the refetch */
+  const scheduleRefetch = useCallback(() => {
+    if (refetchTimer.current) clearTimeout(refetchTimer.current);
+    refetchTimer.current = setTimeout(() => { fetchNotifications(); }, 250);
+  }, [fetchNotifications]);
 
   useEffect(() => {
     fetchNotifications();
 
-    /* Realtime subscription for new notifications */
+    /* Realtime: new rows, plus rows marked read elsewhere (opening a chat clears its entry) */
     const channel = supabase
-      .channel('notifications')
+      .channel(`notifications:${currentUserId}`)
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'notifications',
         filter: `user_id=eq.${currentUserId}`
-      }, () => { fetchNotifications(); })
+      }, () => { scheduleRefetch(); })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [currentUserId]);
+    return () => {
+      supabase.removeChannel(channel);
+      if (refetchTimer.current) clearTimeout(refetchTimer.current);
+    };
+  }, [currentUserId, fetchNotifications, scheduleRefetch]);
 
   /* Close on outside click */
   useEffect(() => {
@@ -55,20 +94,6 @@ export default function NotificationBell({ currentUserId }: Props) {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
-
-  const fetchNotifications = async () => {
-    const { data } = await supabase
-      .from('notifications')
-      .select('id, type, is_read, created_at, post_id, actor:actor_id(id, username, avatar_url)')
-      .eq('user_id', currentUserId)
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    if (data) {
-      setNotifications(data as unknown as Notification[]);
-      setUnreadCount(data.filter((n: any) => !n.is_read).length);
-    }
-  };
 
   const handleOpen = async () => {
     setOpen(!open);
@@ -83,8 +108,17 @@ export default function NotificationBell({ currentUserId }: Props) {
     }
   };
 
+  /* Opening a notification takes you to whatever it is about.
+     A null conversation means we already left it — fall back to the sender. */
+  const handleClick = (n: Notification) => {
+    setOpen(false);
+    if (n.type === 'message' && n.conversation) openChat(n.conversation.id);
+    else if (n.post_id) navigate(`/post/${n.post_id}`);
+    else navigate(`/profile/${n.actor.id}`);
+  };
+
   const formatTime = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
+    const diff = Date.now() - parseDbDate(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
     const hrs = Math.floor(mins / 60);
     const days = Math.floor(hrs / 24);
@@ -99,6 +133,9 @@ export default function NotificationBell({ currentUserId }: Props) {
       case 'like': return 'liked your post';
       case 'comment': return 'commented on your post';
       case 'follow': return 'followed you';
+      case 'message': return n.conversation?.is_group
+        ? `messaged ${n.conversation.name || 'the group'}`
+        : 'sent you a message';
     }
   };
 
@@ -108,6 +145,7 @@ export default function NotificationBell({ currentUserId }: Props) {
       case 'like': return <Heart size={12} fill="currentColor" />;
       case 'comment': return <MessageCircle size={12} />;
       case 'follow': return <UserPlus size={12} />;
+      case 'message': return <MessageSquare size={12} />;
     }
   };
 
@@ -134,11 +172,7 @@ export default function NotificationBell({ currentUserId }: Props) {
                 <div
                   key={n.id}
                   className={`bell-item ${!n.is_read ? 'unread' : ''}`}
-                  onClick={() => {
-                    setOpen(false);
-                    if (n.post_id) navigate(`/post/${n.post_id}`);
-                    else navigate(`/profile/${n.actor.id}`);
-                  }}
+                  onClick={() => handleClick(n)}
                 >
                   <div className={`bell-item-icon bell-item-icon--${n.type}`}>
                     {getIcon(n.type)}
