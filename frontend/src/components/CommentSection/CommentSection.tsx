@@ -26,6 +26,39 @@ type CommentData = {
   replies?: CommentData[];
 };
 
+/* ── Pure helpers over the nested tree ── */
+function countTree(list: CommentData[]): number {
+  return list.reduce((n, c) => n + 1 + countTree(c.replies || []), 0);
+}
+
+function findInTree(list: CommentData[], id: string): CommentData | undefined {
+  for (const c of list) {
+    if (c.id === id) return c;
+    const hit = findInTree(c.replies || [], id);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+function insertInTree(list: CommentData[], node: CommentData): CommentData[] {
+  if (!node.parent_id || !findInTree(list, node.parent_id)) return [...list, node];
+  return list.map((c) => c.id === node.parent_id
+    ? { ...c, replies: [...(c.replies || []), node] }
+    : { ...c, replies: insertInTree(c.replies || [], node) });
+}
+
+function removeFromTree(list: CommentData[], id: string): CommentData[] {
+  return list.filter((c) => c.id !== id).map((c) => ({ ...c, replies: removeFromTree(c.replies || [], id) }));
+}
+
+function setLikeInTree(list: CommentData[], id: string, userId: string, liked: boolean): CommentData[] {
+  return list.map((c) => {
+    if (c.id !== id) return { ...c, replies: setLikeInTree(c.replies || [], id, userId, liked) };
+    const others = (c.comment_likes || []).filter((l) => l.user_id !== userId);
+    return { ...c, comment_likes: liked ? [...others, { id: `local-${userId}`, user_id: userId }] : others };
+  });
+}
+
 type Props = {
   postId: string;
   currentUserId: string | null;
@@ -36,11 +69,18 @@ type Props = {
 
 export default function CommentSection({ postId, currentUserId, isAdmin = false, onCountChange }: Props) {
   const [comments, setComments] = useState<CommentData[]>([]);
+  /* Total including replies; null until the first load */
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [isOnCooldown, triggerCooldown] = useCooldown(3000);
-  /* Bumped after every write; the effect below owns the fetch */
+  /* Bumped only to recover from a failed write; the effect below owns the fetch */
   const [version, setVersion] = useState(0);
   const refresh = () => setVersion((v) => v + 1);
+
+  /* The card counter follows the running total, not a refetch */
+  useEffect(() => {
+    if (total !== null) onCountChange?.(total);
+  }, [total, onCountChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,10 +106,9 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
       });
 
       setComments(roots);
-      onCountChange?.(data.length);
+      setTotal(data.length);
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId, version]);
 
   const toast = useToast();
@@ -91,9 +130,12 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
       .single();
 
     if (!error && data) {
-      /* The post owner's bell notification is raised server-side by trg_notify_comment */
+      /* The post owner's bell notification is raised server-side by trg_notify_comment.
+         Slot the returned row straight into the tree instead of refetching everything. */
+      const node = { ...(data as CommentData), replies: [] };
+      setComments((prev) => insertInTree(prev, node));
+      setTotal((t) => (t ?? 0) + 1);
       clearFn();
-      refresh();
       triggerCooldown();
     } else {
       toast.error(describeError(error, 'Could not post your comment. Please try again.'));
@@ -102,18 +144,29 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
   };
 
   const handleDelete = async (commentId: string) => {
+    /* Optimistic: the subtree disappears now; a failed delete refetches the truth */
+    const node = findInTree(comments, commentId);
+    const removed = node ? 1 + countTree(node.replies || []) : 1;
+    setComments((prev) => removeFromTree(prev, commentId));
+    setTotal((t) => Math.max(0, (t ?? removed) - removed));
     const { error } = await supabase.from('comments').delete().eq('id', commentId);
-    if (error) { toast.error(describeError(error, 'Could not delete the comment.')); return; }
-    refresh();
+    if (error) {
+      toast.error(describeError(error, 'Could not delete the comment.'));
+      refresh();
+    }
   };
 
   const handleLikeComment = async (commentId: string, isLiked: boolean) => {
     if (!currentUserId) return;
+    /* Optimistic: flip the heart now, flip it back if the write fails */
+    setComments((prev) => setLikeInTree(prev, commentId, currentUserId, !isLiked));
     const { error } = isLiked
       ? await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', currentUserId)
       : await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: currentUserId });
-    if (error) { toast.error(describeError(error, 'Could not update your like.')); return; }
-    refresh();
+    if (error) {
+      setComments((prev) => setLikeInTree(prev, commentId, currentUserId, isLiked));
+      toast.error(describeError(error, 'Could not update your like.'));
+    }
   };
 
   return (

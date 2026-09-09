@@ -10,6 +10,7 @@ import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import EditPostModal from '../EditPostModal/EditPostModal';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
+import { pruneFolder, removePostImageFiles } from '../../lib/storage';
 import { displayName } from '../../lib/names';
 import './PostCard.css';
 
@@ -102,6 +103,10 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
     } else {
       toast.success('Post deleted');
       onDelete?.(currentPost.id);
+      /* Best effort, after the row is gone: every file under {user}/{post},
+         plus the legacy single image if the post predates post_images */
+      void pruneFolder('post-images', `${currentPost.user_id}/${currentPost.id}`);
+      if (currentPost.image_url) void removePostImageFiles([currentPost.image_url]);
     }
     setShowDeleteModal(false);
   };

@@ -29,6 +29,7 @@ frontend/
 │   │   ├── useScrollLock.ts    ← Counted body scroll lock shared by modals
 │   │   ├── posts.ts            ← fetchPosts(): one RPC for feed, profile, single post
 │   │   ├── usePostList.ts      ← Paged post list with keyset load-more
+│   │   ├── storage.ts          ← Best-effort cleanup of post and avatar files
 │   │   ├── useCooldown.ts      ← Client-side submission rate limiting
 │   │   └── usePageTitle.ts
 │   ├── context/
@@ -180,6 +181,9 @@ frontend/
 - One RPC (fetch_posts) serves the feed, a profile and a single post: like and comment counts plus your own like, never every like row
 - Who to follow and Active this week are ranked in Postgres (suggested_follows, active_posters) instead of pulling tables to the browser
 - Following feed filters by follows inside the query, so it never sends your follow list back up as a URL
+- Comment likes, replies and deletes update the thread in place instead of refetching every comment
+- Chat image links are signed for an hour and quietly re-signed before they expire, so a popup left open all day never shows broken images
+- Deleting a post, removing images from one, or replacing an avatar also removes the files from storage
 
 **Security**
 - Row Level Security on every table; the app is login-only, so the anon key has no table access

@@ -37,6 +37,9 @@ const GROUP_WINDOW_MS = 5 * 60 * 1000;
 const TYPING_TTL_MS = 3000;
 const TYPING_THROTTLE_MS = 1500;
 const SIGNED_URL_TTL_S = 60 * 60;
+/* Re-sign when this close to expiry, checked on every message change and on a timer */
+const SIGNED_URL_RENEW_MS = 5 * 60 * 1000;
+const SIGNED_URL_CHECK_MS = 60 * 1000;
 
 /*
  * Message list + composer for one conversation. Used inside both the
@@ -62,7 +65,9 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
   const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   /* storage path -> signed URL (bucket is private) */
-  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [signedUrls, setSignedUrls] = useState<Record<string, { url: string; expiresAt: number }>>({});
+  /* Ticks once a minute so an idle thread still renews its image links */
+  const [signTick, setSignTick] = useState(0);
   /* senders who are no longer members (left the group / deleted) */
   const [extraSenders, setExtraSenders] = useState<SenderMap>({});
   const [isOnCooldown, triggerCooldown] = useCooldown(500);
@@ -142,26 +147,35 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     });
   }, [conversationId, onMessage, userId, markRead]);
 
-  /* ── Signed URLs for image messages (private bucket) ── */
+  /* ── Signed URLs for image messages (private bucket) ──
+     A link lives an hour. Popups outlive that, so anything within five
+     minutes of expiring counts as missing and is signed again. */
   useEffect(() => {
+    const interval = setInterval(() => setSignTick((t) => t + 1), SIGNED_URL_CHECK_MS);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const now = Date.now();
     const missing = messages
       .map((m) => m.image_url)
-      .filter((p): p is string => !!p && !signedUrls[p]);
+      .filter((p): p is string => !!p && (!signedUrls[p] || signedUrls[p].expiresAt - now < SIGNED_URL_RENEW_MS));
     if (missing.length === 0) return;
     let cancelled = false;
     supabase.storage.from('chat-images').createSignedUrls(missing, SIGNED_URL_TTL_S).then(({ data }) => {
       if (cancelled || !data) return;
+      const expiresAt = Date.now() + SIGNED_URL_TTL_S * 1000;
       setSignedUrls((prev) => {
         const next = { ...prev };
         for (const item of data) {
-          if (item.path && item.signedUrl) next[item.path] = item.signedUrl;
+          if (item.path && item.signedUrl) next[item.path] = { url: item.signedUrl, expiresAt };
         }
         return next;
       });
     });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
+  }, [messages, signTick]);
 
   /* ── Resolve senders who are not (or no longer) in the member list ── */
   useEffect(() => {
@@ -473,7 +487,7 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
                   {showDay && <div className="chat-day"><span>{dayLabel(m.created_at)}</span></div>}
                   <MessageBubble
                     message={m}
-                    imageSrc={m.image_url ? signedUrls[m.image_url] : undefined}
+                    imageSrc={m.image_url ? signedUrls[m.image_url]?.url : undefined}
                     isOwn={isOwn}
                     sender={sender}
                     showSender={!!conv?.is_group && !isOwn && !grouped}

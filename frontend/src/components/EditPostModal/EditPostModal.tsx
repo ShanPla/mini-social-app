@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
+import { removePostImageFiles } from '../../lib/storage';
 import './EditPostModal.css';
 
 type Props = {
@@ -83,18 +84,17 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       return;
     }
 
-    /* Delete removed images */
-    const removedIds = (post.post_images || [])
-      .filter((img) => !existingImages.find((e) => e.id === img.id))
-      .map((img) => img.id);
+    /* Delete removed images: the rows first, then the files behind them */
+    const removedImages = (post.post_images || []).filter((img) => !existingImages.find((e) => e.id === img.id));
 
-    if (removedIds.length > 0) {
-      const { error: removeError } = await supabase.from('post_images').delete().in('id', removedIds);
+    if (removedImages.length > 0) {
+      const { error: removeError } = await supabase.from('post_images').delete().in('id', removedImages.map((img) => img.id));
       if (removeError) {
         setError('The text was saved, but the removed images could not be taken off. Try Save again.');
         setSaving(false);
         return;
       }
+      void removePostImageFiles(removedImages.map((img) => img.image_url));
     }
 
     /* Upload new images */

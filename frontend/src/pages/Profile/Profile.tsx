@@ -13,6 +13,7 @@ import EmptyState from '../../components/EmptyState/EmptyState';
 import FollowersModal from '../../components/FollowersModal/FollowersModal';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { displayName } from '../../lib/names';
+import { pruneFolder } from '../../lib/storage';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import './Profile.css';
@@ -148,10 +149,13 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     setAvatarUploading(true);
 
     let finalUrl: string | null = null;
+    /* The file just uploaded, so the cleanup below spares it */
+    let uploadedName: string | undefined;
 
     if (avatarMode === 'file' && avatarFile) {
       const ext = avatarFile.name.split('.').pop();
-      const path = `${currentUserId}/avatar.${ext}`;
+      uploadedName = `avatar.${ext}`;
+      const path = `${currentUserId}/${uploadedName}`;
       const { error: uploadError } = await supabase.storage
         .from('avatars').upload(path, avatarFile, { upsert: true });
       if (uploadError) {
@@ -182,6 +186,9 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
         setAvatarUrl('');
         setAvatarPreview(null);
         toast.success('Profile photo updated');
+        /* upsert only overwrites the same extension; older uploads with other
+           extensions, or all of them once a link replaces the upload, go now */
+        void pruneFolder('avatars', currentUserId, uploadedName);
       }
     }
     setAvatarUploading(false);

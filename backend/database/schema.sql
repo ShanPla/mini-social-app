@@ -1369,12 +1369,16 @@ with check (
   and (storage.foldername(name))[1] = auth.uid()::text
 );
 
+-- Own folder, or an admin cleaning up after deleting someone else's post.
 drop policy if exists "Users can delete own post images" on storage.objects;
 create policy "Users can delete own post images"
 on storage.objects for delete to authenticated
 using (
   bucket_id = 'post-images'
-  and (storage.foldername(name))[1] = auth.uid()::text
+  and (
+    (storage.foldername(name))[1] = auth.uid()::text
+    or exists (select 1 from profiles where id = auth.uid() and is_admin = true)
+  )
 );
 
 

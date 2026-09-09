@@ -16,6 +16,9 @@ type Props = {
 
 type FollowRow = { profiles: Profile | null };
 
+/* Enough for any profile on this site today; the note below shows when it is not */
+const FOLLOW_LIST_CAP = 200;
+
 export default function FollowersModal({ userId, type, onClose }: Props) {
   const [users, setUsers] = useState<Profile[]>([]);
   /* Which (user, tab) the list belongs to; loading is derived from it */
@@ -30,8 +33,8 @@ export default function FollowersModal({ userId, type, onClose }: Props) {
     let cancelled = false;
     (async () => {
       const { data } = type === 'followers'
-        ? await supabase.from('follows').select('profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, bio)').eq('following_id', userId)
-        : await supabase.from('follows').select('profiles!follows_following_id_fkey(id, username, display_name, avatar_url, bio)').eq('follower_id', userId);
+        ? await supabase.from('follows').select('profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, bio)').eq('following_id', userId).limit(FOLLOW_LIST_CAP)
+        : await supabase.from('follows').select('profiles!follows_following_id_fkey(id, username, display_name, avatar_url, bio)').eq('follower_id', userId).limit(FOLLOW_LIST_CAP);
       if (cancelled) return;
       const rows = (data as unknown as FollowRow[]) || [];
       setUsers(rows.map((r) => r.profiles).filter((p): p is Profile => !!p));
@@ -82,7 +85,8 @@ export default function FollowersModal({ userId, type, onClose }: Props) {
               <p>{type === 'followers' ? 'No followers yet.' : 'Not following anyone yet.'}</p>
             </div>
           ) : (
-            users.map((user) => (
+            <>
+            {users.map((user) => (
               <Link
                 key={user.id}
                 to={`/profile/${user.id}`}
@@ -107,7 +111,11 @@ export default function FollowersModal({ userId, type, onClose }: Props) {
                 {/* Arrow */}
                 <span className="fw-arrow">→</span>
               </Link>
-            ))
+            ))}
+            {users.length >= FOLLOW_LIST_CAP && (
+              <p className="fw-cap">Showing the first {FOLLOW_LIST_CAP}. Search finds anyone else.</p>
+            )}
+            </>
           )}
         </div>
       </div>
