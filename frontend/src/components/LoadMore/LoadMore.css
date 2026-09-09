@@ -1,0 +1,14 @@
+.load-more {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+.load-more-end {
+  text-align: center;
+  font-size: 0.74rem;
+  color: var(--ink-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 14px 0 6px;
+}

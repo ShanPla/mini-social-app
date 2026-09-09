@@ -61,7 +61,7 @@ export default function ComposePost({
     const { data: postData, error: postError } = await supabase
       .from('posts')
       .insert({ user_id: userId, content: content.trim(), visibility })
-      .select('*, profiles(id, username, display_name, avatar_url), likes(id, user_id), comments(id)')
+      .select('*, profiles(id, username, display_name, avatar_url)')
       .single();
 
     if (postError || !postData) {
@@ -69,6 +69,9 @@ export default function ComposePost({
       setPosting(false);
       return;
     }
+
+    /* Same shape fetch_posts returns, so the card needs no special case */
+    const newPost: Post = { ...(postData as Post), like_count: 0, comment_count: 0, liked_by_me: false, post_images: [] };
 
     if (imageFiles.length > 0) {
       const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
@@ -96,7 +99,7 @@ export default function ComposePost({
         if (imagesError) {
           toast.error('The post went up, but its images could not be attached.');
         } else {
-          (postData as Post).post_images = uploadedImages.map((img, i) => ({
+          newPost.post_images = uploadedImages.map((img, i) => ({
             id: `temp-${i}`,
             post_id: postData.id,
             image_url: img.image_url,
@@ -106,7 +109,7 @@ export default function ComposePost({
       }
     }
 
-    onPosted(postData as Post);
+    onPosted(newPost);
     toast.success('Post published');
     setContent('');
     clearImages();

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import type { Post } from '../../lib/supabaseClient';
+import { usePostList } from '../../lib/usePostList';
 import PostCard from '../../components/PostCard/PostCard';
 import ComposePost from '../../components/ComposePost/ComposePost';
+import LoadMore from '../../components/LoadMore/LoadMore';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import ProfileCard from '../../components/ProfileCard/ProfileCard';
 import QuickLinks from '../../components/QuickLinks/QuickLinks';
@@ -19,48 +20,13 @@ type FeedProps = {
 };
 
 export default function Feed({ userId, isAdmin }: FeedProps) {
-  const [posts, setPosts] = useState<Post[]>([]);
   const [feedType, setFeedType] = useState<'all' | 'following'>('all');
   const [newPostsBanner, setNewPostsBanner] = useState(false);
-  /* Bumped by the [new posts] banner to refetch without changing the tab */
+  /* Bumped by the [new posts] banner to reload the current tab in place */
   const [refreshKey, setRefreshKey] = useState(0);
-  /* Which (tab, refresh) the current posts belong to; loading is derived */
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
-  const fetchKey = `${feedType}:${userId ?? ''}:${refreshKey}`;
-  const loading = loadedKey !== fetchKey;
+  const { posts, loading, loadingMore, hasMore, loadMore, prepend, remove } = usePostList({ mode: feedType }, refreshKey);
 
   usePageTitle('Feed');
-
-  useEffect(() => {
-    /* Switching tabs while a fetch is in flight must not show the old tab's posts */
-    let cancelled = false;
-    (async () => {
-      let query = supabase
-        .from('posts')
-        .select('*, profiles(id, username, display_name, avatar_url), likes(id, user_id), comments(id), post_images(id, image_url, position)')
-        .order('created_at', { ascending: false });
-
-      if (feedType === 'following' && userId) {
-        const { data: follows } = await supabase.from('follows').select('following_id').eq('follower_id', userId);
-        if (cancelled) return;
-        const ids = follows?.map((f) => f.following_id) || [];
-        if (ids.length === 0) {
-          setPosts([]);
-          setNewPostsBanner(false);
-          setLoadedKey(fetchKey);
-          return;
-        }
-        query = query.in('user_id', ids);
-      }
-
-      const { data } = await query.limit(50);
-      if (cancelled) return;
-      setPosts((data as Post[]) || []);
-      setNewPostsBanner(false);
-      setLoadedKey(fetchKey);
-    })();
-    return () => { cancelled = true; };
-  }, [feedType, userId, fetchKey]);
 
   useEffect(() => {
     if (feedType !== 'all') return;
@@ -73,7 +39,15 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
     return () => { supabase.removeChannel(channel); };
   }, [feedType, userId]);
 
-  const handleDelete = (postId: string) => setPosts(posts.filter((p) => p.id !== postId));
+  const refresh = () => {
+    setNewPostsBanner(false);
+    setRefreshKey((k) => k + 1);
+  };
+
+  const switchTab = (tab: 'all' | 'following') => {
+    setNewPostsBanner(false);
+    setFeedType(tab);
+  };
 
   return (
     <div className="feed-page">
@@ -88,19 +62,17 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
 
         <div className="feed-main">
           {newPostsBanner && (
-            <button className="new-posts-banner" onClick={() => setRefreshKey((k) => k + 1)}>
+            <button className="new-posts-banner" onClick={refresh}>
               ↑ New posts available — click to refresh
             </button>
           )}
 
-          {userId && (
-            <ComposePost userId={userId} onPosted={(post) => setPosts((prev) => [post, ...prev])} />
-          )}
+          {userId && <ComposePost userId={userId} onPosted={prepend} />}
 
           {/* Feed tabs */}
           <div className="feed-tabs">
-            <button className={`feed-tab ${feedType === 'all' ? 'active' : ''}`} onClick={() => setFeedType('all')}>All Posts</button>
-            {userId && <button className={`feed-tab ${feedType === 'following' ? 'active' : ''}`} onClick={() => setFeedType('following')}>Following</button>}
+            <button className={`feed-tab ${feedType === 'all' ? 'active' : ''}`} onClick={() => switchTab('all')}>All Posts</button>
+            {userId && <button className={`feed-tab ${feedType === 'following' ? 'active' : ''}`} onClick={() => switchTab('following')}>Following</button>}
           </div>
 
           {loading ? (
@@ -121,16 +93,19 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
             </div>
           ) : posts.length === 0 ? (
             feedType === 'following' ? (
-              <EmptyState icon="users" title="Your following feed is empty" subtitle="Follow some users to see their posts here." />
+              <EmptyState icon="users" title="Nothing from people you follow yet" subtitle="Follow some users, or check back once they post." />
             ) : (
               <EmptyState icon="sparkles" title="Nothing here yet" subtitle="Be the first to publish something!" />
             )
           ) : (
-            <div className="posts-list">
-              {posts.map((post) => (
-                <PostCard key={post.id} post={post} currentUserId={userId} isAdmin={isAdmin} onDelete={handleDelete} />
-              ))}
-            </div>
+            <>
+              <div className="posts-list">
+                {posts.map((post) => (
+                  <PostCard key={post.id} post={post} currentUserId={userId} isAdmin={isAdmin} onDelete={remove} />
+                ))}
+              </div>
+              <LoadMore hasMore={hasMore} loading={loadingMore} onMore={loadMore} />
+            </>
           )}
         </div>
 

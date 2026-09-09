@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
+import { fetchPosts } from '../../lib/posts';
 import PostCard from '../../components/PostCard/PostCard';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import { usePageTitle } from '../../lib/usePageTitle';
@@ -25,14 +25,10 @@ export default function PostPage({ currentUserId, isAdmin }: PostPageProps) {
     if (!postId) return;
     let cancelled = false;
     (async () => {
-      /* maybeSingle: a missing or hidden post is null, not an error */
-      const { data } = await supabase
-        .from('posts')
-        .select('*, profiles(id, username, display_name, avatar_url), likes(id, user_id), comments(id, user_id, content, created_at, profiles(id, username, display_name)), post_images(id, image_url, position)')
-        .eq('id', postId)
-        .maybeSingle();
+      /* Same shape as the feed. A missing or hidden post is simply no rows. */
+      const page = await fetchPosts({ postId }, null, 1);
       if (cancelled) return;
-      setPost((data as Post) || null);
+      setPost(page.posts[0] || null);
       setLoading(false);
     })();
     return () => { cancelled = true; };

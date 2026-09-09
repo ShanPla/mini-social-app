@@ -39,10 +39,11 @@ const VisibilityBadge = ({ visibility }: { visibility?: string }) => {
 
 export default function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowComments = false }: PostCardProps) {
   const [currentPost, setCurrentPost] = useState(post);
-  const [likes, setLikes] = useState(post.likes || []);
+  const [liked, setLiked] = useState(post.liked_by_me);
+  const [likeCount, setLikeCount] = useState(post.like_count);
   const [showComments, setShowComments] = useState(defaultShowComments);
-  /* Seeded from the feed query; CommentSection reports the live total once open */
-  const [commentCount, setCommentCount] = useState(post.comments?.length || 0);
+  /* Seeded from fetch_posts; CommentSection reports the live total once open */
+  const [commentCount, setCommentCount] = useState(post.comment_count);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -64,8 +65,6 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showActions]);
 
-  const isLiked = likes.some((l) => l.user_id === currentUserId);
-  const likeCount = likes.length;
   const isOwner = currentUserId === currentPost.user_id;
   const canDelete = isOwner || isAdmin;
   const isTruncated = currentPost.content && currentPost.content.length > CHAR_LIMIT;
@@ -75,22 +74,22 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
   const handleLike = async () => {
     if (!currentUserId || loading) return;
     setLoading(true);
+    const wasLiked = liked;
 
-    if (isLiked) {
-      setLikeAnim('unpop');
-      const { error } = await supabase.from('likes').delete()
-        .eq('post_id', currentPost.id).eq('user_id', currentUserId);
-      if (error) toast.error(describeError(error, 'Could not remove your like.'));
-      else setLikes(likes.filter((l) => l.user_id !== currentUserId));
-    } else {
-      setLikeAnim('pop');
-      const { data, error } = await supabase.from('likes')
-        .insert({ post_id: currentPost.id, user_id: currentUserId })
-        .select().single();
+    /* Optimistic: flip now, roll back if the write fails.
+       The bell notification is raised server-side by trg_notify_like. */
+    setLiked(!wasLiked);
+    setLikeCount((c) => c + (wasLiked ? -1 : 1));
+    setLikeAnim(wasLiked ? 'unpop' : 'pop');
 
-      /* The bell notification is raised server-side by trg_notify_like */
-      if (error || !data) toast.error(describeError(error, 'Could not like this post.'));
-      else setLikes([...likes, data]);
+    const { error } = wasLiked
+      ? await supabase.from('likes').delete().eq('post_id', currentPost.id).eq('user_id', currentUserId)
+      : await supabase.from('likes').insert({ post_id: currentPost.id, user_id: currentUserId });
+
+    if (error) {
+      setLiked(wasLiked);
+      setLikeCount((c) => c + (wasLiked ? 1 : -1));
+      toast.error(describeError(error, wasLiked ? 'Could not remove your like.' : 'Could not like this post.'));
     }
     setTimeout(() => setLikeAnim(null), 400);
     setLoading(false);
@@ -200,12 +199,12 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
         {/* Footer */}
         <footer className="post-footer">
           <button
-            className={`post-action like-btn ${isLiked ? 'liked' : ''}`}
+            className={`post-action like-btn ${liked ? 'liked' : ''}`}
             onClick={handleLike}
             disabled={!currentUserId}
           >
             <span className={`like-icon ${likeAnim === 'pop' ? 'like-icon--popping' : likeAnim === 'unpop' ? 'like-icon--unpopping' : ''}`}>
-              <Heart size={15} fill={isLiked ? 'currentColor' : 'none'} />
+              <Heart size={15} fill={liked ? 'currentColor' : 'none'} />
             </span>
             <span>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</span>
           </button>

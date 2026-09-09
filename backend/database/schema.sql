@@ -296,6 +296,9 @@ create unique index if not exists idx_notifications_unread_message
 -- Indexes
 create index if not exists idx_posts_user_id on posts(user_id);
 create index if not exists idx_posts_created on posts(created_at desc);
+-- Keyset pages for the feed and for one author (fetch_posts)
+create index if not exists idx_posts_created_id on posts(created_at desc, id desc);
+create index if not exists idx_posts_user_created on posts(user_id, created_at desc, id desc);
 create index if not exists idx_post_images_post_id on post_images(post_id);
 create index if not exists idx_likes_post_id on likes(post_id);
 create index if not exists idx_comments_post_id on comments(post_id);
@@ -847,6 +850,155 @@ $$;
 
 revoke all on function public.mark_conversation_read(uuid) from public, anon;
 grant execute on function public.mark_conversation_read(uuid) to authenticated;
+
+
+
+-- fetch_posts(...)
+-- One read for the feed, a profile, or a single post. Returns like and
+-- comment counts plus whether the caller liked it, instead of every like
+-- row, and the author and images as jsonb. security invoker: the posts
+-- visibility policy decides what is returned.
+-- Keyset pagination on (created_at, id): pass the last row's values back
+-- as p_before / p_before_id to get the next page.
+create or replace function public.fetch_posts(
+  p_mode text default 'all',
+  p_author uuid default null,
+  p_post_id uuid default null,
+  p_before timestamp default null,
+  p_before_id uuid default null,
+  p_limit integer default 20
+)
+returns table (
+  id uuid,
+  user_id uuid,
+  content text,
+  image_url text,
+  visibility text,
+  created_at timestamp,
+  like_count integer,
+  comment_count integer,
+  liked_by_me boolean,
+  profiles jsonb,
+  post_images jsonb
+)
+language sql
+security invoker
+stable
+set search_path = public
+as $$
+  select
+    p.id,
+    p.user_id,
+    p.content,
+    p.image_url,
+    p.visibility,
+    p.created_at,
+    (select count(*) from likes l where l.post_id = p.id)::integer as like_count,
+    (select count(*) from comments c where c.post_id = p.id)::integer as comment_count,
+    exists (select 1 from likes l where l.post_id = p.id and l.user_id = auth.uid()) as liked_by_me,
+    (
+      select jsonb_build_object(
+        'id', pr.id,
+        'username', pr.username,
+        'display_name', pr.display_name,
+        'avatar_url', pr.avatar_url
+      )
+      from profiles pr
+      where pr.id = p.user_id
+    ) as profiles,
+    coalesce((
+      select jsonb_agg(
+        jsonb_build_object('id', pi.id, 'post_id', pi.post_id, 'image_url', pi.image_url, 'position', pi.position)
+        order by pi.position
+      )
+      from post_images pi
+      where pi.post_id = p.id
+    ), '[]'::jsonb) as post_images
+  from posts p
+  where (p_post_id is null or p.id = p_post_id)
+    and (p_author is null or p.user_id = p_author)
+    and (
+      p_mode <> 'following'
+      or p.user_id in (select f.following_id from follows f where f.follower_id = auth.uid())
+    )
+    and (p_before is null or (p.created_at, p.id) < (p_before, coalesce(p_before_id, p.id)))
+  order by p.created_at desc, p.id desc
+  limit least(greatest(coalesce(p_limit, 20), 1), 50);
+$$;
+
+revoke all on function public.fetch_posts(text, uuid, uuid, timestamp, uuid, integer) from public, anon;
+grant execute on function public.fetch_posts(text, uuid, uuid, timestamp, uuid, integer) to authenticated;
+
+
+-- suggested_follows(p_limit)
+-- People the caller does not follow yet, most followed first. Replaces a
+-- client that pulled the whole follows table to count.
+create or replace function public.suggested_follows(p_limit integer default 5)
+returns table (
+  id uuid,
+  username text,
+  display_name text,
+  avatar_url text,
+  bio text,
+  follower_count integer
+)
+language sql
+security invoker
+stable
+set search_path = public
+as $$
+  select
+    pr.id,
+    pr.username,
+    pr.display_name,
+    pr.avatar_url,
+    pr.bio,
+    (select count(*) from follows f where f.following_id = pr.id)::integer as follower_count
+  from profiles pr
+  where pr.id <> auth.uid()
+    and not exists (
+      select 1 from follows f where f.follower_id = auth.uid() and f.following_id = pr.id
+    )
+  order by follower_count desc, pr.created_at asc
+  limit least(greatest(coalesce(p_limit, 5), 1), 20);
+$$;
+
+revoke all on function public.suggested_follows(integer) from public, anon;
+grant execute on function public.suggested_follows(integer) to authenticated;
+
+
+-- active_posters(p_days, p_limit)
+-- Who posted most in the last p_days days, counting only posts the caller
+-- can see (security invoker). Replaces a client-side tally over 500 rows.
+create or replace function public.active_posters(p_days integer default 7, p_limit integer default 5)
+returns table (
+  id uuid,
+  username text,
+  display_name text,
+  avatar_url text,
+  post_count integer
+)
+language sql
+security invoker
+stable
+set search_path = public
+as $$
+  select
+    pr.id,
+    pr.username,
+    pr.display_name,
+    pr.avatar_url,
+    count(*)::integer as post_count
+  from posts p
+  join profiles pr on pr.id = p.user_id
+  where p.created_at > timezone('utc', now()) - make_interval(days => coalesce(p_days, 7))
+  group by pr.id, pr.username, pr.display_name, pr.avatar_url
+  order by post_count desc, max(p.created_at) desc
+  limit least(greatest(coalesce(p_limit, 5), 1), 20);
+$$;
+
+revoke all on function public.active_posters(integer, integer) from public, anon;
+grant execute on function public.active_posters(integer, integer) to authenticated;
 
 
 -- --------------------------------------------

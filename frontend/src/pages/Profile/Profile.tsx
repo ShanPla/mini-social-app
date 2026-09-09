@@ -4,7 +4,9 @@ import { ImagePlus, Link2, MessageCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import Lightbox from '../../components/Lightbox/Lightbox';
-import type { Profile, Post } from '../../lib/supabaseClient';
+import type { Profile } from '../../lib/supabaseClient';
+import { usePostList } from '../../lib/usePostList';
+import LoadMore from '../../components/LoadMore/LoadMore';
 import PostCard from '../../components/PostCard/PostCard';
 import ComposePost from '../../components/ComposePost/ComposePost';
 import EmptyState from '../../components/EmptyState/EmptyState';
@@ -26,12 +28,11 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const toast = useToast();
   const [messageLoading, setMessageLoading] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [postsLoading, setPostsLoading] = useState(true);
+  const [postCount, setPostCount] = useState<number | null>(null);
   const [followLoading, setFollowLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editBio, setEditBio] = useState('');
@@ -51,6 +52,8 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const isOwnProfile = currentUserId === userId;
+  /* Paged through fetch_posts; the stat below is a real count, not the page length */
+  const { posts, loading: postsLoading, loadingMore, hasMore, loadMore, prepend, remove } = usePostList({ author: userId }, 0, !!userId);
 
   usePageTitle(profile ? `@${profile.username}` : 'Profile');
 
@@ -74,14 +77,9 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     })();
 
     (async () => {
-      const { data } = await supabase
-        .from('posts')
-        .select('*, profiles(id, username, display_name, avatar_url), likes(id, user_id), comments(id), post_images(id, image_url, position)')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      const { count } = await supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', userId);
       if (cancelled) return;
-      setPosts((data as Post[]) || []);
-      setPostsLoading(false);
+      setPostCount(count ?? 0);
     })();
 
     (async () => {
@@ -212,7 +210,10 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     setSaveLoading(false);
   };
 
-  const handleDelete = (postId: string) => setPosts(posts.filter((p) => p.id !== postId));
+  const handleDelete = (postId: string) => {
+    remove(postId);
+    setPostCount((c) => (c === null ? c : Math.max(0, c - 1)));
+  };
 
   /* Open (or create) a DM with this user */
   const handleMessage = async () => {
@@ -369,7 +370,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
 
             <div className="profile-stats">
               <div className="stat">
-                <span className="stat-count">{posts.length}</span>
+                <span className="stat-count">{postCount ?? posts.length}</span>
                 <span className="stat-label">Posts</span>
               </div>
               <button
@@ -416,7 +417,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
         <section className="profile-posts">
           {/* Your own profile doubles as a place to publish from */}
           {isOwnProfile && currentUserId && (
-            <ComposePost userId={currentUserId} onPosted={(post) => setPosts((prev) => [post, ...prev])} />
+            <ComposePost userId={currentUserId} onPosted={(post) => { prepend(post); setPostCount((c) => (c === null ? c : c + 1)); }} />
           )}
           <h2 className="profile-posts-title">Posts</h2>
           {postsLoading ? (
@@ -436,11 +437,14 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
               subtitle={isOwnProfile ? "Share something with the world." : "This user hasn't posted anything yet."}
             />
           ) : (
-            <div className="posts-list">
-              {posts.map((post) => (
-                <PostCard key={post.id} post={post} currentUserId={currentUserId} isAdmin={isAdmin} onDelete={handleDelete} />
-              ))}
-            </div>
+            <>
+              <div className="posts-list">
+                {posts.map((post) => (
+                  <PostCard key={post.id} post={post} currentUserId={currentUserId} isAdmin={isAdmin} onDelete={handleDelete} />
+                ))}
+              </div>
+              <LoadMore hasMore={hasMore} loading={loadingMore} onMore={loadMore} endLabel="No more posts" />
+            </>
           )}
         </section>
         {followModal && userId && (

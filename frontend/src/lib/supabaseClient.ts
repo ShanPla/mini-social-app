@@ -35,9 +35,11 @@ export type Post = {
   visibility: 'public' | 'followers' | 'private';
   created_at: string;
   profiles?: Profile;
-  likes?: { id: string; user_id: string }[];
-  comments?: Comment[];
   post_images?: PostImage[];
+  /* From fetch_posts: totals and the caller's own like, never every like row */
+  like_count: number;
+  comment_count: number;
+  liked_by_me: boolean;
 };
 
 export type Comment = {

@@ -27,6 +27,8 @@ frontend/
 │   │   ├── names.ts            ← displayName(): display name, else handle
 │   │   ├── session.ts          ← Tells apart Logout from an expired session
 │   │   ├── useScrollLock.ts    ← Counted body scroll lock shared by modals
+│   │   ├── posts.ts            ← fetchPosts(): one RPC for feed, profile, single post
+│   │   ├── usePostList.ts      ← Paged post list with keyset load-more
 │   │   ├── useCooldown.ts      ← Client-side submission rate limiting
 │   │   └── usePageTitle.ts
 │   ├── context/
@@ -49,6 +51,7 @@ frontend/
 │   │   ├── NotificationBell/
 │   │   ├── PostCard/
 │   │   ├── ComposePost/            ← Post composer, shared by feed and own profile
+│   │   ├── LoadMore/               ← Scroll sentinel + button at the end of a paged list
 │   │   ├── CommentSection/
 │   │   ├── ImageCollage/
 │   │   ├── Lightbox/
@@ -125,7 +128,7 @@ frontend/
 **Feed**
 - Three-column layout: quick navigation, posts, discovery widgets
 - All Posts tab and Following tab
-- Sorted by newest first
+- Sorted by newest first, 20 at a time; scrolling near the end loads the next page (keyset, so a new post never shifts the pages)
 - Skeleton loaders while fetching
 - Staggered post entrance animations
 - Left column: mini profile card (avatar, online dot, bio, post/follower/following counts) and quick links
@@ -172,6 +175,11 @@ frontend/
 - Admin role via is_admin flag on profiles
 - Admin can delete any post or comment
 - Enforced server-side via Supabase RLS policies
+
+**Performance**
+- One RPC (fetch_posts) serves the feed, a profile and a single post: like and comment counts plus your own like, never every like row
+- Who to follow and Active this week are ranked in Postgres (suggested_follows, active_posters) instead of pulling tables to the browser
+- Following feed filters by follows inside the query, so it never sends your follow list back up as a URL
 
 **Security**
 - Row Level Security on every table; the app is login-only, so the anon key has no table access

@@ -19,7 +19,7 @@ type Suggestion = {
   display_name: string | null;
   avatar_url: string | null;
   bio: string | null;
-  followerCount: number;
+  follower_count: number;
 };
 
 const LIMIT = 5;
@@ -36,22 +36,10 @@ export default function WhoToFollow({ userId }: Props) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      /* Follower counts are tallied client-side: PostgREST aggregates are off by default on Supabase */
-      const [{ data: myFollows }, { data: allFollows }, { data: profiles }] = await Promise.all([
-        supabase.from('follows').select('following_id').eq('follower_id', userId),
-        supabase.from('follows').select('following_id').limit(5000),
-        supabase.from('profiles').select('id, username, display_name, avatar_url, bio').neq('id', userId).limit(100),
-      ]);
+      /* Counted and ranked in Postgres (suggested_follows in schema.sql) */
+      const { data } = await supabase.rpc('suggested_follows', { p_limit: LIMIT });
       if (cancelled) return;
-      const followingIds = new Set((myFollows || []).map((f) => f.following_id as string));
-      const counts = new Map<string, number>();
-      for (const f of allFollows || []) counts.set(f.following_id, (counts.get(f.following_id) || 0) + 1);
-      const list = ((profiles || []) as Omit<Suggestion, 'followerCount'>[])
-        .filter((p) => !followingIds.has(p.id))
-        .map((p) => ({ ...p, followerCount: counts.get(p.id) || 0 }))
-        .sort((a, b) => b.followerCount - a.followerCount)
-        .slice(0, LIMIT);
-      setUsers(list);
+      setUsers((data as Suggestion[]) || []);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -91,7 +79,7 @@ export default function WhoToFollow({ userId }: Props) {
                 <span className="widget-row-info">
                   <span className="widget-row-name">{displayName(u)}</span>
                   <span className="widget-row-sub">
-                    {u.followerCount} follower{u.followerCount === 1 ? '' : 's'}
+                    {u.follower_count} follower{u.follower_count === 1 ? '' : 's'}
                   </span>
                 </span>
               </Link>
