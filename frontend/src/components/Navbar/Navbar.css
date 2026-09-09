@@ -92,3 +92,23 @@
   border-bottom: 2px solid var(--ink);
   padding-bottom: 2px;
 }
+
+.nav-link--badged { position: relative; }
+.nav-badge {
+  position: absolute;
+  top: -9px;
+  right: -14px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+}

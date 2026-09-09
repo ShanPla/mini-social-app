@@ -22,6 +22,7 @@ frontend/
 │   │   ├── chat.ts             ← Conversation helpers and chat constants
 │   │   ├── timeAgo.ts          ← Relative time + UTC-safe timestamp parsing
 │   │   ├── errors.ts           ← Supabase error to one readable line
+│   │   ├── authErrors.ts       ← Auth error text to one readable line
 │   │   ├── search.ts           ← Escapes % and _ for ilike patterns
 │   │   ├── useCooldown.ts      ← Client-side submission rate limiting
 │   │   └── usePageTitle.ts
@@ -36,6 +37,7 @@ frontend/
 │   │   ├── global.css
 │   │   └── animations.css
 │   ├── components/
+│   │   ├── AuthLayout/             ← Art panel + form column shared by the auth pages
 │   │   ├── ErrorBoundary/          ← Recovery card instead of a blank page
 │   │   ├── Toaster/                ← Toast stack, top-centre under the navbar
 │   │   ├── Navbar/
@@ -69,6 +71,8 @@ frontend/
 │   └── pages/
 │       ├── Login/
 │       ├── Register/
+│       ├── ForgotPassword/         ← Emails a reset link
+│       ├── ResetPassword/          ← Sets the new password from that link
 │       ├── Feed/
 │       ├── Profile/
 │       ├── Post/
@@ -84,6 +88,8 @@ frontend/
 - Login / Logout with session persistence
 - Friendly error messages for common issues
 - Password complexity enforcement (uppercase, lowercase, digits)
+- Forgot password: emailed reset link, then a new-password form; a signed-in user can open /reset-password to change theirs
+- Unconfirmed email: Login and Register offer a one-click resend of the confirmation email
 
 **Posts**
 - Create posts with text and up to 10 images
@@ -181,7 +187,7 @@ frontend/
 - Navbar slide-down entrance
 - Dropdown scale-in animations
 - Empty state illustrations
-- Mobile responsive layout with a bottom tab bar below 680px (Feed, Messages, Profile)
+- Messages link with unread badge in the navbar on every page; bottom tab bar below 680px (Feed, Messages, Profile)
 - Native lazy loading on every image; chat threads page their history
 - Dark auth pages (Login + Register) with dot grid and decorative typography
 - Page titles on every route
@@ -232,6 +238,17 @@ Run backend/database/schema.sql in the Supabase SQL Editor. One file, the whole 
 It is idempotent: a fresh install and an upgrade are the same action. After any
 schema change, edit the file and run it again. It also creates and configures all
 three storage buckets, so there is nothing to click in the dashboard.
+
+One dashboard setting is needed for password reset. In Authentication → URL
+Configuration, add the reset page to the Redirect URLs:
+
+```
+http://localhost:5173/reset-password
+https://your-deployment.vercel.app/reset-password
+```
+
+Without it Supabase sends the reset link to the Site URL instead; the app still
+steers that landing to the form, but only if the Site URL points at this app.
 
 ### 2. Frontend
 

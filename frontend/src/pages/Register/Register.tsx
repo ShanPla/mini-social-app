@@ -2,15 +2,21 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
+import { friendlyAuthError } from '../../lib/authErrors';
+import { useToast } from '../../context/ToastContext';
 import './Register.css';
 
 export default function Register() {
   const navigate = useNavigate();
+  const toast = useToast();
+  const [resending, setResending] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  /* The address the signup actually used, so an edited field cannot resend elsewhere */
+  const [sentTo, setSentTo] = useState('');
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'taken' | 'available'>('idle');
   const [loading, setLoading] = useState(false);
 
@@ -27,23 +33,19 @@ export default function Register() {
     setUsernameStatus(data === true ? 'available' : 'taken');
   };
 
-  const getFriendlyError = (message: string): string => {
-    if (message.includes('invalid') && message.includes('email'))
-      return 'Please enter a valid email address (e.g. yourname@gmail.com).';
-    if (message.includes('already registered') || message.includes('already been registered'))
-      return 'An account with this email already exists. Try logging in instead.';
-    if (message.includes('rate limit') || message.includes('email rate'))
-      return 'Too many attempts. Please wait a minute and try again.';
-    if (message.includes('password') && message.includes('short'))
-      return 'Password must be at least 6 characters.';
-    if (message.includes('weak password'))
-      return 'Password must contain uppercase, lowercase letters and numbers.';
-    return message;
+  const handleResend = async () => {
+    if (resending) return;
+    setResending(true);
+    const { error } = await supabase.auth.resend({ type: 'signup', email: sentTo });
+    if (error) toast.error(friendlyAuthError(error.message));
+    else toast.success('Confirmation email sent again. Check your inbox.');
+    setResending(false);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setNotice('');
     if (username.length < 3) { setError('Username must be at least 3 characters.'); return; }
     if (usernameStatus === 'taken') { setError('That username is already taken. Please choose another.'); return; }
     if (usernameStatus === 'checking') { setError('Still checking username availability, please wait.'); return; }
@@ -58,9 +60,10 @@ export default function Register() {
       password,
       options: { data: { username } },
     });
-    if (signUpError) { setError(getFriendlyError(signUpError.message)); setLoading(false); return; }
+    if (signUpError) { setError(friendlyAuthError(signUpError.message)); setLoading(false); return; }
     if (!data.session) {
       /* Email confirmation is on: there is no session until the link is clicked */
+      setSentTo(email.trim());
       setNotice('Almost there. Check your inbox for a confirmation link, then sign in.');
       setLoading(false);
       return;
@@ -123,7 +126,14 @@ export default function Register() {
           </div>
 
           {error && <p className="error-msg">{error}</p>}
-          {notice && <p className="notice-msg">{notice}</p>}
+          {notice && (
+            <>
+              <p className="notice-msg">{notice}</p>
+              <button type="button" className="auth-inline-btn" onClick={handleResend} disabled={resending}>
+                {resending ? 'Sending…' : 'Resend the email'}
+              </button>
+            </>
+          )}
 
           <button
             type="submit"

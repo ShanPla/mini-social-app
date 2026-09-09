@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
 import Navbar from './components/Navbar/Navbar';
 import SearchBar from './components/SearchBar/SearchBar';
 import Login from './pages/Login/Login';
 import Register from './pages/Register/Register';
+import ForgotPassword from './pages/ForgotPassword/ForgotPassword';
+import ResetPassword from './pages/ResetPassword/ResetPassword';
 import Feed from './pages/Feed/Feed';
 import ProfilePage from './pages/Profile/Profile';
 import PostPage from './pages/Post/Post';
@@ -20,7 +22,12 @@ import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import './styles/global.css';
 import './styles/animations.css';
 
-const AUTH_ROUTES = ['/login', '/register'];
+const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'];
+
+/* Read once at module load, before auth-js consumes the hash. PASSWORD_RECOVERY is
+   broadcast to every open tab through a BroadcastChannel, so without this every
+   tab the user had open would be steered to the reset form. */
+const landedOnRecoveryLink = /(^#|&)type=recovery(&|$)/.test(window.location.hash);
 
 // New pages open at the top. Back/forward (POP) is left to the browser so
 // it can restore where the reader was.
@@ -43,9 +50,33 @@ function PageWrapper({ children, withMobileNav }: { children: React.ReactNode; w
   );
 }
 
-function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean }) {
+type AppInnerProps = {
+  userId: string | null;
+  isAdmin: boolean;
+  /* True once Supabase reports PASSWORD_RECOVERY; consumed by the steer below */
+  recovery: boolean;
+  onRecoverySteered: () => void;
+};
+
+function AppInner({ userId, isAdmin, recovery, onRecoverySteered }: AppInnerProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const isAuthPage = AUTH_ROUTES.includes(location.pathname);
+
+  /* A recovery link lands wherever Supabase sends it. If the redirect list in
+     the dashboard is incomplete that is the Site URL, not /reset-password, so
+     steer there once and then let the user roam. A dead link arrives the same
+     way but with an error in the hash and no auth event, so it is steered too,
+     hash intact, for ResetPassword to explain. */
+  const authErrorInUrl = location.pathname !== '/reset-password'
+    && new URLSearchParams(location.hash.replace(/^#/, '')).has('error_description');
+  useEffect(() => {
+    if (!recovery && !authErrorInUrl) return;
+    if (location.pathname !== '/reset-password') {
+      navigate({ pathname: '/reset-password', hash: location.hash }, { replace: true });
+    }
+    if (recovery) onRecoverySteered();
+  }, [recovery, authErrorInUrl, location.pathname, location.hash, navigate, onRecoverySteered]);
 
   return (
     <ToastProvider>
@@ -64,6 +95,10 @@ function AppInner({ userId, isAdmin }: { userId: string | null; isAdmin: boolean
         <Routes>
           <Route path="/login" element={!userId ? <Login /> : <Navigate to="/feed" />} />
           <Route path="/register" element={!userId ? <Register /> : <Navigate to="/feed" />} />
+          <Route path="/forgot-password" element={!userId ? <ForgotPassword /> : <Navigate to="/feed" />} />
+          {/* Reachable signed in or out: the recovery link signs you in first,
+              and no session means the link was bad */}
+          <Route path="/reset-password" element={<ResetPassword userId={userId} />} />
           <Route path="/feed" element={userId ? <Feed userId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
           <Route path="/profile/:userId" element={userId ? <ProfilePage currentUserId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
           <Route path="/post/:postId" element={userId ? <PostPage currentUserId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
@@ -84,6 +119,8 @@ function App() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [recovery, setRecovery] = useState(false);
+  const clearRecovery = useCallback(() => setRecovery(false), []);
 
   /*
    * Only updates isAdmin when the DB actually answers.
@@ -115,11 +152,12 @@ function App() {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const uid = session?.user?.id ?? null;
       setUserId(uid);
       if (uid) fetchAdminStatus(uid);
       else setIsAdmin(false);
+      if (event === 'PASSWORD_RECOVERY' && landedOnRecoveryLink) setRecovery(true);
     });
 
     return () => subscription.unsubscribe();
@@ -135,7 +173,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AppInner userId={userId} isAdmin={isAdmin} />
+      <AppInner userId={userId} isAdmin={isAdmin} recovery={recovery} onRecoverySteered={clearRecovery} />
     </BrowserRouter>
   );
 }

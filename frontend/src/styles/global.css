@@ -144,6 +144,22 @@ input, textarea {
   margin-top: 4px;
 }
 
+/* Small secondary action next to a message, e.g. [Resend confirmation email] */
+.auth-inline-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  align-self: flex-start;
+  transition: border-color 0.2s, color 0.2s;
+}
+.auth-inline-btn:hover { border-color: var(--accent); color: var(--accent); }
+.auth-inline-btn:disabled { opacity: 0.6; cursor: default; }
+
 /* Non-error feedback, e.g. [check your inbox] after signup */
 .notice-msg {
   color: var(--ink-light);

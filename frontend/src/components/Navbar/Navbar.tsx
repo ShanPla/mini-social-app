@@ -1,5 +1,6 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import { useChat } from '../../context/ChatContext';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import './Navbar.css';
 
@@ -10,6 +11,7 @@ type NavbarProps = {
 export default function Navbar({ userId }: NavbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { unreadConversations } = useChat();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -29,6 +31,14 @@ export default function Navbar({ userId }: NavbarProps) {
         {userId && (
           <div className="navbar-links">
             <Link to="/feed" className={`nav-link ${isActive('/feed') ? 'nav-link--active' : ''}`}>Feed</Link>
+            {/* The feed's quick links only exist on the feed; every other page needs this one.
+                Hidden below 680px, where the bottom bar carries it. */}
+            <Link to="/messages" className={`nav-link nav-link--badged ${isActive('/messages') ? 'nav-link--active' : ''}`}>
+              Messages
+              {unreadConversations > 0 && (
+                <span className="nav-badge">{unreadConversations > 9 ? '9+' : unreadConversations}</span>
+              )}
+            </Link>
             <Link to={`/profile/${userId}`} className={`nav-link ${isActive('/profile') ? 'nav-link--active' : ''}`}>Profile</Link>
             <NotificationBell currentUserId={userId} />
             <button onClick={handleLogout} className="nav-logout">Logout</button>
