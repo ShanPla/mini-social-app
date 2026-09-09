@@ -12,15 +12,34 @@ type Props = {
   onClose: () => void;
 };
 
+type FollowRow = { profiles: Profile | null };
+
 export default function FollowersModal({ userId, type, onClose }: Props) {
   const [users, setUsers] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
+  /* Which (user, tab) the list belongs to; loading is derived from it */
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const key = `${userId}:${type}`;
+  const loading = loadedFor !== key;
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    fetchUsers();
     return () => { document.body.style.overflow = ''; };
-  }, [userId, type]);
+  }, []);
+
+  useEffect(() => {
+    /* Flipping followers/following mid-fetch must not show the wrong list */
+    let cancelled = false;
+    (async () => {
+      const { data } = type === 'followers'
+        ? await supabase.from('follows').select('profiles!follows_follower_id_fkey(id, username, avatar_url, bio)').eq('following_id', userId)
+        : await supabase.from('follows').select('profiles!follows_following_id_fkey(id, username, avatar_url, bio)').eq('follower_id', userId);
+      if (cancelled) return;
+      const rows = (data as unknown as FollowRow[]) || [];
+      setUsers(rows.map((r) => r.profiles).filter((p): p is Profile => !!p));
+      setLoadedFor(key);
+    })();
+    return () => { cancelled = true; };
+  }, [userId, type, key]);
 
   /* Close on Escape */
   useEffect(() => {
@@ -28,28 +47,6 @@ export default function FollowersModal({ userId, type, onClose }: Props) {
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
-
-  const fetchUsers = async () => {
-    setLoading(true);
-
-    if (type === 'followers') {
-      /* People who follow this user */
-      const { data } = await supabase
-        .from('follows')
-        .select('profiles!follows_follower_id_fkey(id, username, avatar_url, bio)')
-        .eq('following_id', userId);
-      setUsers((data?.map((d: any) => d.profiles).filter(Boolean) || []) as Profile[]);
-    } else {
-      /* People this user follows */
-      const { data } = await supabase
-        .from('follows')
-        .select('profiles!follows_following_id_fkey(id, username, avatar_url, bio)')
-        .eq('follower_id', userId);
-      setUsers((data?.map((d: any) => d.profiles).filter(Boolean) || []) as Profile[]);
-    }
-
-    setLoading(false);
-  };
 
   const title = type === 'followers' ? 'Followers' : 'Following';
 

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import PostCard from '../../components/PostCard/PostCard';
+import EmptyState from '../../components/EmptyState/EmptyState';
 import { usePageTitle } from '../../lib/usePageTitle';
 import './Post.css';
 
@@ -11,37 +12,51 @@ type PostPageProps = {
   isAdmin: boolean;
 };
 
+/* /post/:postId. App remounts this per path, so state starts fresh for each post. */
 export default function PostPage({ currentUserId, isAdmin }: PostPageProps) {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
-  usePageTitle('Post');
+
+  usePageTitle(post?.profiles?.username ? `Post by @${post.profiles.username}` : 'Post');
 
   useEffect(() => {
-    if (postId) fetchPost();
+    if (!postId) return;
+    let cancelled = false;
+    (async () => {
+      /* maybeSingle: a missing or hidden post is null, not an error */
+      const { data } = await supabase
+        .from('posts')
+        .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id, user_id, content, created_at, profiles(id, username)), post_images(id, image_url, position)')
+        .eq('id', postId)
+        .maybeSingle();
+      if (cancelled) return;
+      setPost((data as Post) || null);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
   }, [postId]);
-
-  const fetchPost = async () => {
-    const { data } = await supabase
-      .from('posts')
-      .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id, user_id, content, created_at, profiles(id, username)), post_images(id, image_url, position)')
-      .eq('id', postId)
-      .single();
-    setPost(data as Post);
-    setLoading(false);
-  };
 
   const handleDelete = () => navigate('/feed');
 
   if (loading) return <div className="post-page-loading">Loading…</div>;
-  if (!post) return <div className="post-page-loading">Post not found.</div>;
 
   return (
     <div className="post-detail-page">
       <div className="post-detail-inner">
         <button className="back-btn" onClick={() => navigate(-1)}>← Back</button>
-        <PostCard post={post} currentUserId={currentUserId} isAdmin={isAdmin} onDelete={handleDelete} />
+        {post ? (
+          /* Someone arriving from a comment notification wants the comments open */
+          <PostCard post={post} currentUserId={currentUserId} isAdmin={isAdmin} onDelete={handleDelete} defaultShowComments />
+        ) : (
+          <EmptyState
+            icon="search"
+            title="Post not found"
+            subtitle="It may have been deleted, or it is not visible to you."
+            action={<button className="btn-ghost" onClick={() => navigate('/feed')}>Back to feed</button>}
+          />
+        )}
       </div>
     </div>
   );

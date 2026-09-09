@@ -20,44 +20,58 @@ type FeedProps = {
 
 export default function Feed({ userId, isAdmin }: FeedProps) {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
   const [feedType, setFeedType] = useState<'all' | 'following'>('all');
   const [newPostsBanner, setNewPostsBanner] = useState(false);
+  /* Bumped by the [new posts] banner to refetch without changing the tab */
+  const [refreshKey, setRefreshKey] = useState(0);
+  /* Which (tab, refresh) the current posts belong to; loading is derived */
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const fetchKey = `${feedType}:${userId ?? ''}:${refreshKey}`;
+  const loading = loadedKey !== fetchKey;
 
   usePageTitle('Feed');
 
-  useEffect(() => { fetchPosts(); }, [feedType, userId]);
+  useEffect(() => {
+    /* Switching tabs while a fetch is in flight must not show the old tab's posts */
+    let cancelled = false;
+    (async () => {
+      let query = supabase
+        .from('posts')
+        .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id), post_images(id, image_url, position)')
+        .order('created_at', { ascending: false });
+
+      if (feedType === 'following' && userId) {
+        const { data: follows } = await supabase.from('follows').select('following_id').eq('follower_id', userId);
+        if (cancelled) return;
+        const ids = follows?.map((f) => f.following_id) || [];
+        if (ids.length === 0) {
+          setPosts([]);
+          setNewPostsBanner(false);
+          setLoadedKey(fetchKey);
+          return;
+        }
+        query = query.in('user_id', ids);
+      }
+
+      const { data } = await query.limit(50);
+      if (cancelled) return;
+      setPosts((data as Post[]) || []);
+      setNewPostsBanner(false);
+      setLoadedKey(fetchKey);
+    })();
+    return () => { cancelled = true; };
+  }, [feedType, userId, fetchKey]);
 
   useEffect(() => {
     if (feedType !== 'all') return;
     const channel = supabase
-      .channel('feed-realtime')
+      .channel(`feed:${userId ?? 'anon'}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
         if (payload.new.user_id !== userId) setNewPostsBanner(true);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [feedType, userId]);
-
-  const fetchPosts = async () => {
-    setLoading(true);
-    setNewPostsBanner(false);
-    let query = supabase
-      .from('posts')
-      .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id), post_images(id, image_url, position)')
-      .order('created_at', { ascending: false });
-
-    if (feedType === 'following' && userId) {
-      const { data: follows } = await supabase.from('follows').select('following_id').eq('follower_id', userId);
-      const ids = follows?.map((f) => f.following_id) || [];
-      if (ids.length === 0) { setPosts([]); setLoading(false); return; }
-      query = query.in('user_id', ids);
-    }
-
-    const { data } = await query.limit(50);
-    setPosts((data as Post[]) || []);
-    setLoading(false);
-  };
 
   const handleDelete = (postId: string) => setPosts(posts.filter((p) => p.id !== postId));
 
@@ -74,7 +88,7 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
 
         <div className="feed-main">
           {newPostsBanner && (
-            <button className="new-posts-banner" onClick={fetchPosts}>
+            <button className="new-posts-banner" onClick={() => setRefreshKey((k) => k + 1)}>
               ↑ New posts available — click to refresh
             </button>
           )}

@@ -29,39 +29,47 @@ type Props = {
   postId: string;
   currentUserId: string | null;
   isAdmin?: boolean;
+  /* Total comments including replies, so the card's counter stays honest */
+  onCountChange?: (count: number) => void;
 };
 
-export default function CommentSection({ postId, currentUserId, isAdmin = false }: Props) {
+export default function CommentSection({ postId, currentUserId, isAdmin = false, onCountChange }: Props) {
   const [comments, setComments] = useState<CommentData[]>([]);
   const [loading, setLoading] = useState(false);
   const [isOnCooldown, triggerCooldown] = useCooldown(3000);
+  /* Bumped after every write; the effect below owns the fetch */
+  const [version, setVersion] = useState(0);
+  const refresh = () => setVersion((v) => v + 1);
 
-  useEffect(() => { fetchComments(); }, [postId]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('comments')
+        .select('*, profiles(id, username, avatar_url), comment_likes(id, user_id)')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+      if (cancelled || !data) return;
 
-  const fetchComments = async () => {
-    const { data } = await supabase
-      .from('comments')
-      .select('*, profiles(id, username, avatar_url), comment_likes(id, user_id)')
-      .eq('post_id', postId)
-      .order('created_at', { ascending: true });
+      /* Build nested tree */
+      const map = new Map<string, CommentData>();
+      const roots: CommentData[] = [];
 
-    if (!data) return;
+      data.forEach((c) => map.set(c.id, { ...c, replies: [] }));
+      data.forEach((c) => {
+        if (c.parent_id && map.has(c.parent_id)) {
+          map.get(c.parent_id)!.replies!.push(map.get(c.id)!);
+        } else {
+          roots.push(map.get(c.id)!);
+        }
+      });
 
-    /* Build nested tree */
-    const map = new Map<string, CommentData>();
-    const roots: CommentData[] = [];
-
-    data.forEach((c) => map.set(c.id, { ...c, replies: [] }));
-    data.forEach((c) => {
-      if (c.parent_id && map.has(c.parent_id)) {
-        map.get(c.parent_id)!.replies!.push(map.get(c.id)!);
-      } else {
-        roots.push(map.get(c.id)!);
-      }
-    });
-
-    setComments(roots);
-  };
+      setComments(roots);
+      onCountChange?.(data.length);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postId, version]);
 
   const toast = useToast();
 
@@ -84,7 +92,7 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false 
     if (!error && data) {
       /* The post owner's bell notification is raised server-side by trg_notify_comment */
       clearFn();
-      fetchComments();
+      refresh();
       triggerCooldown();
     } else {
       toast.error(describeError(error, 'Could not post your comment. Please try again.'));
@@ -95,7 +103,7 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false 
   const handleDelete = async (commentId: string) => {
     const { error } = await supabase.from('comments').delete().eq('id', commentId);
     if (error) { toast.error(describeError(error, 'Could not delete the comment.')); return; }
-    fetchComments();
+    refresh();
   };
 
   const handleLikeComment = async (commentId: string, isLiked: boolean) => {
@@ -104,7 +112,7 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false 
       ? await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', currentUserId)
       : await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: currentUserId });
     if (error) { toast.error(describeError(error, 'Could not update your like.')); return; }
-    fetchComments();
+    refresh();
   };
 
   return (

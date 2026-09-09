@@ -17,6 +17,8 @@ type PostCardProps = {
   currentUserId: string | null;
   isAdmin?: boolean;
   onDelete?: (postId: string) => void;
+  /* /post/:id opens with the thread visible */
+  defaultShowComments?: boolean;
 };
 
 const CHAR_LIMIT = 200;
@@ -34,10 +36,12 @@ const VisibilityBadge = ({ visibility }: { visibility?: string }) => {
   );
 };
 
-export default function PostCard({ post, currentUserId, isAdmin = false, onDelete }: PostCardProps) {
+export default function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowComments = false }: PostCardProps) {
   const [currentPost, setCurrentPost] = useState(post);
   const [likes, setLikes] = useState(post.likes || []);
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(defaultShowComments);
+  /* Seeded from the feed query; CommentSection reports the live total once open */
+  const [commentCount, setCommentCount] = useState(post.comments?.length || 0);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -204,7 +208,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
 
           <button className="post-action comment-btn" onClick={() => setShowComments(!showComments)}>
             <MessageCircle size={15} />
-            <span>{currentPost.comments?.length || 0} {(currentPost.comments?.length || 0) === 1 ? 'comment' : 'comments'}</span>
+            <span>{commentCount} {commentCount === 1 ? 'comment' : 'comments'}</span>
           </button>
         </footer>
 
@@ -214,6 +218,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
             postId={currentPost.id}
             currentUserId={currentUserId}
             isAdmin={isAdmin}
+            onCountChange={setCommentCount}
           />
         )}
       </article>

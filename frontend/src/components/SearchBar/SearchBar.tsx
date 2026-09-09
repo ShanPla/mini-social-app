@@ -3,14 +3,19 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
+import { escapeLike } from '../../lib/search';
 import './SearchBar.css';
 
 export default function SearchBar() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Profile[]>([]);
+  /* Results remember which query produced them, so a stale list is never
+     shown for a newer query and loading needs no state of its own */
+  const [results, setResults] = useState<{ q: string; list: Profile[] }>({ q: '', list: [] });
   const [showDropdown, setShowDropdown] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const q = query.trim();
+  const shown = results.q === q ? results.list : [];
+  const loading = !!q && results.q !== q;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -29,24 +34,26 @@ export default function SearchBar() {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (!query.trim()) {
-      setResults([]);
-      setShowDropdown(false);
-      return;
-    }
+    if (!q) return;
 
+    let cancelled = false;
     debounceRef.current = setTimeout(async () => {
-      setLoading(true);
       const { data } = await supabase
         .from('profiles')
         .select('id, username, bio, avatar_url')
-        .ilike('username', `%${query}%`)
+        .ilike('username', `%${escapeLike(q)}%`)
         .limit(6);
-      setResults((data as Profile[]) || []);
+      if (cancelled) return;
+      setResults({ q, list: (data as Profile[]) || [] });
       setShowDropdown(true);
-      setLoading(false);
     }, 300);
-  }, [query]);
+
+    /* Unmount or a new keystroke: drop the pending timer and any in-flight result */
+    return () => {
+      cancelled = true;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [q]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && query.trim()) {
@@ -74,7 +81,7 @@ export default function SearchBar() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            onFocus={() => results.length > 0 && setShowDropdown(true)}
+            onFocus={() => shown.length > 0 && setShowDropdown(true)}
           />
           {/* Loading spinner */}
           {loading && <span className="searchbar-spinner">✦</span>}
@@ -82,20 +89,20 @@ export default function SearchBar() {
           {query && (
             <button
               className="searchbar-clear"
-              onClick={() => { setQuery(''); setResults([]); setShowDropdown(false); }}
+              onClick={() => { setQuery(''); setShowDropdown(false); }}
             >
               <X size={13} />
             </button>
           )}
         </div>
 
-        {showDropdown && (
+        {showDropdown && q && !loading && (
           <div className="searchbar-dropdown">
-            {results.length === 0 ? (
+            {shown.length === 0 ? (
               <div className="dropdown-empty">No users found</div>
             ) : (
               <>
-                {results.map((user) => (
+                {shown.map((user) => (
                   <Link
                     to={`/profile/${user.id}`}
                     key={user.id}

@@ -7,6 +7,14 @@ type Props = {
   images: string[];
 };
 
+/* Expand hint shown on hover. Module scope: declared inside the component it
+   would be a new type every render and React would remount it each time. */
+const ExpandHint = () => (
+  <div className="collage-expand-hint">
+    <ZoomIn size={20} color="white" />
+  </div>
+);
+
 export default function ImageCollage({ images }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
@@ -20,13 +28,6 @@ export default function ImageCollage({ images }: Props) {
     e.stopPropagation();
     setLightboxIndex(index);
   };
-
-  /* Expand hint shown on hover */
-  const ExpandHint = () => (
-    <div className="collage-expand-hint">
-      <ZoomIn size={20} color="white" />
-    </div>
-  );
 
   return (
     <>

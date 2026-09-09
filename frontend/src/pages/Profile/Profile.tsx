@@ -52,53 +52,57 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
 
   usePageTitle(profile ? `@${profile.username}` : 'Profile');
 
+  /* App remounts this page per path, so state starts fresh for every profile.
+     The cancelled flag covers the remaining case: a response landing after
+     StrictMode's double-invoke or a userId swap. */
   useEffect(() => {
-    if (userId) {
-      fetchProfile();
-      fetchPosts();
-      fetchFollowData();
-    }
-  }, [userId, currentUserId]);
+    if (!userId) return;
+    let cancelled = false;
 
-  const fetchProfile = async () => {
-    setLoading(true);
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (data) {
-      setProfile(data);
-      setEditBio(data.bio || '');
-      setEditUsername(data.username);
-    }
-    setLoading(false);
-  };
+    (async () => {
+      const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      if (cancelled) return;
+      if (data) {
+        setProfile(data);
+        setEditBio(data.bio || '');
+        setEditUsername(data.username);
+      }
+      setLoading(false);
+    })();
 
-  const fetchPosts = async () => {
-    setPostsLoading(true);
-    const { data } = await supabase
-      .from('posts')
-      .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id), post_images(id, image_url, position)')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    setPosts((data as Post[]) || []);
-    setPostsLoading(false);
-  };
-
-  const fetchFollowData = async () => {
-    const [{ count: frs }, { count: fng }] = await Promise.all([
-      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
-      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
-    ]);
-    setFollowersCount(frs || 0);
-    setFollowingCount(fng || 0);
-
-    if (currentUserId && currentUserId !== userId) {
+    (async () => {
       const { data } = await supabase
-        .from('follows').select('id')
-        .eq('follower_id', currentUserId)
-        .eq('following_id', userId)
-        .maybeSingle();
-      setIsFollowing(!!data);
-    }
-  };
+        .from('posts')
+        .select('*, profiles(id, username, avatar_url), likes(id, user_id), comments(id), post_images(id, image_url, position)')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (cancelled) return;
+      setPosts((data as Post[]) || []);
+      setPostsLoading(false);
+    })();
+
+    (async () => {
+      const [{ count: frs }, { count: fng }] = await Promise.all([
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
+      ]);
+      if (cancelled) return;
+      setFollowersCount(frs || 0);
+      setFollowingCount(fng || 0);
+
+      if (currentUserId && currentUserId !== userId) {
+        const { data } = await supabase
+          .from('follows').select('id')
+          .eq('follower_id', currentUserId)
+          .eq('following_id', userId)
+          .maybeSingle();
+        if (cancelled) return;
+        setIsFollowing(!!data);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [userId, currentUserId]);
 
   const handleFollow = async () => {
     if (!currentUserId || !userId || followLoading) return;

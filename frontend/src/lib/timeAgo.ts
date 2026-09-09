@@ -24,17 +24,14 @@ export function timeAgo(dateStr: string): string {
   return `${years}y ago`;
 }
 
-/* Hook version — auto-updates every 30 seconds */
+/* Hook version — re-renders every 30 seconds so the label keeps moving */
 export function useTimeAgo(dateStr: string): string {
-  const [label, setLabel] = useState(() => timeAgo(dateStr));
+  const [, setTick] = useState(0);
 
   useEffect(() => {
-    setLabel(timeAgo(dateStr));
-    const interval = setInterval(() => {
-      setLabel(timeAgo(dateStr));
-    }, 30000);
+    const interval = setInterval(() => setTick((t) => t + 1), 30000);
     return () => clearInterval(interval);
-  }, [dateStr]);
+  }, []);
 
-  return label;
+  return timeAgo(dateStr);
 }

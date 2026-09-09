@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Bell, Heart, MessageCircle, MessageSquare, UserPlus } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
-import { parseDbDate } from '../../lib/timeAgo';
+import { shortTime } from '../../lib/chat';
 import './NotificationBell.css';
 
 type Notification = {
@@ -43,30 +43,33 @@ export default function NotificationBell({ currentUserId }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchNotifications = useCallback(async () => {
-    const { data } = await supabase
-      .from('notifications')
-      .select(SELECT)
-      .eq('user_id', currentUserId)
-      .order('created_at', { ascending: false })
-      .limit(5);
+  /* Bumped by realtime events; the effect below owns the fetch */
+  const [version, setVersion] = useState(0);
 
-    if (data) {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('notifications')
+        .select(SELECT)
+        .eq('user_id', currentUserId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (cancelled || !data) return;
       const rows = data as unknown as Notification[];
       setNotifications(rows);
       setUnreadCount(rows.filter((n) => !n.is_read).length);
-    }
-  }, [currentUserId]);
+    })();
+    return () => { cancelled = true; };
+  }, [currentUserId, version]);
 
   /* Marking a conversation read updates several rows at once — coalesce the refetch */
   const scheduleRefetch = useCallback(() => {
     if (refetchTimer.current) clearTimeout(refetchTimer.current);
-    refetchTimer.current = setTimeout(() => { fetchNotifications(); }, 250);
-  }, [fetchNotifications]);
+    refetchTimer.current = setTimeout(() => setVersion((v) => v + 1), 250);
+  }, []);
 
   useEffect(() => {
-    fetchNotifications();
-
     /* Realtime: new rows, plus rows marked read elsewhere (opening a chat clears its entry) */
     const channel = supabase
       .channel(`notifications:${currentUserId}`)
@@ -82,7 +85,7 @@ export default function NotificationBell({ currentUserId }: Props) {
       supabase.removeChannel(channel);
       if (refetchTimer.current) clearTimeout(refetchTimer.current);
     };
-  }, [currentUserId, fetchNotifications, scheduleRefetch]);
+  }, [currentUserId, scheduleRefetch]);
 
   /* Close on outside click */
   useEffect(() => {
@@ -115,17 +118,6 @@ export default function NotificationBell({ currentUserId }: Props) {
     if (n.type === 'message' && n.conversation) openChat(n.conversation.id);
     else if (n.post_id) navigate(`/post/${n.post_id}`);
     else navigate(`/profile/${n.actor.id}`);
-  };
-
-  const formatTime = (dateStr: string) => {
-    const diff = Date.now() - parseDbDate(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    const hrs = Math.floor(mins / 60);
-    const days = Math.floor(hrs / 24);
-    if (mins < 1) return 'now';
-    if (mins < 60) return `${mins}m`;
-    if (hrs < 24) return `${hrs}h`;
-    return `${days}d`;
   };
 
   const getMessage = (n: Notification) => {
@@ -185,7 +177,7 @@ export default function NotificationBell({ currentUserId }: Props) {
                   </div>
                   <div className="bell-item-body">
                     <p><strong>@{n.actor.username}</strong> {getMessage(n)}</p>
-                    <span className="bell-item-time">{formatTime(n.created_at)}</span>
+                    <span className="bell-item-time">{shortTime(n.created_at)}</span>
                   </div>
                 </div>
               ))}

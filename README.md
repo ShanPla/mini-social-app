@@ -22,6 +22,7 @@ frontend/
 │   │   ├── chat.ts             ← Conversation helpers and chat constants
 │   │   ├── timeAgo.ts          ← Relative time + UTC-safe timestamp parsing
 │   │   ├── errors.ts           ← Supabase error to one readable line
+│   │   ├── search.ts           ← Escapes % and _ for ilike patterns
 │   │   ├── useCooldown.ts      ← Client-side submission rate limiting
 │   │   └── usePageTitle.ts
 │   ├── context/
@@ -167,6 +168,9 @@ frontend/
 - Every failed write says so, with the server's own message for rate limits
 - Error boundary per route: a render crash shows a recovery card, not a blank page
 - Partial image uploads report how many failed instead of silently dropping them
+- Comment counter on a card tracks the thread as you post and delete
+- A post opened from a notification shows its comments straight away
+- Notifications page marks read only what it showed you; older unread ones wait
 
 **UI/UX**
 - Warm editorial design system — Playfair Display + DM Sans

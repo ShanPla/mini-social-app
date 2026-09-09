@@ -3,39 +3,46 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
+import { escapeLike } from '../../lib/search';
 import './Search.css';
 import EmptyState from '../../components/EmptyState/EmptyState';
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
-  const query = searchParams.get('q') || '';
+  const query = searchParams.get('q')?.trim() || '';
   const [results, setResults] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(false);
+  /* Which query the results belong to. Loading is derived, so the effect
+     never has to set state synchronously. */
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const loading = !!query && loadedFor !== query;
 
   usePageTitle(query ? `Search: ${query}` : 'Search');
 
   useEffect(() => {
-    if (query.trim()) fetchResults();
-    else setResults([]);
+    if (!query) return;
+    /* A slow earlier search must not overwrite a faster later one */
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('username', `%${escapeLike(query)}%`)
+        .limit(20);
+      if (cancelled) return;
+      setResults((data as Profile[]) || []);
+      setLoadedFor(query);
+    })();
+    return () => { cancelled = true; };
   }, [query]);
 
-  const fetchResults = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .ilike('username', `%${query}%`)
-      .limit(20);
-    setResults((data as Profile[]) || []);
-    setLoading(false);
-  };
+  const shown = query ? results : [];
 
   return (
     <div className="search-page">
       <div className="search-page-inner">
         <div className="search-page-header">
           <h2>Results for <em>"{query}"</em></h2>
-          {!loading && <span className="result-count">{results.length} user{results.length !== 1 ? 's' : ''} found</span>}
+          {!loading && <span className="result-count">{shown.length} user{shown.length !== 1 ? 's' : ''} found</span>}
         </div>
 
         {loading ? (
@@ -50,11 +57,11 @@ export default function SearchPage() {
               </div>
             ))}
           </div>
-        ) : results.length === 0 ? (
+        ) : shown.length === 0 ? (
           <EmptyState icon="search" title={`No users found for "${query}"`} subtitle="Try a different username." />
         ) : (
           <div className="search-results-list">
-            {results.map((user) => (
+            {shown.map((user) => (
               <Link to={`/profile/${user.id}`} key={user.id} className="search-result-card">
                 <div className="result-avatar">
                   {user.avatar_url
