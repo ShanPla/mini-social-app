@@ -30,6 +30,8 @@ frontend/
 │   │   ├── posts.ts            ← fetchPosts(): one RPC for feed, profile, single post
 │   │   ├── usePostList.ts      ← Paged post list with keyset load-more
 │   │   ├── storage.ts          ← Best-effort cleanup of post and avatar files
+│   │   ├── pages.ts            ← One import() per page, shared by lazy routes and prefetching
+│   │   ├── reloadOnce.ts       ← Guarded one-shot reload when a deploy swapped the chunks
 │   │   ├── useCooldown.ts      ← Client-side submission rate limiting
 │   │   └── usePageTitle.ts
 │   ├── context/
@@ -44,7 +46,8 @@ frontend/
 │   │   └── animations.css
 │   ├── components/
 │   │   ├── AuthLayout/             ← Art panel + form column shared by the auth pages
-│   │   ├── ErrorBoundary/          ← Recovery card instead of a blank page
+│   │   ├── ErrorBoundary/          ← Recovery card instead of a blank page; reloads once after a deploy swaps chunks
+│   │   ├── LoadingScreen/          ← The ✦ shown by the auth gate and while a page chunk loads
 │   │   ├── Toaster/                ← Toast stack, top-centre under the navbar
 │   │   ├── Navbar/
 │   │   ├── MobileNav/              ← Bottom tab bar for phones
@@ -184,6 +187,9 @@ frontend/
 - Comment likes, replies and deletes update the thread in place instead of refetching every comment
 - Chat image links are signed for an hour and quietly re-signed before they expire, so a popup left open all day never shows broken images
 - Deleting a post, removing images from one, or replacing an avatar also removes the files from storage
+- Code splitting: every page is its own chunk loaded on first visit, the chat tree loads only when a popup or /messages is opened, and React and Supabase sit in separate long-lived vendor chunks so a deploy only invalidates app code. First load went from one 540 kB file to a 30 kB shell plus vendors
+- The landing page's code downloads while the session is checked, and hovering a navbar link fetches its page early, so the first click rarely waits
+- After a deploy, a tab still holding the old page list reloads itself once instead of showing a broken page; hashed assets are cached for a year on Vercel
 
 **Security**
 - Row Level Security on every table; the app is login-only, so the anon key has no table access

@@ -1,28 +1,37 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
 import Navbar from './components/Navbar/Navbar';
 import SearchBar from './components/SearchBar/SearchBar';
-import Login from './pages/Login/Login';
-import Register from './pages/Register/Register';
-import ForgotPassword from './pages/ForgotPassword/ForgotPassword';
-import ResetPassword from './pages/ResetPassword/ResetPassword';
-import Feed from './pages/Feed/Feed';
-import ProfilePage from './pages/Profile/Profile';
-import PostPage from './pages/Post/Post';
-import SearchPage from './pages/Search/Search';
-import NotificationsPage from './pages/Notifications/Notifications';
-import MessagesPage from './pages/Messages/Messages';
 import ChatProvider from './context/ChatProvider';
 import PresenceProvider from './context/PresenceProvider';
-import ChatDock from './components/ChatDock/ChatDock';
+import { useChat } from './context/ChatContext';
 import MobileNav from './components/MobileNav/MobileNav';
 import ToastProvider from './context/ToastProvider';
 import { useToast } from './context/ToastContext';
 import { consumeIntentionalSignOut } from './lib/session';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
+import LoadingScreen from './components/LoadingScreen/LoadingScreen';
+import { pageLoaders, pageForPath, prefetchPage } from './lib/pages';
 import './styles/global.css';
 import './styles/animations.css';
+
+/* Every page is its own chunk, fetched the first time it is visited. The
+   shell (navbar, search, toasts, providers) stays in the main bundle.
+   The thunks live in lib/pages.ts so the same import() backs prefetching. */
+const Login = lazy(pageLoaders.login);
+const Register = lazy(pageLoaders.register);
+const ForgotPassword = lazy(pageLoaders.forgotPassword);
+const ResetPassword = lazy(pageLoaders.resetPassword);
+const Feed = lazy(pageLoaders.feed);
+const ProfilePage = lazy(pageLoaders.profile);
+const PostPage = lazy(pageLoaders.post);
+const SearchPage = lazy(pageLoaders.search);
+const NotificationsPage = lazy(pageLoaders.notifications);
+const MessagesPage = lazy(pageLoaders.messages);
+/* The chat tree (thread, bubbles, pickers) is shared by the popups and the
+   /messages page; it loads with whichever is used first */
+const ChatDock = lazy(() => import('./components/ChatDock/ChatDock'));
 
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'];
 
@@ -45,6 +54,22 @@ function SessionWatch({ userId }: { userId: string | null }) {
   return null;
 }
 
+// Floating chat popups. Rendered only once a popup is open, so the chat code
+// is not part of the first load for someone who never opens a chat.
+// Its own boundary: a stale chunk here reloads like any page, and any other
+// failure hides the dock instead of taking the whole app down.
+function ChatDockGate() {
+  const { openChats } = useChat();
+  if (openChats.length === 0) return null;
+  return (
+    <ErrorBoundary fallback={null}>
+      <Suspense fallback={null}>
+        <ChatDock />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
 // New pages open at the top. Back/forward (POP) is left to the browser so
 // it can restore where the reader was.
 function ScrollToTop() {
@@ -56,11 +81,13 @@ function ScrollToTop() {
   return null;
 }
 
-// Wraps each page in a fade+slide entrance
+// Remounts the page per path and keeps content clear of the mobile tab bar.
+// The entrance animation lives inside the Suspense boundary (below), so it
+// plays when the page is ready rather than on the loader.
 function PageWrapper({ children, withMobileNav }: { children: React.ReactNode; withMobileNav: boolean }) {
   const location = useLocation();
   return (
-    <div key={location.pathname} className={`page-enter ${withMobileNav ? 'page-enter--mobile-nav' : ''}`}>
+    <div key={location.pathname} className={withMobileNav ? 'page-enter--mobile-nav' : undefined}>
       {children}
     </div>
   );
@@ -103,12 +130,15 @@ function AppInner({ userId, isAdmin, recovery, onRecoverySteered }: AppInnerProp
       {!isAuthPage && <Navbar userId={userId} />}
       {!isAuthPage && userId && <SearchBar />}
       {/* Floating chat popups — global, outside PageWrapper so they survive route changes */}
-      {!isAuthPage && userId && <ChatDock />}
+      {!isAuthPage && userId && <ChatDockGate />}
       {/* Phones lose the feed sidebars, so navigation moves to a bottom bar */}
       {!isAuthPage && userId && <MobileNav userId={userId} />}
       <PageWrapper withMobileNav={!isAuthPage && !!userId}>
         {/* Keyed by route so a crash on one page clears when you leave it */}
         <ErrorBoundary key={location.pathname}>
+        {/* Inside the boundary, so a chunk that fails to load lands on its recovery card */}
+        <Suspense fallback={<LoadingScreen compact />}>
+        <div className="page-enter">
         <Routes>
           <Route path="/login" element={!userId ? <Login /> : <Navigate to="/feed" />} />
           <Route path="/register" element={!userId ? <Register /> : <Navigate to="/feed" />} />
@@ -124,6 +154,8 @@ function AppInner({ userId, isAdmin, recovery, onRecoverySteered }: AppInnerProp
           <Route path="/messages/:conversationId?" element={userId ? <MessagesPage /> : <Navigate to="/login" />} />
           <Route path="*" element={<Navigate to={userId ? "/feed" : "/login"} />} />
         </Routes>
+        </div>
+        </Suspense>
         </ErrorBoundary>
       </PageWrapper>
     </PresenceProvider>
@@ -155,6 +187,10 @@ function App() {
   };
 
   useEffect(() => {
+    /* The first page's code can download while the session is being checked,
+       so the loader is not followed by a second wait for the chunk */
+    prefetchPage(pageForPath(window.location.pathname));
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       const uid = session?.user?.id ?? null;
       setUserId(uid);
@@ -180,13 +216,7 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-        <span style={{ fontFamily: 'serif', fontSize: '2rem', opacity: 0.3 }}>✦</span>
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
 
   return (
     <BrowserRouter>

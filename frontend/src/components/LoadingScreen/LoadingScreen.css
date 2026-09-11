@@ -1,0 +1,34 @@
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.loading-screen--compact {
+  height: auto;
+  min-height: 40vh;
+  padding: 60px 0;
+}
+
+.loading-screen-mark {
+  font-family: serif;
+  font-size: 2rem;
+  opacity: 0.3;
+  animation: loadingPulse 1.4s ease-in-out infinite;
+}
+
+/* Read by assistive tech, invisible otherwise */
+.loading-screen-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@keyframes loadingPulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.45; }
+}
