@@ -81,3 +81,9 @@
 @media (max-width: 1100px) {
   .chat-dock-windows .chat-popup:nth-child(n+3) { display: none; }
 }
+
+/* Tablet: two windows no longer fit beside the page, keep the newest */
+@media (max-width: 900px) {
+  .chat-dock-windows .chat-popup:nth-child(n+2) { display: none; }
+  .chat-dock { right: 12px; }
+}

@@ -14,6 +14,7 @@ export const pageLoaders = {
   search: () => import('../pages/Search/Search'),
   notifications: () => import('../pages/Notifications/Notifications'),
   messages: () => import('../pages/Messages/Messages'),
+  notFound: () => import('../pages/NotFound/NotFound'),
 };
 
 export type PageName = keyof typeof pageLoaders;

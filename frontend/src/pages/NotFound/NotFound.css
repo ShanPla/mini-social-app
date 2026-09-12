@@ -1,0 +1,18 @@
+.not-found-page {
+  min-height: calc(100vh - 60px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+/* A link dressed as the primary button */
+.not-found-btn {
+  display: inline-block;
+  text-decoration: none;
+  line-height: normal;
+}
+
+@media (max-width: 680px) {
+  .not-found-page { padding: 24px 16px; min-height: 60vh; }
+}

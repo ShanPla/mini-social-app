@@ -249,3 +249,13 @@
 }
 .comment-form button:hover { background: var(--accent); }
 .comment-form button:disabled { opacity: 0.4; cursor: default; }
+
+/* Mobile: shallower indents so a third-level reply still has room to read */
+@media (max-width: 680px) {
+  .comment-thread.depth-1 { margin-left: 20px; }
+  .comment-thread.depth-2 { margin-left: 32px; }
+  .comment-thread.depth-3 { margin-left: 40px; }
+  .comment-actions,
+  .comment-reply-form { padding-left: 30px; }
+  .comment-content { font-size: 0.86rem; }
+}

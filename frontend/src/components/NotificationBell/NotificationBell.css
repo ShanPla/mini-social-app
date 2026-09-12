@@ -146,3 +146,16 @@
   transition: color 0.2s;
 }
 .bell-see-all:hover { color: var(--ink); }
+
+/* Phones: the dropdown spans the screen instead of hanging off the right edge */
+@media (max-width: 560px) {
+  .bell-dropdown {
+    position: fixed;
+    top: 62px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+  }
+}

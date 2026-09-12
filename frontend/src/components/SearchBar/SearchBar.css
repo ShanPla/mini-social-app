@@ -162,3 +162,10 @@
 }
 .dropdown-see-all:hover { color: var(--ink); }
 .dropdown-see-all strong { color: var(--ink); }
+
+/* Phones: match the navbar gutter and keep the dropdown inside it */
+@media (max-width: 560px) {
+  .searchbar-inner { padding: 8px 12px; }
+  .searchbar-dropdown { left: 12px; right: 12px; }
+  .dropdown-item { padding: 10px 12px; }
+}

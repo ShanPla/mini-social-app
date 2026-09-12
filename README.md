@@ -88,7 +88,8 @@ frontend/
 │       ├── Post/
 │       ├── Search/
 │       ├── Notifications/
-│       └── Messages/
+│       ├── Messages/
+│       └── NotFound/               ← Real 404 instead of a silent bounce
 ```
 
 ## Features
@@ -223,6 +224,9 @@ frontend/
 - Dark auth pages (Login + Register) with dot grid and decorative typography
 - Page titles on every route
 - Every new page opens at the top; back and forward keep your place
+- Unknown addresses get a 404 page with a way back, not a silent redirect to the feed
+- Link previews: title, description and Open Graph tags in index.html
+- Phone-sized rules on every screen, including the post page, cards, comment threads, the bell dropdown and the search bar; chat popups go one-at-a-time on tablets
 - Relative timestamps ("2h ago", "3d ago"), parsed as UTC to match Postgres
 - Accessibility: respects prefers-reduced-motion
 

@@ -187,3 +187,13 @@
 /* Admin delete style */
 .post-delete--admin { color: var(--accent); font-size: 0.9rem; }
 .post-delete--admin:hover { color: var(--accent-hover); }
+
+/* Mobile: tighter card, handle drops under the name, actions stay on screen */
+@media (max-width: 680px) {
+  .post-card { padding: 16px 14px; }
+  .author-avatar { width: 34px; height: 34px; }
+  .author-handle { display: block; margin-left: 0; }
+  .post-content { font-size: 0.93rem; }
+  .post-footer { gap: 14px; padding-top: 12px; }
+  .post-actions-dropdown { right: 0; left: auto; max-width: calc(100vw - 32px); }
+}

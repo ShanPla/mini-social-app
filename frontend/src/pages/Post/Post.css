@@ -33,3 +33,9 @@
   color: var(--ink-muted);
   font-style: italic;
 }
+
+/* Mobile */
+@media (max-width: 680px) {
+  .post-detail-page { padding: 16px 12px; }
+  .post-detail-inner { gap: 14px; }
+}
