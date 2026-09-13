@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import type { ChatMessage, Conversation } from '../lib/supabaseClient';
-import { isMobile, sortConversations, MAX_OPEN_POPUPS } from '../lib/chat';
+import { isMobile, sortConversations, conversationTitle, MAX_OPEN_POPUPS } from '../lib/chat';
+import { useToast } from './ToastContext';
 import { ChatContext } from './ChatContext';
 import type { ChatContextValue, MeProfile, MessageEvent } from './ChatContext';
 
@@ -22,6 +23,7 @@ type MessageHandler = (e: MessageEvent) => void;
 export default function ChatProvider({ userId, children }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
 
   const [me, setMe] = useState<MeProfile | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -155,12 +157,33 @@ export default function ChatProvider({ userId, children }: Props) {
       .delete()
       .eq('user_id', userId)
       .eq('conversation_id', conversationId)
-      .eq('type', 'message');
+      .in('type', ['message', 'added']);
 
     commit(conversationsRef.current.filter((c) => c.id !== conversationId));
     closeChat(conversationId);
     return true;
   }, [userId, commit, closeChat]);
+
+  const hideConversation = useCallback(async (conversationId: string) => {
+    if (!userId) return false;
+    const { error } = await supabase.rpc('hide_conversation', { conv_id: conversationId });
+    if (error) return false;
+    commit(conversationsRef.current.filter((c) => c.id !== conversationId));
+    closeChat(conversationId);
+    return true;
+  }, [userId, commit, closeChat]);
+
+  const removeMember = useCallback(async (conversationId: string, memberId: string) => {
+    if (!userId) return false;
+    const { error } = await supabase
+      .from('conversation_members')
+      .delete()
+      .eq('conversation_id', conversationId)
+      .eq('user_id', memberId);
+    if (error) return false;
+    await refreshConversations();
+    return true;
+  }, [userId, refreshConversations]);
 
   /* ── Thread wiring ── */
   const setActive = useCallback((conversationId: string, active: boolean) => {
@@ -256,6 +279,9 @@ export default function ChatProvider({ userId, children }: Props) {
 
       if (eventType === 'DELETE') {
         if (row.user_id === userId) {
+          /* Still in the list means someone else removed us: leaving would
+             have dropped it already */
+          if (conv) toast.info(`You were removed from ${conversationTitle(conv, userId)}`);
           commit(list.filter((c) => c.id !== row.conversation_id));
           closeChat(row.conversation_id);
         } else if (conv) {
@@ -308,7 +334,7 @@ export default function ChatProvider({ userId, children }: Props) {
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, toast]);
 
   const unreadConversations = useMemo(
     () => conversations.filter((c) => c.unread_count > 0).length,
@@ -337,6 +363,8 @@ export default function ChatProvider({ userId, children }: Props) {
     createGroup,
     markRead,
     leaveConversation,
+    hideConversation,
+    removeMember,
     setActive,
     onMessage,
   };

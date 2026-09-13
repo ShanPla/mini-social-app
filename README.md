@@ -149,7 +149,9 @@ frontend/
 - Send images, stored in a private bucket and served through short-lived signed URLs
 - Unsend your own messages, which also removes the uploaded file
 - Messages outlive their author: a deleted account shows as [Deleted user], the thread stays intact
-- Create groups, name them, add members, leave a group
+- Create groups and add members. The creator renames the group and can remove members; if the creator leaves, the longest-standing member takes over
+- Being added to a group shows in the bell, with a link straight into the chat
+- Hide a direct message from your list; it returns on its own the moment either side writes again
 - Unread badge on the quick links and the mobile tab bar
 - Cooldown between sends
 
@@ -164,7 +166,7 @@ frontend/
 
 **Notifications**
 - Bell icon in navbar with unread badge
-- Notified when someone likes your post, comments, follows you, or sends you a chat message
+- Notified when someone likes your post, comments, follows you, sends you a chat message, or adds you to a group
 - Chat notifications collapse to one unread entry per conversation, so a burst of messages never floods the bell
 - Reading a conversation clears its bell entry; leaving a group deletes it
 - Dropdown preview of latest 5, links to full notifications page

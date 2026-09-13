@@ -31,6 +31,10 @@ export type ChatContextValue = {
   createGroup: (memberIds: string[], name: string | null) => Promise<string | null>;
   markRead: (conversationId: string) => Promise<void>;
   leaveConversation: (conversationId: string) => Promise<boolean>;
+  /* DMs cannot be left; hiding takes one off the list until a new message arrives */
+  hideConversation: (conversationId: string) => Promise<boolean>;
+  /* Group creator only (RLS enforces it) */
+  removeMember: (conversationId: string, memberId: string) => Promise<boolean>;
 
   /* Thread wiring */
   setActive: (conversationId: string, active: boolean) => void;
@@ -57,6 +61,8 @@ export const ChatContext = createContext<ChatContextValue>({
   createGroup: async () => null,
   markRead: noopAsync,
   leaveConversation: async () => false,
+  hideConversation: async () => false,
+  removeMember: async () => false,
   setActive: noop,
   onMessage: () => noop,
 });

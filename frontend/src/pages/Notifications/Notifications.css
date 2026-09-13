@@ -108,6 +108,7 @@
 .notif-icon--comment { background: #e8f0fe; color: #3b5bdb; }
 .notif-icon--follow { background: #e8fde4; color: #2f9e44; }
 .notif-icon--message { background: #f3e8fd; color: #7048e8; }
+.notif-icon--added { background: #e6fcf5; color: #0ca678; }
 
 .notif-avatar {
   width: 36px;

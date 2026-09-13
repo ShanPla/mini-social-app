@@ -98,6 +98,7 @@
 .bell-item-icon--comment { background: #e8f0fe; color: #3b5bdb; }
 .bell-item-icon--follow { background: #e8fde4; color: #2f9e44; }
 .bell-item-icon--message { background: #f3e8fd; color: #7048e8; }
+.bell-item-icon--added { background: #e6fcf5; color: #0ca678; }
 
 .bell-item-avatar {
   width: 30px;

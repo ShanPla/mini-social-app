@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { X, Pencil, Check, UserPlus, LogOut, Users, Info } from 'lucide-react';
+import { X, Pencil, Check, UserPlus, UserMinus, LogOut, EyeOff, Users, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import type { Profile } from '../../lib/supabaseClient';
+import type { Profile, ChatMember } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import { conversationTitle } from '../../lib/chat';
 import UserPicker from '../UserPicker/UserPicker';
@@ -21,9 +21,10 @@ type Props = {
   onLeft?: () => void;
 };
 
-/* Members, rename, add people, leave — for groups. Members + profile link for DMs. */
+/* Groups: members, add people, leave; the creator can also rename and remove.
+   DMs: the other person, and a way to hide the thread from the list. */
 export default function ConversationInfoModal({ conversationId, onClose, onLeft }: Props) {
-  const { userId, getConversation, refreshConversations, leaveConversation } = useChat();
+  const { userId, getConversation, refreshConversations, leaveConversation, hideConversation, removeMember } = useChat();
   const conv = getConversation(conversationId);
 
   const [renaming, setRenaming] = useState(false);
@@ -32,6 +33,8 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
   const [adding, setAdding] = useState(false);
   const [toAdd, setToAdd] = useState<PickedUser[]>([]);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmHide, setConfirmHide] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState<ChatMember | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useScrollLock();
@@ -48,6 +51,8 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
 
   const title = conversationTitle(conv, userId);
   const memberIds = conv.members.map((m) => m.user_id);
+  /* RLS enforces this too; the UI just hides what would be refused */
+  const isCreator = conv.is_group && conv.created_by === userId;
 
   const handleRename = async () => {
     const name = nameDraft.trim();
@@ -86,6 +91,22 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
     onLeft?.();
   };
 
+  const handleHide = async () => {
+    setConfirmHide(false);
+    const ok = await hideConversation(conversationId);
+    if (!ok) { setError('Could not hide the conversation.'); return; }
+    onClose();
+    onLeft?.();
+  };
+
+  const handleRemove = async () => {
+    if (!confirmRemove) return;
+    const target = confirmRemove;
+    setConfirmRemove(null);
+    const ok = await removeMember(conversationId, target.user_id);
+    if (!ok) setError(`Could not remove ${displayName(target)}.`);
+  };
+
   return createPortal(
     <div className="ci-backdrop" onClick={onClose}>
       <div className="ci-modal" onClick={(e) => e.stopPropagation()}>
@@ -110,7 +131,7 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
             ) : (
               <>
                 <h3>{title}</h3>
-                {conv.is_group && (
+                {isCreator && (
                   <button className="ci-icon-btn" onClick={() => setRenaming(true)} title="Rename group"><Pencil size={14} /></button>
                 )}
               </>
@@ -126,17 +147,25 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
           </div>
           <div className="ci-members">
             {conv.members.map((m) => (
-              <Link key={m.user_id} to={`/profile/${m.user_id}`} className="ci-member" onClick={onClose}>
-                <div className="ci-avatar">
-                  {m.avatar_url
-                    ? <img src={m.avatar_url} alt={m.username} loading="lazy" />
-                    : <span>{(m.username[0] || '?').toUpperCase()}</span>
-                  }
-                </div>
-                <span className="ci-username">{displayName(m)}</span>
-                {m.user_id === userId && <span className="ci-you">you</span>}
-                {conv.is_group && m.user_id === conv.created_by && <span className="ci-you">creator</span>}
-              </Link>
+              <div key={m.user_id} className="ci-member">
+                <Link to={`/profile/${m.user_id}`} className="ci-member-link" onClick={onClose}>
+                  <div className="ci-avatar">
+                    {m.avatar_url
+                      ? <img src={m.avatar_url} alt={m.username} loading="lazy" />
+                      : <span>{(m.username[0] || '?').toUpperCase()}</span>
+                    }
+                  </div>
+                  <span className="ci-username">{displayName(m)}</span>
+                  {m.user_id === userId && <span className="ci-you">you</span>}
+                  {conv.is_group && m.user_id === conv.created_by && <span className="ci-you">creator</span>}
+                </Link>
+                {/* Only the creator sees this; the server refuses anyone else anyway */}
+                {isCreator && m.user_id !== userId && (
+                  <button className="ci-icon-btn ci-remove" onClick={() => setConfirmRemove(m)} title={`Remove ${displayName(m)}`}>
+                    <UserMinus size={14} />
+                  </button>
+                )}
+              </div>
             ))}
           </div>
 
@@ -168,15 +197,40 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
           {error && <p className="error-msg">{error}</p>}
         </div>
 
-        {/* Leave (groups) */}
-        {conv.is_group && (
-          <div className="ci-footer">
+        {/* Leave a group; hide a DM (it returns by itself on the next message) */}
+        <div className="ci-footer">
+          {conv.is_group ? (
             <button className="ci-leave" onClick={() => setConfirmLeave(true)}>
               <LogOut size={14} /> Leave group
             </button>
-          </div>
-        )}
+          ) : (
+            <button className="ci-leave" onClick={() => setConfirmHide(true)}>
+              <EyeOff size={14} /> Hide conversation
+            </button>
+          )}
+        </div>
       </div>
+
+      {confirmHide && (
+        <ConfirmModal
+          title="Hide this conversation?"
+          message="It leaves your list but nothing is deleted. It comes back the moment either of you sends a message."
+          confirmLabel="Hide"
+          onConfirm={handleHide}
+          onCancel={() => setConfirmHide(false)}
+        />
+      )}
+
+      {confirmRemove && (
+        <ConfirmModal
+          title={`Remove ${displayName(confirmRemove)}?`}
+          message="They will stop receiving messages from this group. Any member can add them back."
+          confirmLabel="Remove"
+          danger
+          onConfirm={handleRemove}
+          onCancel={() => setConfirmRemove(null)}
+        />
+      )}
 
       {confirmLeave && (
         <ConfirmModal

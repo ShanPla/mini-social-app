@@ -119,6 +119,19 @@
 }
 .ci-member:hover { background: var(--cream); }
 
+.ci-member-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.ci-remove { flex-shrink: 0; }
+.ci-remove:hover { color: var(--accent); }
+
 .ci-avatar {
   width: 34px;
   height: 34px;

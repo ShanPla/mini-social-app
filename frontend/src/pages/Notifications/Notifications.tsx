@@ -10,7 +10,7 @@ import './Notifications.css';
 
 type Notification = {
   id: string;
-  type: 'like' | 'comment' | 'follow' | 'message';
+  type: 'like' | 'comment' | 'follow' | 'message' | 'added';
   is_read: boolean;
   created_at: string;
   post_id: string | null;
@@ -68,6 +68,7 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
       case 'message': return n.conversation?.is_group
         ? `messaged ${n.conversation.name || 'the group'}`
         : 'sent you a message';
+      case 'added': return `added you to ${n.conversation?.name || 'a group'}`;
     }
   };
 
@@ -77,6 +78,7 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
       case 'comment': return '✦';
       case 'follow': return '→';
       case 'message': return '✉';
+      case 'added': return '+';
     }
   };
 
@@ -123,7 +125,7 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
                     <Link to={`/profile/${n.actor.id}`} className="notif-actor">{displayName(n.actor)}</Link>
                     {' '}{getMessage(n)}
                     {n.post_id && <>{' '}<Link to={`/post/${n.post_id}`} className="notif-post-link">→ view post</Link></>}
-                    {n.type === 'message' && n.conversation && (
+                    {(n.type === 'message' || n.type === 'added') && n.conversation && (
                       <>{' '}<button className="notif-post-link notif-chat-link" onClick={() => openChat(n.conversation!.id)}>→ open chat</button></>
                     )}
                   </p>

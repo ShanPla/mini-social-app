@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Heart, MessageCircle, MessageSquare, UserPlus } from 'lucide-react';
+import { Bell, Heart, MessageCircle, MessageSquare, UserPlus, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import { shortTime } from '../../lib/chat';
@@ -9,7 +9,7 @@ import './NotificationBell.css';
 
 type Notification = {
   id: string;
-  type: 'like' | 'comment' | 'follow' | 'message';
+  type: 'like' | 'comment' | 'follow' | 'message' | 'added';
   is_read: boolean;
   created_at: string;
   post_id: string | null;
@@ -117,7 +117,7 @@ export default function NotificationBell({ currentUserId }: Props) {
      A null conversation means we already left it — fall back to the sender. */
   const handleClick = (n: Notification) => {
     setOpen(false);
-    if (n.type === 'message' && n.conversation) openChat(n.conversation.id);
+    if ((n.type === 'message' || n.type === 'added') && n.conversation) openChat(n.conversation.id);
     else if (n.post_id) navigate(`/post/${n.post_id}`);
     else navigate(`/profile/${n.actor.id}`);
   };
@@ -130,6 +130,7 @@ export default function NotificationBell({ currentUserId }: Props) {
       case 'message': return n.conversation?.is_group
         ? `messaged ${n.conversation.name || 'the group'}`
         : 'sent you a message';
+      case 'added': return `added you to ${n.conversation?.name || 'a group'}`;
     }
   };
 
@@ -140,6 +141,7 @@ export default function NotificationBell({ currentUserId }: Props) {
       case 'comment': return <MessageCircle size={12} />;
       case 'follow': return <UserPlus size={12} />;
       case 'message': return <MessageSquare size={12} />;
+      case 'added': return <Users size={12} />;
     }
   };
 

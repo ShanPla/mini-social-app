@@ -151,8 +151,13 @@ create table if not exists conversation_members (
   user_id uuid references profiles(id) on delete cascade not null,
   joined_at timestamp default now(),
   last_read_at timestamp default now(),
+  -- Set when this member hides the conversation from their list. It comes
+  -- back by itself once a message newer than this arrives.
+  hidden_at timestamp,
   primary key (conversation_id, user_id)
 );
+
+alter table conversation_members add column if not exists hidden_at timestamp;
 
 -- A message has text, an image, or both.
 -- image_url stores the STORAGE PATH inside the private chat-images bucket:
@@ -249,7 +254,7 @@ begin
 end $$;
 
 alter table notifications add constraint notifications_type_check
-  check (type in ('like', 'comment', 'follow', 'message'));
+  check (type in ('like', 'comment', 'follow', 'message', 'added'));
 
 -- comment_id is optional on comment rows so entries written before that
 -- column existed remain valid.
@@ -260,6 +265,7 @@ alter table notifications add constraint notifications_target_check check (
     when 'comment' then post_id is not null and conversation_id is null
     when 'follow'  then post_id is null and comment_id is null and conversation_id is null
     when 'message' then conversation_id is not null and post_id is null and comment_id is null
+    when 'added'   then conversation_id is not null and post_id is null and comment_id is null
     else false
   end
 ) not valid;
@@ -291,6 +297,8 @@ create unique index if not exists idx_notifications_unique_follow
   on notifications (user_id, actor_id) where type = 'follow';
 create unique index if not exists idx_notifications_unread_message
   on notifications (user_id, conversation_id) where type = 'message' and is_read = false;
+create unique index if not exists idx_notifications_unique_added
+  on notifications (user_id, conversation_id) where type = 'added';
 
 
 -- Indexes
@@ -649,7 +657,40 @@ create trigger trg_on_message_notify
 after insert on messages
 for each row execute procedure public.on_message_notify();
 
+-- Being added to a group raises one bell entry per (person, group); being
+-- added again after leaving bumps the same entry back to unread.
+create or replace function public.notify_member_added()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare actor uuid := auth.uid();
+begin
+  if actor is null or actor = new.user_id then return null; end if;
+  if not exists (select 1 from conversations c where c.id = new.conversation_id and c.is_group) then
+    return null;
+  end if;
+
+  insert into notifications (user_id, actor_id, type, conversation_id, created_at)
+  values (new.user_id, actor, 'added', new.conversation_id, coalesce(new.joined_at, timezone('utc', now())))
+  on conflict (user_id, conversation_id) where type = 'added'
+  do update set actor_id = excluded.actor_id, created_at = excluded.created_at, is_read = false;
+
+  return null;
+end;
+$$;
+
+revoke all on function public.notify_member_added() from public, anon, authenticated;
+
+drop trigger if exists trg_notify_member_added on conversation_members;
+create trigger trg_notify_member_added
+after insert on conversation_members
+for each row execute procedure public.notify_member_added();
+
 -- When the last member leaves (or is deleted), remove the empty conversation.
+-- When the creator leaves (or their account goes), the longest-standing
+-- remaining member becomes the creator, so a group never ends up ownerless.
 create or replace function public.on_member_delete()
 returns trigger
 language plpgsql
@@ -662,6 +703,18 @@ begin
       and not exists (
         select 1 from conversation_members where conversation_id = old.conversation_id
       );
+
+  update conversations c
+     set created_by = (
+       select m.user_id from conversation_members m
+        where m.conversation_id = c.id
+        order by m.joined_at asc, m.user_id asc
+        limit 1
+     )
+   where c.id = old.conversation_id
+     and c.is_group
+     and (c.created_by = old.user_id or c.created_by is null);
+
   return old;
 end;
 $$;
@@ -738,6 +791,9 @@ begin
     limit 1;
 
     if conv_id is not null then
+      -- Starting a chat with someone you hid brings the DM back for you
+      update conversation_members set hidden_at = null
+       where conversation_id = conv_id and user_id = me;
       return conv_id;
     end if;
   end if;
@@ -817,6 +873,7 @@ as $$
   join conversation_members me
     on me.conversation_id = c.id
    and me.user_id = auth.uid()
+  where me.hidden_at is null or c.last_message_at > me.hidden_at
   order by c.last_message_at desc;
 $$;
 
@@ -843,13 +900,32 @@ begin
     set is_read = true
     where user_id = auth.uid()
       and conversation_id = conv_id
-      and type = 'message'
+      and type in ('message', 'added')
       and is_read = false;
 end;
 $$;
 
 revoke all on function public.mark_conversation_read(uuid) from public, anon;
 grant execute on function public.mark_conversation_read(uuid) to authenticated;
+
+
+-- hide_conversation(conv_id)
+-- Takes a conversation off the caller's list. Server time, same reason as
+-- mark_conversation_read. A newer message brings it back (get_conversations).
+create or replace function public.hide_conversation(conv_id uuid)
+returns void
+language sql
+security invoker
+set search_path = public
+as $$
+  update conversation_members
+    set hidden_at = now()
+    where conversation_id = conv_id
+      and user_id = auth.uid();
+$$;
+
+revoke all on function public.hide_conversation(uuid) from public, anon;
+grant execute on function public.hide_conversation(uuid) to authenticated;
 
 
 
@@ -1223,12 +1299,13 @@ create policy "Members can view their conversations"
 on conversations for select to authenticated
 using (is_conversation_member(id));
 
--- Only groups can be renamed, and only by members.
+-- Only groups can be renamed, and only by their creator.
 drop policy if exists "Members can rename groups" on conversations;
-create policy "Members can rename groups"
+drop policy if exists "Creators can rename groups" on conversations;
+create policy "Creators can rename groups"
 on conversations for update to authenticated
-using (is_group and is_conversation_member(id))
-with check (is_group and is_conversation_member(id));
+using (is_group and created_by = auth.uid())
+with check (is_group and created_by = auth.uid());
 
 revoke insert, update on conversations from authenticated;
 grant update (name) on conversations to authenticated;
@@ -1264,7 +1341,8 @@ on conversation_members for update to authenticated
 using (user_id = auth.uid())
 with check (user_id = auth.uid() and is_conversation_member(conversation_id));
 
--- Leave a GROUP. DMs cannot be left (that would orphan a one-person DM).
+-- Leave a GROUP. DMs cannot be left (that would orphan a one-person DM);
+-- they are hidden instead (hide_conversation).
 drop policy if exists "Users can leave conversations" on conversation_members;
 drop policy if exists "Users can leave groups" on conversation_members;
 create policy "Users can leave groups"
@@ -1274,9 +1352,21 @@ using (
   and exists (select 1 from conversations c where c.id = conversation_id and c.is_group = true)
 );
 
+-- The creator can remove anyone else from their group.
+drop policy if exists "Creators can remove members" on conversation_members;
+create policy "Creators can remove members"
+on conversation_members for delete to authenticated
+using (
+  user_id <> auth.uid()
+  and exists (
+    select 1 from conversations c
+    where c.id = conversation_id and c.is_group = true and c.created_by = auth.uid()
+  )
+);
+
 revoke insert, update on conversation_members from authenticated;
 grant insert (conversation_id, user_id) on conversation_members to authenticated;
-grant update (last_read_at) on conversation_members to authenticated;
+grant update (last_read_at, hidden_at) on conversation_members to authenticated;
 
 
 -- MESSAGES
