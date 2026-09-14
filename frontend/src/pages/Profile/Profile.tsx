@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
-import { ImagePlus, Link2, MessageCircle } from 'lucide-react';
+import { useParams, Link } from 'react-router-dom';
+import { ImagePlus, Link2, MessageCircle, Settings } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import Lightbox from '../../components/Lightbox/Lightbox';
@@ -398,7 +398,10 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
 
             <div className="profile-actions">
               {isOwnProfile && !editing && (
-                <button className="btn-ghost" onClick={() => setEditing(true)}>Edit Profile</button>
+                <>
+                  <button className="btn-ghost" onClick={() => setEditing(true)}>Edit Profile</button>
+                  <Link to="/settings" className="btn-ghost profile-settings-btn"><Settings size={14} /> Settings</Link>
+                </>
               )}
               {!isOwnProfile && currentUserId && (
                 <button

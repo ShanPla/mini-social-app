@@ -46,6 +46,7 @@ frontend/
 │   │   └── animations.css
 │   ├── components/
 │   │   ├── AuthLayout/             ← Art panel + form column shared by the auth pages
+│   │   ├── PasswordForm/           ← New-password form shared by reset and settings
 │   │   ├── ErrorBoundary/          ← Recovery card instead of a blank page; reloads once after a deploy swaps chunks
 │   │   ├── LoadingScreen/          ← The ✦ shown by the auth gate and while a page chunk loads
 │   │   ├── Toaster/                ← Toast stack, top-centre under the navbar
@@ -89,6 +90,7 @@ frontend/
 │       ├── Search/
 │       ├── Notifications/
 │       ├── Messages/
+│       ├── Settings/               ← Change email, change password, delete account
 │       └── NotFound/               ← Real 404 instead of a silent bounce
 ```
 
@@ -101,6 +103,7 @@ frontend/
 - Password complexity enforcement (uppercase, lowercase, digits)
 - Forgot password: emailed reset link, then a new-password form; a signed-in user can open /reset-password to change theirs
 - Unconfirmed email: Login and Register offer a one-click resend of the confirmation email
+- Settings page: change email, change password, delete account (type your handle to confirm). Deleting removes your profile, posts, comments, likes, follows, notifications and photos; messages you sent stay as [Deleted user]
 
 **Posts**
 - Create posts with text and up to 10 images

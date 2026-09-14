@@ -15,6 +15,7 @@ export const pageLoaders = {
   notifications: () => import('../pages/Notifications/Notifications'),
   messages: () => import('../pages/Messages/Messages'),
   notFound: () => import('../pages/NotFound/NotFound'),
+  settings: () => import('../pages/Settings/Settings'),
 };
 
 export type PageName = keyof typeof pageLoaders;
@@ -29,6 +30,7 @@ export function pageForPath(pathname: string): PageName {
   if (pathname.startsWith('/post/')) return 'post';
   if (pathname === '/search') return 'search';
   if (pathname === '/notifications') return 'notifications';
+  if (pathname === '/settings') return 'settings';
   if (pathname.startsWith('/messages')) return 'messages';
   return 'feed';
 }

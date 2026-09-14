@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
-import { friendlyAuthError } from '../../lib/authErrors';
 import { useToast } from '../../context/ToastContext';
 import AuthLayout from '../../components/AuthLayout/AuthLayout';
+import PasswordForm from '../../components/PasswordForm/PasswordForm';
 import '../Login/Login.css';
 
 type Props = {
@@ -21,31 +19,11 @@ type Props = {
 export default function ResetPassword({ userId }: Props) {
   const navigate = useNavigate();
   const toast = useToast();
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   usePageTitle('New Password');
 
   /* Supabase reports a dead link in the URL hash rather than with a session */
   const linkError = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('error_description');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
-    if (password !== confirm) { setError('The two passwords do not match.'); return; }
-    setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
-      setError(friendlyAuthError(error.message));
-      setLoading(false);
-      return;
-    }
-    toast.success('Password updated. You are signed in.');
-    navigate('/feed', { replace: true });
-  };
 
   if (!userId) {
     return (
@@ -71,39 +49,13 @@ export default function ResetPassword({ userId }: Props) {
         <p>At least 6 characters. You will stay signed in afterwards.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="login-form">
-        <div className="form-group">
-          <label>New password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            required
-            minLength={6}
-            autoFocus
-            autoComplete="new-password"
-          />
-        </div>
-        <div className="form-group">
-          <label>Confirm new password</label>
-          <input
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            placeholder="••••••••"
-            required
-            minLength={6}
-            autoComplete="new-password"
-          />
-        </div>
-
-        {error && <p className="error-msg">{error}</p>}
-
-        <button type="submit" className="btn-primary login-submit" disabled={loading}>
-          {loading ? 'Saving…' : 'Set new password'}
-        </button>
-      </form>
+      <PasswordForm
+        autoFocus
+        onDone={() => {
+          toast.success('Password updated. You are signed in.');
+          navigate('/feed', { replace: true });
+        }}
+      />
     </AuthLayout>
   );
 }

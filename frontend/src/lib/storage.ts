@@ -30,6 +30,24 @@ export async function removePostImageFiles(urls: string[]): Promise<void> {
   if (error) console.warn('post-images cleanup failed:', error.message);
 }
 
+/* Every post image a user uploaded: {user}/{post}/{n}.{ext}, plus any legacy
+   loose file in the user folder. Used when the account is deleted. */
+export async function removeUserPostImages(userId: string): Promise<void> {
+  const bucket = supabase.storage.from('post-images');
+  const { data, error } = await bucket.list(userId);
+  if (error || !data) return;
+  const paths: string[] = [];
+  for (const entry of data) {
+    /* Folders come back without an id */
+    if (entry.id) { paths.push(`${userId}/${entry.name}`); continue; }
+    const { data: inner } = await bucket.list(`${userId}/${entry.name}`);
+    for (const f of inner || []) paths.push(`${userId}/${entry.name}/${f.name}`);
+  }
+  if (paths.length === 0) return;
+  const { error: rmError } = await bucket.remove(paths);
+  if (rmError) console.warn('post-images cleanup failed:', rmError.message);
+}
+
 /* Remove every file in `folder` of `bucket`, except `keep` (a bare file name) */
 export async function pruneFolder(bucket: string, folder: string, keep?: string): Promise<void> {
   const { data, error } = await supabase.storage.from(bucket).list(folder);

@@ -30,6 +30,7 @@ const SearchPage = lazy(pageLoaders.search);
 const NotificationsPage = lazy(pageLoaders.notifications);
 const MessagesPage = lazy(pageLoaders.messages);
 const NotFound = lazy(pageLoaders.notFound);
+const SettingsPage = lazy(pageLoaders.settings);
 /* The chat tree (thread, bubbles, pickers) is shared by the popups and the
    /messages page; it loads with whichever is used first */
 const ChatDock = lazy(() => import('./components/ChatDock/ChatDock'));
@@ -153,6 +154,7 @@ function AppInner({ userId, isAdmin, recovery, onRecoverySteered }: AppInnerProp
           <Route path="/search" element={userId ? <SearchPage /> : <Navigate to="/login" />} />
           <Route path="/notifications" element={userId ? <NotificationsPage currentUserId={userId} /> : <Navigate to="/login" />} />
           <Route path="/messages/:conversationId?" element={userId ? <MessagesPage /> : <Navigate to="/login" />} />
+          <Route path="/settings" element={userId ? <SettingsPage userId={userId} /> : <Navigate to="/login" />} />
           <Route path="/" element={<Navigate to={userId ? '/feed' : '/login'} replace />} />
           {/* Anything else is a real 404, not a silent bounce to the feed */}
           <Route path="*" element={<NotFound userId={userId} />} />

@@ -928,6 +928,33 @@ revoke all on function public.hide_conversation(uuid) from public, anon;
 grant execute on function public.hide_conversation(uuid) to authenticated;
 
 
+-- delete_my_account()
+-- Removes the caller's auth user. profiles cascades from auth.users, and
+-- everything else cascades from profiles: posts, comments, likes, follows,
+-- notifications, memberships. Messages stay with sender_id null (see the
+-- messages table) and a group whose creator is deleted passes to its
+-- longest-standing member (on_member_delete). Files in storage are removed
+-- by the client before it calls this, while the storage policies still
+-- recognise the user.
+create or replace function public.delete_my_account()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare me uuid := auth.uid();
+begin
+  if me is null then
+    raise exception 'Not authenticated';
+  end if;
+  delete from auth.users where id = me;
+end;
+$$;
+
+revoke all on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;
+
+
 
 -- fetch_posts(...)
 -- One read for the feed, a profile, or a single post. Returns like and

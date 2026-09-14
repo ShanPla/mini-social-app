@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Newspaper, MessageCircle, Bell, User } from 'lucide-react';
+import { Newspaper, MessageCircle, Bell, User, Settings } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
 import './QuickLinks.css';
 
@@ -17,6 +17,7 @@ export default function QuickLinks({ userId }: Props) {
     { to: '/messages', label: 'Messages', icon: <MessageCircle size={16} />, badge: unreadConversations },
     { to: '/notifications', label: 'Notifications', icon: <Bell size={16} /> },
     { to: `/profile/${userId}`, label: 'My profile', icon: <User size={16} /> },
+    { to: '/settings', label: 'Settings', icon: <Settings size={16} /> },
   ];
 
   return (
