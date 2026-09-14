@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Mail, KeyRound, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
@@ -89,6 +89,8 @@ export default function SettingsPage({ userId }: Props) {
     <div className="settings-page">
       <div className="settings-inner">
         <header className="settings-header">
+          {/* Settings is reached from the profile, so that is where back leads */}
+          <Link to={`/profile/${userId}`} className="settings-back">← Back to profile</Link>
           <h1>Settings</h1>
           <p>Signed in as <strong>@{username || '…'}</strong>. Name, bio and photo are edited on your profile.</p>
         </header>
