@@ -1,9 +1,25 @@
 import { defineConfig } from 'vite'
+import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+
+/* Link previews (og:image, og:url) have to carry absolute URLs, so the host
+   is stamped into index.html at build time. Vercel exposes the production
+   domain to the build, which keeps this right if the domain ever changes;
+   the fallback is for local builds and previews. */
+const SITE_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : 'https://mini-social-app-dusky.vercel.app'
+
+function siteUrl(): Plugin {
+  return {
+    name: 'site-url',
+    transformIndexHtml: (html) => html.replaceAll('__SITE_URL__', SITE_URL),
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), siteUrl()],
   build: {
     rolldownOptions: {
       output: {
