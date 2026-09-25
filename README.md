@@ -231,6 +231,7 @@ frontend/
 - Every new page opens at the top; back and forward keep your place
 - Unknown addresses get a 404 page with a way back, not a silent redirect to the feed
 - Link previews: title, description and Open Graph tags in index.html, with a 1200x630 card at public/og.png. The absolute host in og:url and og:image is stamped in at build time by the site-url plugin in vite.config.ts (Vercel supplies the production domain, with a fallback for local builds).
+- Site icon: a Playfair Display C on the ink tile with the accent rule, as public/favicon.svg (tabs in current browsers), public/favicon.ico (16 and 32 px, older clients and Safari) and public/apple-touch-icon.png (180 px, iOS home screens)
 - Phone-sized rules on every screen, including the post page, cards, comment threads, the bell dropdown and the search bar; chat popups go one-at-a-time on tablets
 - Relative timestamps ("2h ago", "3d ago"), parsed as UTC to match Postgres
 - Accessibility: respects prefers-reduced-motion
