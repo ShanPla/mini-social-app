@@ -96,3 +96,6 @@
 .profile-card-skeleton-avatar { width: 56px; height: 56px; border-radius: 50%; }
 .profile-card-skeleton-line { height: 12px; width: 60%; border-radius: 4px; }
 .profile-card-skeleton-line--short { width: 40%; }
+
+/* This box clips overflow, so focus rings inside it are drawn inward */
+.profile-card :focus-visible { outline-offset: -2px; }

@@ -151,6 +151,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
                 className="post-actions-btn"
                 onClick={() => setShowActions(!showActions)}
                 title="Post options"
+                aria-label="Post options"
               >
                 <MoreHorizontal size={18} />
               </button>
@@ -207,6 +208,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
             className={`post-action like-btn ${liked ? 'liked' : ''}`}
             onClick={handleLike}
             disabled={!currentUserId}
+            aria-pressed={liked}
           >
             <span className={`like-icon ${likeAnim === 'pop' ? 'like-icon--popping' : likeAnim === 'unpop' ? 'like-icon--unpopping' : ''}`}>
               <Heart size={15} fill={liked ? 'currentColor' : 'none'} />

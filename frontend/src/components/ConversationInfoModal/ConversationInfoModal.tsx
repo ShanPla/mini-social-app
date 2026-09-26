@@ -121,23 +121,24 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
                   value={nameDraft}
                   onChange={(e) => setNameDraft(e.target.value)}
                   placeholder="Group name"
+                  aria-label="Group name"
                   maxLength={60}
                   autoFocus
                   onKeyDown={(e) => { if (e.key === 'Enter') handleRename(); }}
                 />
-                <button className="ci-icon-btn" onClick={handleRename} disabled={saving} title="Save"><Check size={15} /></button>
-                <button className="ci-icon-btn" onClick={() => { setRenaming(false); setNameDraft(conv.name || ''); }} title="Cancel"><X size={15} /></button>
+                <button className="ci-icon-btn" onClick={handleRename} disabled={saving} title="Save" aria-label="Save name"><Check size={15} /></button>
+                <button className="ci-icon-btn" onClick={() => { setRenaming(false); setNameDraft(conv.name || ''); }} title="Cancel" aria-label="Cancel rename"><X size={15} /></button>
               </div>
             ) : (
               <>
                 <h3>{title}</h3>
                 {isCreator && (
-                  <button className="ci-icon-btn" onClick={() => setRenaming(true)} title="Rename group"><Pencil size={14} /></button>
+                  <button className="ci-icon-btn" onClick={() => setRenaming(true)} title="Rename group" aria-label="Rename group"><Pencil size={14} /></button>
                 )}
               </>
             )}
           </div>
-          <button className="ci-close" onClick={onClose} title="Close"><X size={16} /></button>
+          <button className="ci-close" onClick={onClose} title="Close" aria-label="Close"><X size={16} /></button>
         </div>
 
         <div className="ci-body">
@@ -161,7 +162,7 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
                 </Link>
                 {/* Only the creator sees this; the server refuses anyone else anyway */}
                 {isCreator && m.user_id !== userId && (
-                  <button className="ci-icon-btn ci-remove" onClick={() => setConfirmRemove(m)} title={`Remove ${displayName(m)}`}>
+                  <button className="ci-icon-btn ci-remove" onClick={() => setConfirmRemove(m)} title={`Remove ${displayName(m)}`} aria-label={`Remove ${displayName(m)} from the group`}>
                     <UserMinus size={14} />
                   </button>
                 )}

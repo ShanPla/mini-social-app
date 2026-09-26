@@ -517,7 +517,7 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
         {imagePreview && (
           <div className="chat-image-preview">
             <img src={imagePreview} alt="Preview" />
-            <button type="button" className="chat-image-remove" onClick={clearImage} title="Remove">
+            <button type="button" className="chat-image-remove" onClick={clearImage} title="Remove" aria-label="Remove photo">
               <X size={12} />
             </button>
           </div>
@@ -536,6 +536,7 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
             className="chat-attach"
             onClick={() => fileInputRef.current?.click()}
             title="Send a photo"
+            aria-label="Send a photo"
             disabled={sending}
           >
             <ImagePlus size={18} />
@@ -543,6 +544,7 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
           <textarea
             ref={textareaRef}
             className="chat-input"
+            aria-label="Message"
             rows={1}
             placeholder="Write a message…"
             value={text}
@@ -558,6 +560,7 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
             onClick={handleSend}
             disabled={!canSend}
             title="Send (Enter)"
+            aria-label="Send"
           >
             <Send size={16} />
           </button>

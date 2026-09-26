@@ -13,7 +13,17 @@
   cursor: zoom-in;
   position: relative;
   background: var(--cream);
+  /* Tiles are buttons: drop the native button look */
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  font: inherit;
+  color: inherit;
 }
+/* .collage clips overflow, so the focus ring sits inside the tile */
+.collage-img:focus-visible { outline-offset: -2px; }
 .collage-img img {
   width: 100%;
   height: 100%;
@@ -35,7 +45,8 @@
   opacity: 0;
   transition: background 0.2s, opacity 0.2s;
 }
-.collage-img:hover .collage-expand-hint {
+.collage-img:hover .collage-expand-hint,
+.collage-img:focus-visible .collage-expand-hint {
   background: rgba(0,0,0,0.25);
   opacity: 1;
 }

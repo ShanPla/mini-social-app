@@ -62,7 +62,7 @@ export default function FollowersModal({ userId, type, onClose }: Props) {
             {type === 'followers' ? <Users size={16} /> : <UserCheck size={16} />}
             <h3>{title}</h3>
           </div>
-          <button className="fw-close" onClick={onClose}>
+          <button className="fw-close" onClick={onClose} aria-label="Close" title="Close">
             <X size={16} />
           </button>
         </div>

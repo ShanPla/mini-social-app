@@ -104,6 +104,8 @@
 .lightbox-thumb {
   width: 52px;
   height: 52px;
+  padding: 0;
+  background: none;
   border-radius: 4px;
   overflow: hidden;
   cursor: pointer;

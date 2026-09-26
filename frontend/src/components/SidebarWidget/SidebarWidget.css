@@ -118,3 +118,6 @@
 }
 .widget-skeleton-avatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
 .widget-skeleton-line { height: 11px; border-radius: 4px; flex: 1; max-width: 60%; }
+
+/* This box clips overflow, so focus rings inside it are drawn inward */
+.widget :focus-visible { outline-offset: -2px; }

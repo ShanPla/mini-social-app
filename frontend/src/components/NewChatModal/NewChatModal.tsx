@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { X, SquarePen } from 'lucide-react';
 import type { Profile } from '../../lib/supabaseClient';
@@ -21,6 +21,7 @@ export default function NewChatModal({ onClose, onCreated }: Props) {
   const [groupName, setGroupName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const groupNameId = useId();
 
   useScrollLock();
 
@@ -53,7 +54,7 @@ export default function NewChatModal({ onClose, onCreated }: Props) {
             <SquarePen size={16} />
             <h3>New message</h3>
           </div>
-          <button className="nc-close" onClick={onClose} title="Close"><X size={16} /></button>
+          <button className="nc-close" onClick={onClose} title="Close" aria-label="Close"><X size={16} /></button>
         </div>
 
         <div className="nc-body">
@@ -68,8 +69,9 @@ export default function NewChatModal({ onClose, onCreated }: Props) {
           {/* Group name appears once two or more people are picked */}
           {isGroup && (
             <div className="form-group nc-group-name">
-              <label>Group name (optional)</label>
+              <label htmlFor={groupNameId}>Group name (optional)</label>
               <input
+                id={groupNameId}
                 type="text"
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}

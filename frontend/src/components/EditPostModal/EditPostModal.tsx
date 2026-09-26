@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { useScrollLock } from '../../lib/useScrollLock';
 import { X, ImagePlus, Globe, Users, Lock } from 'lucide-react';
@@ -34,6 +34,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fieldId = useId();
   const toast = useToast();
 
   useScrollLock();
@@ -153,7 +154,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
         {/* Header */}
         <div className="edit-modal-header">
           <h3>Edit Post</h3>
-          <button className="edit-modal-close" onClick={onClose}>
+          <button className="edit-modal-close" onClick={onClose} aria-label="Close" title="Close">
             <X size={16} />
           </button>
         </div>
@@ -163,8 +164,9 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
 
           {/* Text */}
           <div className="edit-section">
-            <label className="edit-label">Content</label>
+            <label className="edit-label" htmlFor={`${fieldId}-content`}>Content</label>
             <textarea
+              id={`${fieldId}-content`}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               maxLength={500}
@@ -177,14 +179,15 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
 
           {/* Visibility */}
           <div className="edit-section">
-            <label className="edit-label">Visibility</label>
-            <div className="visibility-options">
+            <span className="edit-label" id={`${fieldId}-visibility`}>Visibility</span>
+            <div className="visibility-options" role="group" aria-labelledby={`${fieldId}-visibility`}>
               {VISIBILITY_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   className={`visibility-option ${visibility === opt.value ? 'active' : ''}`}
                   onClick={() => setVisibility(opt.value)}
                   type="button"
+                  aria-pressed={visibility === opt.value}
                 >
                   <span className="visibility-icon">{opt.icon}</span>
                   <div className="visibility-text">
@@ -198,7 +201,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
 
           {/* Images */}
           <div className="edit-section">
-            <label className="edit-label">Images</label>
+            <span className="edit-label">Images</span>
 
             {/* Existing images */}
             {existingImages.length > 0 && (
@@ -206,7 +209,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
                 {existingImages.map((img) => (
                   <div key={img.id} className="edit-image-item">
                     <img src={img.image_url} alt="Post image" />
-                    <button className="edit-image-remove" onClick={() => removeExisting(img.id)} type="button">
+                    <button className="edit-image-remove" onClick={() => removeExisting(img.id)} type="button" aria-label="Remove image" title="Remove">
                       <X size={10} />
                     </button>
                   </div>
@@ -220,7 +223,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
                 {newPreviews.map((src, i) => (
                   <div key={i} className="edit-image-item edit-image-item--new">
                     <img src={src} alt={`New image ${i + 1}`} />
-                    <button className="edit-image-remove" onClick={() => removeNew(i)} type="button">
+                    <button className="edit-image-remove" onClick={() => removeNew(i)} type="button" aria-label={`Remove new image ${i + 1}`} title="Remove">
                       <X size={10} />
                     </button>
                     <span className="edit-image-new-badge">New</span>
@@ -231,7 +234,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
 
             {/* Add more photos */}
             {(existingImages.length + newFiles.length) < 10 && (
-              <div className="edit-add-images" onClick={() => fileInputRef.current?.click()}>
+              <>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -240,9 +243,11 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
                   onChange={handleNewFiles}
                   style={{ display: 'none' }}
                 />
-                <ImagePlus size={15} />
-                <span>Add photos</span>
-              </div>
+                <button type="button" className="edit-add-images" onClick={() => fileInputRef.current?.click()}>
+                  <ImagePlus size={15} />
+                  <span>Add photos</span>
+                </button>
+              </>
             )}
           </div>
 

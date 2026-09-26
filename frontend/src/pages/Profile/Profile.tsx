@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ImagePlus, Link2, MessageCircle, Settings } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
@@ -51,6 +51,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const fieldId = useId();
 
   const isOwnProfile = currentUserId === userId;
   /* Paged through fetch_posts; the stat below is a real count, not the page length */
@@ -279,16 +280,21 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
       <div className="profile-inner">
         <header className="profile-header">
           <div className="profile-avatar-section">
-            {/* Clickable avatar */}
-            <div
-              className={`profile-avatar-lg ${profile.avatar_url ? 'profile-avatar-lg--clickable' : ''}`}
-              onClick={() => profile.avatar_url && setShowAvatarLightbox(true)}
-            >
-              {profile.avatar_url
-                ? <img src={profile.avatar_url} alt={profile.username} loading="lazy" />
-                : <span>{(profile.username[0] || '?').toUpperCase()}</span>
-              }
-            </div>
+            {/* Avatar: a button that opens the photo, when there is one */}
+            {profile.avatar_url ? (
+              <button
+                type="button"
+                className="profile-avatar-lg profile-avatar-lg--clickable"
+                onClick={() => setShowAvatarLightbox(true)}
+                aria-label="Open profile photo"
+              >
+                <img src={profile.avatar_url} alt="" loading="lazy" />
+              </button>
+            ) : (
+              <div className="profile-avatar-lg">
+                <span>{(profile.username[0] || '?').toUpperCase()}</span>
+              </div>
+            )}
 
             {/* Avatar edit — own profile only */}
             {isOwnProfile && editing && (
@@ -311,13 +317,16 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                 </div>
 
                 {avatarMode === 'file' ? (
-                  <div className="avatar-file-area" onClick={() => avatarInputRef.current?.click()}>
+                  <>
                     <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarFileChange} style={{ display: 'none' }} />
-                    <span>{avatarFile ? avatarFile.name : 'Choose photo…'}</span>
-                  </div>
+                    <button type="button" className="avatar-file-area" onClick={() => avatarInputRef.current?.click()}>
+                      <span>{avatarFile ? avatarFile.name : 'Choose photo…'}</span>
+                    </button>
+                  </>
                 ) : (
                   <input
                     type="url"
+                    aria-label="Photo URL"
                     className="avatar-url-input"
                     placeholder="Paste image URL…"
                     value={avatarUrl}
@@ -344,6 +353,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
             {editing ? (
               <div className="profile-edit-form">
                 <input
+                  aria-label="Display name"
                   value={editDisplayName}
                   onChange={(e) => setEditDisplayName(e.target.value)}
                   placeholder="Display name (optional)"
@@ -351,14 +361,16 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                   className="edit-input"
                 />
                 <input
+                  aria-label="Username"
+                  aria-describedby={`${fieldId}-handle-hint`}
                   value={editUsername}
                   onChange={(e) => setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                   placeholder="Username"
                   maxLength={30}
                   className="edit-input"
                 />
-                <span className="edit-hint">Your handle: lowercase letters, numbers and underscores, 3 to 30 characters.</span>
-                <textarea value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder="Write a short bio…" maxLength={200} className="edit-bio" rows={3} />
+                <span className="edit-hint" id={`${fieldId}-handle-hint`}>Your handle: lowercase letters, numbers and underscores, 3 to 30 characters.</span>
+                <textarea aria-label="Bio" value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder="Write a short bio…" maxLength={200} className="edit-bio" rows={3} />
                 <div className="edit-actions">
                   <button className="btn-primary" onClick={handleSaveProfile} disabled={saveLoading}>
                     {saveLoading ? 'Saving…' : 'Save'}

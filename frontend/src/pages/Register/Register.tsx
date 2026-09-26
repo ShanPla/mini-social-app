@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
@@ -10,6 +10,7 @@ export default function Register() {
   const navigate = useNavigate();
   const toast = useToast();
   const [resending, setResending] = useState(false);
+  const id = useId();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -83,13 +84,15 @@ export default function Register() {
 
         <form onSubmit={handleRegister} className="register-form">
           <div className="form-group">
-            <label>
+            <label htmlFor={`${id}-username`}>
               Username
               {usernameStatus === 'checking' && <span className="username-status checking"> — checking…</span>}
               {usernameStatus === 'taken' && <span className="username-status taken"> — already taken</span>}
               {usernameStatus === 'available' && <span className="username-status available"> — available ✓</span>}
             </label>
             <input
+              id={`${id}-username`}
+              aria-describedby={`${id}-username-hint`}
               type="text"
               value={username}
               onChange={(e) => handleUsernameChange(e.target.value)}
@@ -99,12 +102,13 @@ export default function Register() {
               maxLength={30}
               className={usernameStatus === 'taken' ? 'input-error' : usernameStatus === 'available' ? 'input-success' : ''}
             />
-            <span className="field-hint">Letters, numbers, and underscores only.</span>
+            <span className="field-hint" id={`${id}-username-hint`}>Letters, numbers, and underscores only.</span>
           </div>
 
           <div className="form-group">
-            <label>Email</label>
+            <label htmlFor={`${id}-email`}>Email</label>
             <input
+              id={`${id}-email`}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -114,8 +118,9 @@ export default function Register() {
           </div>
 
           <div className="form-group">
-            <label>Password</label>
+            <label htmlFor={`${id}-password`}>Password</label>
             <input
+              id={`${id}-password`}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

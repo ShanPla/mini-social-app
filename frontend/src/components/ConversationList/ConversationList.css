@@ -124,3 +124,6 @@
 }
 .conv-skeleton-line--short { width: 40%; }
 .conv-skeleton-line--medium { width: 70%; }
+
+/* This box clips overflow, so focus rings inside it are drawn inward */
+.conv-list :focus-visible { outline-offset: -2px; }

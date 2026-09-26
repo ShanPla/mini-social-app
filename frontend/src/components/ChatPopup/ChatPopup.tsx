@@ -41,10 +41,10 @@ export default function ChatPopup({ conversationId }: Props) {
           </div>
         </div>
         <div className="chat-popup-actions">
-          <button onClick={() => setShowInfo(true)} title="Conversation info"><Info size={15} /></button>
-          <button onClick={() => navigate(`/messages/${conversationId}`)} title="Open in Messages"><Maximize2 size={14} /></button>
-          <button onClick={() => toggleMinimize(conversationId)} title="Minimize"><Minus size={16} /></button>
-          <button onClick={() => closeChat(conversationId)} title="Close"><X size={16} /></button>
+          <button onClick={() => setShowInfo(true)} title="Conversation info" aria-label="Conversation info"><Info size={15} /></button>
+          <button onClick={() => navigate(`/messages/${conversationId}`)} title="Open in Messages" aria-label="Open in Messages"><Maximize2 size={14} /></button>
+          <button onClick={() => toggleMinimize(conversationId)} title="Minimize" aria-label="Minimize chat"><Minus size={16} /></button>
+          <button onClick={() => closeChat(conversationId)} title="Close" aria-label="Close chat"><X size={16} /></button>
         </div>
       </div>
 

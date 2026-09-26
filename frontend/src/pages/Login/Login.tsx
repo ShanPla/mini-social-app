@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
@@ -16,6 +16,7 @@ export default function Login() {
   const [unconfirmed, setUnconfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const id = useId();
 
   usePageTitle('Sign In');
 
@@ -54,8 +55,9 @@ export default function Login() {
 
       <form onSubmit={handleLogin} className="login-form">
         <div className="form-group">
-          <label>Email</label>
+          <label htmlFor={`${id}-email`}>Email</label>
           <input
+            id={`${id}-email`}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -65,8 +67,9 @@ export default function Login() {
           />
         </div>
         <div className="form-group">
-          <label>Password</label>
+          <label htmlFor={`${id}-password`}>Password</label>
           <input
+            id={`${id}-password`}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

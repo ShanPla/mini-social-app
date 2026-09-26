@@ -67,7 +67,7 @@ export default function MessageBubble({
         <div className="msg-bubble-wrap">
           {/* Delete (own messages) */}
           {isOwn && onDelete && (
-            <button className="msg-delete" onClick={onDelete} title="Unsend">
+            <button className="msg-delete" onClick={onDelete} title="Unsend" aria-label="Unsend message">
               <Trash2 size={13} />
             </button>
           )}
@@ -79,6 +79,7 @@ export default function MessageBubble({
                   type="button"
                   className="msg-image"
                   onClick={() => onImageClick?.(imageSrc)}
+                  aria-label="Open photo"
                 >
                   <img src={imageSrc} alt="" loading="lazy" />
                 </button>

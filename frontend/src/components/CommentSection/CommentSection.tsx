@@ -218,6 +218,7 @@ function TopLevelForm({ onSubmit, loading, isOnCooldown }: {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="Add a comment..."
+        aria-label="Add a comment"
         maxLength={300}
       />
       <button type="submit" disabled={loading || isOnCooldown || !value.trim()}>
@@ -281,6 +282,7 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
               onClick={() => setShowDeleteModal(true)}
               className={`comment-delete ${isAdmin && !isOwner ? 'comment-delete--admin' : ''}`}
               title={isAdmin && !isOwner ? 'Delete as admin' : 'Delete comment'}
+              aria-label={isAdmin && !isOwner ? 'Delete comment as admin' : 'Delete comment'}
             >
               {isAdmin && !isOwner ? <Shield size={11} /> : <Trash2 size={11} />}
             </button>
@@ -296,6 +298,8 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
             className={`comment-action-btn ${isLiked ? 'liked' : ''}`}
             onClick={() => onLike(comment.id, isLiked)}
             disabled={!currentUserId}
+            aria-pressed={isLiked}
+            aria-label={`Like comment, ${likeCount} ${likeCount === 1 ? 'like' : 'likes'}`}
           >
             <Heart size={11} fill={isLiked ? 'currentColor' : 'none'} />
             {likeCount > 0 && <span>{likeCount}</span>}
@@ -339,6 +343,7 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
               value={replyValue}
               onChange={(e) => setReplyValue(e.target.value)}
               placeholder={`Reply to @${comment.profiles?.username}…`}
+              aria-label={`Reply to ${comment.profiles ? displayName(comment.profiles) : 'this comment'}`}
               maxLength={300}
               autoFocus
             />

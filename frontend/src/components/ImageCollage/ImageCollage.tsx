@@ -7,12 +7,13 @@ type Props = {
   images: string[];
 };
 
-/* Expand hint shown on hover. Module scope: declared inside the component it
-   would be a new type every render and React would remount it each time. */
+/* Expand hint shown on hover and on keyboard focus. Module scope: declared
+   inside the component it would be a new type every render and React would
+   remount it each time. */
 const ExpandHint = () => (
-  <div className="collage-expand-hint">
+  <span className="collage-expand-hint">
     <ZoomIn size={20} color="white" />
-  </div>
+  </span>
 );
 
 export default function ImageCollage({ images }: Props) {
@@ -29,40 +30,43 @@ export default function ImageCollage({ images }: Props) {
     setLightboxIndex(index);
   };
 
+  /* Tiles are buttons, so the keyboard can open the lightbox too */
+  const label = (index: number) => (count === 1 ? 'Open image' : `Open image ${index + 1} of ${count}`);
+
   return (
     <>
       {count === 1 && (
         <div className="collage collage--1">
-          <div className="collage-img" onClick={(e) => handleClick(0, e)}>
+          <button type="button" className="collage-img" onClick={(e) => handleClick(0, e)} aria-label={label(0)}>
             <img src={displayImages[0]} alt="Post image" loading="lazy" />
             <ExpandHint />
-          </div>
+          </button>
         </div>
       )}
 
       {count === 2 && (
         <div className="collage collage--2">
           {displayImages.map((src, i) => (
-            <div key={i} className="collage-img" onClick={(e) => handleClick(i, e)}>
+            <button type="button" key={i} className="collage-img" onClick={(e) => handleClick(i, e)} aria-label={label(i)}>
               <img src={src} alt={`Post image ${i + 1}`} loading="lazy" />
               <ExpandHint />
-            </div>
+            </button>
           ))}
         </div>
       )}
 
       {count === 3 && (
         <div className="collage collage--3">
-          <div className="collage-img collage-img--main" onClick={(e) => handleClick(0, e)}>
+          <button type="button" className="collage-img collage-img--main" onClick={(e) => handleClick(0, e)} aria-label={label(0)}>
             <img src={displayImages[0]} alt="Post image 1" loading="lazy" />
             <ExpandHint />
-          </div>
+          </button>
           <div className="collage-side">
             {displayImages.slice(1).map((src, i) => (
-              <div key={i} className="collage-img" onClick={(e) => handleClick(i + 1, e)}>
+              <button type="button" key={i} className="collage-img" onClick={(e) => handleClick(i + 1, e)} aria-label={label(i + 1)}>
                 <img src={src} alt={`Post image ${i + 2}`} loading="lazy" />
                 <ExpandHint />
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -71,13 +75,13 @@ export default function ImageCollage({ images }: Props) {
       {count >= 4 && (
         <div className="collage collage--4">
           {displayImages.map((src, i) => (
-            <div key={i} className="collage-img" onClick={(e) => handleClick(i, e)}>
+            <button type="button" key={i} className="collage-img" onClick={(e) => handleClick(i, e)} aria-label={label(i)}>
               <img src={src} alt={`Post image ${i + 1}`} loading="lazy" />
               {i === 3 && overflow > 0
-                ? <div className="collage-overflow">+{overflow}</div>
+                ? <span className="collage-overflow">+{overflow}</span>
                 : <ExpandHint />
               }
-            </div>
+            </button>
           ))}
         </div>
       )}

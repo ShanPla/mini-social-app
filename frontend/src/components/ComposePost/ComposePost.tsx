@@ -122,6 +122,7 @@ export default function ComposePost({
       <h3 className="compose-label">{label}</h3>
       <form onSubmit={handlePost}>
         <textarea
+          aria-label={label}
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder={placeholder}
@@ -135,7 +136,7 @@ export default function ComposePost({
             {imagePreviews.map((src, i) => (
               <div key={i} className="compose-preview-item">
                 <img src={src} alt={`Preview ${i + 1}`} />
-                <button type="button" className="preview-remove" onClick={() => removeImage(i)} title="Remove">
+                <button type="button" className="preview-remove" onClick={() => removeImage(i)} title="Remove" aria-label={`Remove image ${i + 1}`}>
                   <X size={10} />
                 </button>
               </div>
@@ -145,18 +146,19 @@ export default function ComposePost({
 
         {/* Upload button */}
         <div className="compose-image-section">
-          <div className="file-upload-area" onClick={() => fileInputRef.current?.click()}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-            />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+          {/* A real button, so the keyboard can open the file picker too */}
+          <button type="button" className="file-upload-area" onClick={() => fileInputRef.current?.click()}>
             <ImagePlus size={15} />
             <span>{imageFiles.length > 0 ? `${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} selected` : 'Add photos (up to 10)…'}</span>
-          </div>
+          </button>
           {imageFiles.length > 0 && (
             <button type="button" className="clear-images-btn" onClick={clearImages}>Clear all</button>
           )}
@@ -165,6 +167,7 @@ export default function ComposePost({
         {/* Visibility selector */}
         <div className="compose-visibility">
           <select
+            aria-label="Who can see this post"
             value={visibility}
             onChange={(e) => setVisibility(e.target.value as Visibility)}
             className="visibility-select"

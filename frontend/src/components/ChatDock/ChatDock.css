@@ -75,7 +75,9 @@
   opacity: 0;
   transition: opacity 0.15s;
 }
-.chat-bubble-wrap:hover .chat-bubble-close { opacity: 1; }
+/* Shown on hover, and whenever the bubble or the close button has focus */
+.chat-bubble-wrap:hover .chat-bubble-close,
+.chat-bubble-wrap:focus-within .chat-bubble-close { opacity: 1; }
 .chat-bubble-close:hover { background: var(--accent); }
 
 @media (max-width: 1100px) {

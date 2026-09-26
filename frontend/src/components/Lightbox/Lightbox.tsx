@@ -34,7 +34,7 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
   return createPortal(
     <div className="lightbox-backdrop" onClick={onClose}>
       {/* Close button */}
-      <button className="lightbox-close" onClick={onClose}>✕</button>
+      <button className="lightbox-close" onClick={onClose} aria-label="Close" title="Close">✕</button>
 
       {/* Counter */}
       {images.length > 1 && (
@@ -46,6 +46,8 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
         <button
           className="lightbox-nav lightbox-nav--prev"
           onClick={(e) => { e.stopPropagation(); setCurrent((c) => c - 1); }}
+          aria-label="Previous image"
+          title="Previous image"
         >‹</button>
       )}
 
@@ -59,6 +61,8 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
         <button
           className="lightbox-nav lightbox-nav--next"
           onClick={(e) => { e.stopPropagation(); setCurrent((c) => c + 1); }}
+          aria-label="Next image"
+          title="Next image"
         >›</button>
       )}
 
@@ -66,13 +70,16 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
       {images.length > 1 && (
         <div className="lightbox-thumbs" onClick={(e) => e.stopPropagation()}>
           {images.map((src, i) => (
-            <div
+            <button
+              type="button"
               key={i}
               className={`lightbox-thumb ${i === current ? 'active' : ''}`}
               onClick={() => setCurrent(i)}
+              aria-label={`Show image ${i + 1}`}
+              aria-current={i === current ? 'true' : undefined}
             >
-              <img src={src} alt={`Thumb ${i + 1}`} loading="lazy" />
-            </div>
+              <img src={src} alt="" loading="lazy" />
+            </button>
           ))}
         </div>
       )}

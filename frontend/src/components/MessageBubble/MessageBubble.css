@@ -125,7 +125,9 @@
   align-items: center;
   transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
-.msg-row--own:hover .msg-delete { opacity: 1; }
+/* Hover reveals it for the mouse; keyboard focus reveals it too */
+.msg-row--own:hover .msg-delete,
+.msg-delete:focus-visible { opacity: 1; }
 .msg-delete:hover { color: var(--accent); background: var(--cream); }
 
 .msg-seen {

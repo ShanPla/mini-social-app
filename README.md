@@ -236,6 +236,14 @@ frontend/
 - Relative timestamps ("2h ago", "3d ago"), parsed as UTC to match Postgres
 - Accessibility: respects prefers-reduced-motion
 
+**Accessibility**
+- A visible focus ring for keyboard users on every control (focus-visible only, so mouse clicks look the same as before); inside scrolling lists and dropdowns the ring is drawn inward so it is never cut off
+- Every icon-only button has a spoken name, and like buttons announce whether they are pressed
+- Every form field has a label tied to it, or a name of its own where the design shows none; the handle rule on Register and the profile editor is read out with the field
+- Image tiles, the bell's entries, the photo pickers and the profile photo are real buttons, so Tab and Enter reach everything the mouse can
+- Hover-only controls (unsend a message, close a chat bubble) also appear on keyboard focus
+- Secondary grey text meets the 4.5:1 contrast minimum on every background
+
 ## Tech Stack
 
 | Layer | Technology |

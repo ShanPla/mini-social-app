@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, KeyRound, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
@@ -28,6 +28,7 @@ export default function SettingsPage({ userId }: Props) {
   const [emailNotice, setEmailNotice] = useState('');
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const id = useId();
 
   usePageTitle('Settings');
 
@@ -101,8 +102,9 @@ export default function SettingsPage({ userId }: Props) {
           <p className="settings-current">Current address: <strong>{email ?? '…'}</strong></p>
           <form onSubmit={handleEmail} className="login-form">
             <div className="form-group">
-              <label>New email</label>
+              <label htmlFor={`${id}-email`}>New email</label>
               <input
+                id={`${id}-email`}
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
@@ -133,8 +135,9 @@ export default function SettingsPage({ userId }: Props) {
             them. Messages you sent stay in their conversations as [Deleted user]. This cannot be undone.
           </p>
           <div className="form-group">
-            <label>Type your handle <strong>@{username || '…'}</strong> to confirm</label>
+            <label htmlFor={`${id}-confirm`}>Type your handle <strong>@{username || '…'}</strong> to confirm</label>
             <input
+              id={`${id}-confirm`}
               type="text"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}

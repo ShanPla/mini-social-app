@@ -73,7 +73,7 @@ export default function UserPicker({ excludeIds, selected, onChange, placeholder
           {selected.map((u) => (
             <span key={u.id} className="picker-chip">
               {displayName(u)}
-              <button type="button" onClick={() => toggle(u)} title="Remove"><X size={11} /></button>
+              <button type="button" onClick={() => toggle(u)} title="Remove" aria-label={`Remove ${displayName(u)}`}><X size={11} /></button>
             </span>
           ))}
         </div>
@@ -87,6 +87,7 @@ export default function UserPicker({ excludeIds, selected, onChange, placeholder
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           placeholder={placeholder}
+          aria-label="Search people"
           autoFocus={autoFocus}
         />
         {loading && <span className="picker-spinner">✦</span>}

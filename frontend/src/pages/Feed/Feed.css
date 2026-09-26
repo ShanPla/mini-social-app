@@ -128,3 +128,6 @@
   .feed-sidebar { display: none; }
   .feed-tab { padding: 10px 14px; font-size: 0.75rem; }
 }
+
+/* This box clips overflow, so focus rings inside it are drawn inward */
+.feed-sidebar :focus-visible { outline-offset: -2px; }

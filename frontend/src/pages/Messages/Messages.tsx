@@ -34,7 +34,7 @@ export default function MessagesPage() {
         <aside className="messages-sidebar">
           <div className="messages-sidebar-header">
             <h2>Messages</h2>
-            <button className="messages-compose" onClick={() => setShowNew(true)} title="New message">
+            <button className="messages-compose" onClick={() => setShowNew(true)} title="New message" aria-label="New message">
               <SquarePen size={18} />
             </button>
           </div>
@@ -52,7 +52,7 @@ export default function MessagesPage() {
           {conv ? (
             <>
               <header className="messages-thread-header">
-                <button className="messages-back" onClick={() => navigate('/messages')} title="Back">
+                <button className="messages-back" onClick={() => navigate('/messages')} title="Back" aria-label="Back to conversations">
                   <ArrowLeft size={18} />
                 </button>
                 <ConversationAvatar conversation={conv} currentUserId={userId} size={38} />
@@ -63,7 +63,7 @@ export default function MessagesPage() {
                   }
                   <span>{conv.is_group ? `${conv.members.length} members` : 'Direct message'}</span>
                 </div>
-                <button className="messages-info" onClick={() => setShowInfo(true)} title="Conversation info">
+                <button className="messages-info" onClick={() => setShowInfo(true)} title="Conversation info" aria-label="Conversation info">
                   <Info size={18} />
                 </button>
               </header>

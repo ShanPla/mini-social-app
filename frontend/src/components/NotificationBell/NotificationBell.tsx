@@ -147,7 +147,12 @@ export default function NotificationBell({ currentUserId }: Props) {
 
   return (
     <div className="bell-wrapper" ref={wrapperRef}>
-      <button className="bell-btn" onClick={handleOpen} title="Notifications">
+      <button
+        className="bell-btn"
+        onClick={handleOpen}
+        title="Notifications"
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+      >
         <Bell size={18} />
         {unreadCount > 0 && (
           <span className="bell-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
@@ -165,25 +170,27 @@ export default function NotificationBell({ currentUserId }: Props) {
           ) : (
             <>
               {notifications.map((n) => (
-                <div
+                /* A button, so the keyboard can open it; its text is its name */
+                <button
+                  type="button"
                   key={n.id}
                   className={`bell-item ${!n.is_read ? 'unread' : ''}`}
                   onClick={() => handleClick(n)}
                 >
-                  <div className={`bell-item-icon bell-item-icon--${n.type}`}>
+                  <span className={`bell-item-icon bell-item-icon--${n.type}`}>
                     {getIcon(n.type)}
-                  </div>
-                  <div className="bell-item-avatar">
+                  </span>
+                  <span className="bell-item-avatar">
                     {n.actor.avatar_url
-                      ? <img src={n.actor.avatar_url} alt={n.actor.username} loading="lazy" />
-                      : <span>{(n.actor.username[0] || '?').toUpperCase()}</span>
+                      ? <img src={n.actor.avatar_url} alt="" loading="lazy" />
+                      : <span aria-hidden="true">{(n.actor.username[0] || '?').toUpperCase()}</span>
                     }
-                  </div>
-                  <div className="bell-item-body">
-                    <p><strong>{displayName(n.actor)}</strong> {getMessage(n)}</p>
+                  </span>
+                  <span className="bell-item-body">
+                    <span className="bell-item-text"><strong>{displayName(n.actor)}</strong> {getMessage(n)}</span>
                     <span className="bell-item-time">{shortTime(n.created_at)}</span>
-                  </div>
-                </div>
+                  </span>
+                </button>
               ))}
               <Link
                 to="/notifications"

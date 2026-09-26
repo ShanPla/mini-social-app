@@ -197,3 +197,6 @@
   .post-footer { gap: 14px; padding-top: 12px; }
   .post-actions-dropdown { right: 0; left: auto; max-width: calc(100vw - 32px); }
 }
+
+/* This box clips overflow, so focus rings inside it are drawn inward */
+.post-actions-dropdown :focus-visible { outline-offset: -2px; }

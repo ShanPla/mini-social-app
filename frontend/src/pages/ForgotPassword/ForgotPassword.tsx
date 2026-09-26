@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
@@ -17,6 +17,7 @@ export default function ForgotPassword() {
   const [error, setError] = useState('');
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const id = useId();
 
   usePageTitle('Reset Password');
 
@@ -53,8 +54,9 @@ export default function ForgotPassword() {
       ) : (
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label>Email</label>
+            <label htmlFor={`${id}-email`}>Email</label>
             <input
+              id={`${id}-email`}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

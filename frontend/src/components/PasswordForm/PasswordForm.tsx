@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { friendlyAuthError } from '../../lib/authErrors';
 import '../../pages/Login/Login.css';
@@ -19,6 +19,7 @@ export default function PasswordForm({ submitLabel = 'Set new password', onDone,
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const id = useId();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,8 +38,9 @@ export default function PasswordForm({ submitLabel = 'Set new password', onDone,
   return (
     <form onSubmit={handleSubmit} className="login-form">
       <div className="form-group">
-        <label>New password</label>
+        <label htmlFor={`${id}-new`}>New password</label>
         <input
+          id={`${id}-new`}
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -50,8 +52,9 @@ export default function PasswordForm({ submitLabel = 'Set new password', onDone,
         />
       </div>
       <div className="form-group">
-        <label>Confirm new password</label>
+        <label htmlFor={`${id}-confirm`}>Confirm new password</label>
         <input
+          id={`${id}-confirm`}
           type="password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}

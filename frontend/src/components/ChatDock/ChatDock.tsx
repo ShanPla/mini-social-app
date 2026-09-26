@@ -49,13 +49,14 @@ export default function ChatDock() {
                   className="chat-bubble"
                   onClick={() => openChat(id)}
                   title={conversationTitle(conv, userId)}
+                  aria-label={`Open chat with ${conversationTitle(conv, userId)}${conv.unread_count > 0 ? `, ${conv.unread_count} unread` : ''}`}
                 >
                   <ConversationAvatar conversation={conv} currentUserId={userId} size={48} />
                   {conv.unread_count > 0 && (
                     <span className="chat-bubble-badge">{conv.unread_count > 9 ? '9+' : conv.unread_count}</span>
                   )}
                 </button>
-                <button className="chat-bubble-close" onClick={() => closeChat(id)} title="Close">
+                <button className="chat-bubble-close" onClick={() => closeChat(id)} title="Close" aria-label={`Close chat with ${conversationTitle(conv, userId)}`}>
                   <X size={11} />
                 </button>
               </div>

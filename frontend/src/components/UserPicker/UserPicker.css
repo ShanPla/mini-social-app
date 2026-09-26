@@ -121,3 +121,6 @@
   align-items: center;
   justify-content: center;
 }
+
+/* This box clips overflow, so focus rings inside it are drawn inward */
+.picker-results :focus-visible { outline-offset: -2px; }

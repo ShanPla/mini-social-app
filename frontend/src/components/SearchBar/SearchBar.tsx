@@ -79,6 +79,7 @@ export default function SearchBar() {
             type="text"
             className="searchbar-input"
             placeholder="Search users…"
+            aria-label="Search users"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -91,6 +92,8 @@ export default function SearchBar() {
             <button
               className="searchbar-clear"
               onClick={() => { setQuery(''); setShowDropdown(false); }}
+              aria-label="Clear search"
+              title="Clear search"
             >
               <X size={13} />
             </button>
