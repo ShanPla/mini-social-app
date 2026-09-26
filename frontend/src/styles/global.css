@@ -68,6 +68,9 @@ button {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+/* A dialog box only takes focus itself when it has nothing focusable inside */
+[role='dialog']:focus-visible,
+[role='alertdialog']:focus-visible { outline: none; }
 
 input, textarea {
   font-family: var(--font-body);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { X, Pencil, Check, UserPlus, UserMinus, LogOut, EyeOff, Users, Info } from 'lucide-react';
@@ -10,6 +10,7 @@ import UserPicker from '../UserPicker/UserPicker';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import { displayName } from '../../lib/names';
 import { useScrollLock } from '../../lib/useScrollLock';
+import { useDialog } from '../../lib/useDialog';
 import './ConversationInfoModal.css';
 
 type PickedUser = Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
@@ -37,15 +38,11 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
   const [confirmRemove, setConfirmRemove] = useState<ChatMember | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useScrollLock();
+  const boxRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [onClose]);
+  useScrollLock();
+  /* Focus in, Tab kept inside, Escape closes, focus back to the opener */
+  useDialog(boxRef, onClose);
 
   if (!conv) return null;
 
@@ -109,7 +106,15 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
 
   return createPortal(
     <div className="ci-backdrop" onClick={onClose}>
-      <div className="ci-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="ci-modal"
+        ref={boxRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="ci-header">
           <div className="ci-title">

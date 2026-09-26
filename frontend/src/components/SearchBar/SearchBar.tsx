@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
@@ -14,6 +14,9 @@ export default function SearchBar() {
      shown for a newer query and loading needs no state of its own */
   const [results, setResults] = useState<{ q: string; list: Profile[] }>({ q: '', list: [] });
   const [showDropdown, setShowDropdown] = useState(false);
+  /* Highlighted suggestion for the arrow keys; focus itself stays in the input */
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const listId = useId();
   const q = query.trim();
   const shown = results.q === q ? results.list : [];
   const loading = !!q && results.q !== q;
@@ -56,12 +59,40 @@ export default function SearchBar() {
     };
   }, [q]);
 
+  const open = showDropdown && !!q && !loading;
+  /* Suggestions are the users plus [See all results] at the end */
+  const optionCount = open && shown.length > 0 ? shown.length + 1 : 0;
+  const active = activeIndex < optionCount ? activeIndex : -1;
+  const optionId = (i: number) => `${listId}-${i}`;
+
+  const goToResults = () => {
+    setShowDropdown(false);
+    navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && query.trim()) {
-      setShowDropdown(false);
-      navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!open) { if (shown.length > 0) setShowDropdown(true); return; }
+      if (optionCount === 0) return;
+      e.preventDefault();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      setActiveIndex(active === -1 ? (step === 1 ? 0 : optionCount - 1) : (active + step + optionCount) % optionCount);
+      return;
     }
-    if (e.key === 'Escape') setShowDropdown(false);
+    if (e.key === 'Enter' && query.trim()) {
+      if (open && active >= 0 && active < shown.length) {
+        handleResultClick();
+        navigate(`/profile/${shown[active].id}`);
+      } else {
+        goToResults();
+      }
+    }
+    if (e.key === 'Escape') { setShowDropdown(false); setActiveIndex(-1); }
+  };
+
+  /* Tabbing away closes the suggestions */
+  const handleBlur = (e: React.FocusEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setShowDropdown(false);
   };
 
   const handleResultClick = () => {
@@ -70,7 +101,7 @@ export default function SearchBar() {
   };
 
   return (
-    <div className="searchbar-wrapper" ref={wrapperRef}>
+    <div className="searchbar-wrapper" ref={wrapperRef} onBlur={handleBlur}>
       <div className="searchbar-inner">
         <div className="searchbar-input-wrap">
           {/* Search icon */}
@@ -81,7 +112,12 @@ export default function SearchBar() {
             placeholder="Search users…"
             aria-label="Search users"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setActiveIndex(-1); }}
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={open}
+            aria-controls={open ? listId : undefined}
+            aria-activedescendant={active >= 0 ? optionId(active) : undefined}
             onKeyDown={handleKeyDown}
             onFocus={() => shown.length > 0 && setShowDropdown(true)}
           />
@@ -100,17 +136,21 @@ export default function SearchBar() {
           )}
         </div>
 
-        {showDropdown && q && !loading && (
-          <div className="searchbar-dropdown">
+        {open && (
+          <div className="searchbar-dropdown" id={listId} role="listbox" aria-label="People">
             {shown.length === 0 ? (
-              <div className="dropdown-empty">No users found</div>
+              <div className="dropdown-empty" role="option" aria-disabled="true" aria-selected="false">No users found</div>
             ) : (
               <>
-                {shown.map((user) => (
+                {shown.map((user, i) => (
                   <Link
                     to={`/profile/${user.id}`}
                     key={user.id}
-                    className="dropdown-item"
+                    id={optionId(i)}
+                    role="option"
+                    aria-selected={i === active}
+                    tabIndex={-1}
+                    className={`dropdown-item ${i === active ? 'dropdown-item--active' : ''}`}
                     onClick={handleResultClick}
                   >
                     <div className="dropdown-avatar">
@@ -127,11 +167,12 @@ export default function SearchBar() {
                   </Link>
                 ))}
                 <button
-                  className="dropdown-see-all"
-                  onClick={() => {
-                    setShowDropdown(false);
-                    navigate(`/search?q=${encodeURIComponent(query.trim())}`);
-                  }}
+                  id={optionId(shown.length)}
+                  role="option"
+                  aria-selected={active === shown.length}
+                  tabIndex={-1}
+                  className={`dropdown-see-all ${active === shown.length ? 'dropdown-see-all--active' : ''}`}
+                  onClick={goToResults}
                 >
                   See all results for "<strong>{query}</strong>" →
                 </button>

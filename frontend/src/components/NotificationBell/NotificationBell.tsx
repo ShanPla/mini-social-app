@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useId } from 'react';
+import { moveFocus } from '../../lib/menuKeys';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, Heart, MessageCircle, MessageSquare, UserPlus, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
@@ -43,6 +44,9 @@ export default function NotificationBell({ currentUserId }: Props) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelId = useId();
   const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* Bumped by realtime events; the effect below owns the fetch */
@@ -100,6 +104,26 @@ export default function NotificationBell({ currentUserId }: Props) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  /* Opening moves focus to the first entry, so arrows work straight away */
+  useEffect(() => {
+    if (open) panelRef.current?.querySelector<HTMLElement>('.bell-item, .bell-see-all')?.focus();
+  }, [open]);
+
+  /* Arrows move between entries; Escape closes and returns to the bell */
+  const handlePanelKey = (e: React.KeyboardEvent) => {
+    if (moveFocus(panelRef.current, e.key, '.bell-item, .bell-see-all')) { e.preventDefault(); return; }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setOpen(false);
+      bellRef.current?.focus();
+    }
+  };
+
+  /* Tabbing out of the panel closes it */
+  const handleBlur = (e: React.FocusEvent) => {
+    if (open && !e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
+  };
+
   const handleOpen = async () => {
     setOpen(!open);
     if (!open && unreadCount > 0) {
@@ -146,10 +170,13 @@ export default function NotificationBell({ currentUserId }: Props) {
   };
 
   return (
-    <div className="bell-wrapper" ref={wrapperRef}>
+    <div className="bell-wrapper" ref={wrapperRef} onBlur={handleBlur}>
       <button
+        ref={bellRef}
         className="bell-btn"
         onClick={handleOpen}
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
         title="Notifications"
         aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
       >
@@ -160,7 +187,7 @@ export default function NotificationBell({ currentUserId }: Props) {
       </button>
 
       {open && (
-        <div className="bell-dropdown">
+        <div className="bell-dropdown" ref={panelRef} id={panelId} role="region" aria-label="Recent notifications" onKeyDown={handlePanelKey}>
           <div className="bell-dropdown-header">
             <span>Notifications</span>
           </div>

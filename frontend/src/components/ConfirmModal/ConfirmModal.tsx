@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { useScrollLock } from '../../lib/useScrollLock';
+import { useDialog } from '../../lib/useDialog';
 import './ConfirmModal.css';
 
 type Props = {
@@ -22,23 +23,27 @@ export default function ConfirmModal({
   onCancel,
   danger = false,
 }: Props) {
-  useScrollLock();
+  const boxRef = useRef<HTMLDivElement>(null);
+  const id = useId();
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [onCancel]);
+  useScrollLock();
+  /* Focus lands on Cancel (first in the box), the safe choice; Escape cancels */
+  useDialog(boxRef, onCancel);
 
   return createPortal(
     <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <h3 className="modal-title">{title}</h3>
-        <p className="modal-message">{message}</p>
+      <div
+        className="modal-box"
+        ref={boxRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={`${id}-title`}
+        aria-describedby={`${id}-message`}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="modal-title" id={`${id}-title`}>{title}</h3>
+        <p className="modal-message" id={`${id}-message`}>{message}</p>
         <div className="modal-actions">
           <button className="modal-cancel" onClick={onCancel}>
             {cancelLabel}

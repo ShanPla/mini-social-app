@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
+import { moveFocus } from '../../lib/menuKeys';
 import { Link } from 'react-router-dom';
 import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Users, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
@@ -52,6 +53,9 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
   const [likeAnim, setLikeAnim] = useState<'pop' | 'unpop' | null>(null);
   const [showActions, setShowActions] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
+  const actionsBtnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
   const postDate = useTimeAgo(currentPost.created_at);
 
   /* Close actions dropdown on outside click — listener only lives while open */
@@ -65,6 +69,30 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showActions]);
+
+  /* An opened menu puts focus on its first item, like a native menu */
+  useEffect(() => {
+    if (showActions) menuRef.current?.querySelector<HTMLElement>('[role=menuitem]')?.focus();
+  }, [showActions]);
+
+  /* Arrows move between items; Escape closes and returns to the ··· button; Tab closes */
+  const handleMenuKey = (e: React.KeyboardEvent) => {
+    if (moveFocus(menuRef.current, e.key, '[role=menuitem]')) { e.preventDefault(); return; }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setShowActions(false);
+      actionsBtnRef.current?.focus();
+    } else if (e.key === 'Tab') {
+      setShowActions(false);
+    }
+  };
+
+  /* Leave focus on the ··· button, so a dialog opened from the menu hands it back there */
+  const chooseAction = (open: () => void) => {
+    actionsBtnRef.current?.focus();
+    setShowActions(false);
+    open();
+  };
 
   const isOwner = currentUserId === currentPost.user_id;
   const canDelete = isOwner || isAdmin;
@@ -148,20 +176,26 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
           {canDelete && (
             <div className="post-actions-wrap" ref={actionsRef}>
               <button
+                ref={actionsBtnRef}
                 className="post-actions-btn"
                 onClick={() => setShowActions(!showActions)}
+                aria-haspopup="menu"
+                aria-expanded={showActions}
+                aria-controls={showActions ? menuId : undefined}
                 title="Post options"
                 aria-label="Post options"
               >
                 <MoreHorizontal size={18} />
               </button>
               {showActions && (
-                <div className="post-actions-dropdown">
+                <div className="post-actions-dropdown" ref={menuRef} id={menuId} role="menu" aria-label="Post options" onKeyDown={handleMenuKey}>
                   {/* Edit — owner only */}
                   {isOwner && (
                     <button
                       className="post-action-item"
-                      onClick={() => { setShowActions(false); setShowEditModal(true); }}
+                      role="menuitem"
+                      tabIndex={-1}
+                      onClick={() => chooseAction(() => setShowEditModal(true))}
                     >
                       <Pencil size={14} /> Edit post
                     </button>
@@ -169,7 +203,9 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
                   {/* Delete */}
                   <button
                     className="post-action-item post-action-item--danger"
-                    onClick={() => { setShowActions(false); setShowDeleteModal(true); }}
+                    role="menuitem"
+                    tabIndex={-1}
+                    onClick={() => chooseAction(() => setShowDeleteModal(true))}
                   >
                     {isAdmin && !isOwner
                       ? <><Shield size={14} /> Delete as admin</>

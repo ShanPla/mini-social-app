@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { Link } from 'react-router-dom';
 import { X, UserCheck, Users } from 'lucide-react';
 import { createPortal } from 'react-dom';
@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
 import { displayName } from '../../lib/names';
 import { useScrollLock } from '../../lib/useScrollLock';
+import { useDialog } from '../../lib/useDialog';
 import './FollowersModal.css';
 
 type Props = {
@@ -26,7 +27,12 @@ export default function FollowersModal({ userId, type, onClose }: Props) {
   const key = `${userId}:${type}`;
   const loading = loadedFor !== key;
 
+  const boxRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+
   useScrollLock();
+  /* Focus in, Tab kept inside, Escape closes, focus back to the opener */
+  useDialog(boxRef, onClose);
 
   useEffect(() => {
     /* Flipping followers/following mid-fetch must not show the wrong list */
@@ -43,24 +49,25 @@ export default function FollowersModal({ userId, type, onClose }: Props) {
     return () => { cancelled = true; };
   }, [userId, type, key]);
 
-  /* Close on Escape */
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
   const title = type === 'followers' ? 'Followers' : 'Following';
 
   return createPortal(
     <div className="fw-backdrop" onClick={onClose}>
-      <div className="fw-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="fw-modal"
+        ref={boxRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
 
         {/* Header */}
         <div className="fw-header">
           <div className="fw-title">
             {type === 'followers' ? <Users size={16} /> : <UserCheck size={16} />}
-            <h3>{title}</h3>
+            <h3 id={titleId}>{title}</h3>
           </div>
           <button className="fw-close" onClick={onClose} aria-label="Close" title="Close">
             <X size={16} />

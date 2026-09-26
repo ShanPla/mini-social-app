@@ -100,7 +100,8 @@
   border-bottom: 1px solid var(--border);
 }
 .dropdown-item:last-of-type { border-bottom: none; }
-.dropdown-item:hover { background: var(--cream); }
+.dropdown-item:hover,
+.dropdown-item--active { background: var(--cream); }
 
 .dropdown-avatar {
   width: 34px;
@@ -160,7 +161,9 @@
   transition: color 0.2s;
   font-family: var(--font-body);
 }
-.dropdown-see-all:hover { color: var(--ink); }
+.dropdown-see-all:hover,
+.dropdown-see-all--active { color: var(--ink); }
+.dropdown-see-all--active { text-decoration: underline; }
 .dropdown-see-all strong { color: var(--ink); }
 
 /* Phones: match the navbar gutter and keep the dropdown inside it */

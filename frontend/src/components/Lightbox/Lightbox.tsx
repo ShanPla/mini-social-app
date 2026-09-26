@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useScrollLock } from '../../lib/useScrollLock';
+import { useDialog } from '../../lib/useDialog';
 import './Lightbox.css';
 
 type Props = {
@@ -15,12 +16,15 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
   const hasPrev = current > 0;
   const hasNext = current < images.length - 1;
 
+  const boxRef = useRef<HTMLDivElement>(null);
+
   useScrollLock();
+  /* Focus starts on Close, Tab stays inside, Escape closes */
+  useDialog(boxRef, onClose);
 
+  /* Left and right arrows page through the images */
   useEffect(() => {
-
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowLeft' && hasPrev) setCurrent((c) => c - 1);
       if (e.key === 'ArrowRight' && hasNext) setCurrent((c) => c + 1);
     };
@@ -29,10 +33,18 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
     return () => {
       document.removeEventListener('keydown', handleKey);
     };
-  }, [hasPrev, hasNext, onClose]);
+  }, [hasPrev, hasNext]);
 
   return createPortal(
-    <div className="lightbox-backdrop" onClick={onClose}>
+    <div
+      className="lightbox-backdrop"
+      ref={boxRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={images.length > 1 ? `Image ${current + 1} of ${images.length}` : 'Image'}
+      tabIndex={-1}
+      onClick={onClose}
+    >
       {/* Close button */}
       <button className="lightbox-close" onClick={onClose} aria-label="Close" title="Close">✕</button>
 

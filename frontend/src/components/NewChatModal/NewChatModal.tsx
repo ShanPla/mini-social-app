@@ -1,9 +1,10 @@
-import { useState, useEffect, useId } from 'react';
+import { useState, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { X, SquarePen } from 'lucide-react';
 import type { Profile } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import { useScrollLock } from '../../lib/useScrollLock';
+import { useDialog } from '../../lib/useDialog';
 import UserPicker from '../UserPicker/UserPicker';
 import './NewChatModal.css';
 
@@ -22,16 +23,12 @@ export default function NewChatModal({ onClose, onCreated }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const groupNameId = useId();
+  const titleId = useId();
+  const boxRef = useRef<HTMLDivElement>(null);
 
   useScrollLock();
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [onClose]);
+  /* The people search autofocuses; Tab stays inside, Escape closes */
+  useDialog(boxRef, onClose);
 
   const isGroup = selected.length > 1;
 
@@ -47,12 +44,20 @@ export default function NewChatModal({ onClose, onCreated }: Props) {
 
   return createPortal(
     <div className="nc-backdrop" onClick={onClose}>
-      <div className="nc-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="nc-modal"
+        ref={boxRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="nc-header">
           <div className="nc-title">
             <SquarePen size={16} />
-            <h3>New message</h3>
+            <h3 id={titleId}>New message</h3>
           </div>
           <button className="nc-close" onClick={onClose} title="Close" aria-label="Close"><X size={16} /></button>
         </div>

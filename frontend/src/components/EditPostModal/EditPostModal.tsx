@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useId } from 'react';
+import { useState, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { useScrollLock } from '../../lib/useScrollLock';
+import { useDialog } from '../../lib/useDialog';
 import { X, ImagePlus, Globe, Users, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
@@ -34,19 +35,13 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const fieldId = useId();
   const toast = useToast();
 
+  /* The page stops scrolling underneath; focus in, Tab kept inside, Escape closes */
   useScrollLock();
-
-  /* Escape closes and the page stops scrolling underneath, same as ConfirmModal */
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [onClose]);
+  useDialog(boxRef, onClose);
 
   const handleNewFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -149,11 +144,19 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
      instead of the viewport */
   return createPortal(
     <div className="edit-modal-backdrop" onClick={onClose}>
-      <div className="edit-modal-box" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="edit-modal-box"
+        ref={boxRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${fieldId}-title`}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
 
         {/* Header */}
         <div className="edit-modal-header">
-          <h3>Edit Post</h3>
+          <h3 id={`${fieldId}-title`}>Edit Post</h3>
           <button className="edit-modal-close" onClick={onClose} aria-label="Close" title="Close">
             <X size={16} />
           </button>
