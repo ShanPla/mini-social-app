@@ -45,7 +45,7 @@
   top: -2px;
   right: -2px;
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   font-size: 0.62rem;
   font-weight: 700;
   min-width: 18px;

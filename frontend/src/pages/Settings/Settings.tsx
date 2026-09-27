@@ -1,6 +1,7 @@
 import { useState, useEffect, useId } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, KeyRound, Trash2 } from 'lucide-react';
+import { Mail, KeyRound, Trash2, SunMoon, Monitor, Sun, Moon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { friendlyAuthError } from '../../lib/authErrors';
@@ -8,6 +9,8 @@ import { describeError } from '../../lib/errors';
 import { useToast } from '../../context/ToastContext';
 import { markIntentionalSignOut } from '../../lib/session';
 import { pruneFolder, removeUserPostImages } from '../../lib/storage';
+import { useTheme } from '../../lib/theme';
+import type { ThemePreference } from '../../lib/theme';
 import PasswordForm from '../../components/PasswordForm/PasswordForm';
 import '../Login/Login.css';
 import './Settings.css';
@@ -15,6 +18,12 @@ import './Settings.css';
 type Props = {
   userId: string;
 };
+
+const THEME_OPTIONS: { value: ThemePreference; label: string; Icon: LucideIcon }[] = [
+  { value: 'system', label: 'System', Icon: Monitor },
+  { value: 'light', label: 'Light', Icon: Sun },
+  { value: 'dark', label: 'Dark', Icon: Moon },
+];
 
 /* /settings: the account basics. Profile details (name, bio, photo) live on the profile page. */
 export default function SettingsPage({ userId }: Props) {
@@ -29,6 +38,7 @@ export default function SettingsPage({ userId }: Props) {
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const id = useId();
+  const { preference, setPreference } = useTheme();
 
   usePageTitle('Settings');
 
@@ -95,6 +105,27 @@ export default function SettingsPage({ userId }: Props) {
           <h1>Settings</h1>
           <p>Signed in as <strong>@{username || '…'}</strong>. Name, bio and photo are edited on your profile.</p>
         </header>
+
+        {/* Appearance: native radios, so arrow keys move between the three */}
+        <section className="settings-card">
+          <h2><SunMoon size={16} /> Appearance</h2>
+          <p>Follow your device, or pick one. Saved on this device only.</p>
+          <div className="theme-options" role="radiogroup" aria-label="Theme">
+            {THEME_OPTIONS.map(({ value, label, Icon }) => (
+              <label key={value} className={`theme-option ${preference === value ? 'theme-option--on' : ''}`}>
+                <input
+                  type="radio"
+                  name="theme"
+                  value={value}
+                  checked={preference === value}
+                  onChange={() => setPreference(value)}
+                />
+                <Icon size={15} />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+        </section>
 
         {/* Email */}
         <section className="settings-card">

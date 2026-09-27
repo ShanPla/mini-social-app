@@ -24,7 +24,7 @@
 }
 .searchbar-input-wrap:focus-within {
   border-color: var(--ink);
-  box-shadow: 0 0 0 3px rgba(26,20,16,0.06);
+  box-shadow: 0 0 0 3px var(--focus-halo);
 }
 
 .searchbar-icon {

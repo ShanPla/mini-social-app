@@ -217,6 +217,7 @@ frontend/
 
 **UI/UX**
 - Warm editorial design system — Playfair Display + DM Sans
+- Dark mode: follows the device by default; Settings offers System, Light or Dark and the navbar has a sun and moon switch. The choice is kept on the device (lib/theme.ts), applied by a small script in index.html before the first paint so a dark page never flashes white, and synced across open tabs. Every colour is a CSS variable in styles/global.css with a dark value, and every text colour in the dark theme meets 4.5:1
 - Lucide React icons throughout
 - Page transitions (fade + slide on route change)
 - Staggered post entrance animations

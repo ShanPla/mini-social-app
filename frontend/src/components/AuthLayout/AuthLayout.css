@@ -10,7 +10,9 @@
 /* ── LEFT PANEL ── */
 .login-left {
   flex: 1;
-  background: var(--ink);
+  /* Stays dark in both themes; its text is white on purpose */
+  background: var(--night);
+  box-shadow: inset -1px 0 0 var(--night-edge);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -89,7 +91,7 @@
   font-family: var(--font-display);
   font-size: clamp(2.4rem, 3.5vw, 3.6rem);
   font-weight: 700;
-  color: var(--cream);
+  color: var(--night-text);
   line-height: 1.12;
   letter-spacing: -0.03em;
 }

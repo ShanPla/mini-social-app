@@ -93,13 +93,26 @@
   padding-bottom: 2px;
 }
 
+/* Sun or moon, next to the bell */
+.nav-theme-btn {
+  background: none;
+  border: none;
+  color: var(--ink-light);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, transform 0.3s;
+}
+.nav-theme-btn:hover { color: var(--ink); transform: rotate(-20deg); }
+
 .nav-link--badged { position: relative; }
 .nav-badge {
   position: absolute;
   top: -9px;
   right: -14px;
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0;

@@ -91,7 +91,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #2f9e44;
+  background: var(--success);
   border: 2px solid var(--card-bg);
 }
 

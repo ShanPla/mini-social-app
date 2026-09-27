@@ -50,7 +50,7 @@
   top: -5px;
   right: -8px;
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   font-size: 0.58rem;
   font-weight: 700;
   min-width: 16px;

@@ -31,7 +31,7 @@
   border-radius: 50%;
   opacity: 0.8;
 }
-.picker-chip button:hover { opacity: 1; background: rgba(255,255,255,0.15); }
+.picker-chip button:hover { opacity: 1; background: var(--on-ink-hover); }
 
 .picker-search {
   display: flex;

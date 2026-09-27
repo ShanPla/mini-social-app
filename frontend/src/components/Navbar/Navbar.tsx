@@ -1,8 +1,10 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Sun, Moon } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import { markIntentionalSignOut } from '../../lib/session';
 import { prefetchPage } from '../../lib/pages';
+import { useTheme } from '../../lib/theme';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import './Navbar.css';
 
@@ -14,6 +16,7 @@ export default function Navbar({ userId }: NavbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { unreadConversations } = useChat();
+  const { theme, setPreference } = useTheme();
 
   const handleLogout = async () => {
     /* So the session watcher does not announce an expired session for this */
@@ -46,6 +49,16 @@ export default function Navbar({ userId }: NavbarProps) {
             </Link>
             <Link to={`/profile/${userId}`} className={`nav-link ${isActive('/profile') ? 'nav-link--active' : ''}`} onMouseEnter={() => prefetchPage('profile')} onFocus={() => prefetchPage('profile')}>Profile</Link>
             <NotificationBell currentUserId={userId} />
+            {/* Flips light and dark; Settings also offers following the device */}
+            <button
+              type="button"
+              className="nav-theme-btn"
+              onClick={() => setPreference(theme === 'dark' ? 'light' : 'dark')}
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
+            >
+              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
             <button onClick={handleLogout} className="nav-logout">Logout</button>
           </div>
         )}

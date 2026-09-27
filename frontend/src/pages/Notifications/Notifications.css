@@ -92,7 +92,7 @@
   transition: box-shadow 0.2s;
 }
 .notif-item:hover { box-shadow: var(--shadow); }
-.notif-item.unread { background: #fffdf9; border-color: #e8dfc8; }
+.notif-item.unread { background: var(--unread-bg); border-color: var(--unread-border); }
 
 .notif-icon {
   width: 28px;
@@ -104,11 +104,11 @@
   font-size: 0.75rem;
   flex-shrink: 0;
 }
-.notif-icon--like { background: #fde8e4; color: var(--accent); }
-.notif-icon--comment { background: #e8f0fe; color: #3b5bdb; }
-.notif-icon--follow { background: #e8fde4; color: #2f9e44; }
-.notif-icon--message { background: #f3e8fd; color: #7048e8; }
-.notif-icon--added { background: #e6fcf5; color: #0ca678; }
+.notif-icon--like { background: var(--accent-tint); color: var(--accent); }
+.notif-icon--comment { background: var(--chip-comment-bg); color: var(--chip-comment-fg); }
+.notif-icon--follow { background: var(--chip-follow-bg); color: var(--chip-follow-fg); }
+.notif-icon--message { background: var(--chip-message-bg); color: var(--chip-message-fg); }
+.notif-icon--added { background: var(--chip-added-bg); color: var(--chip-added-fg); }
 
 .notif-avatar {
   width: 36px;

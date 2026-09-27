@@ -28,8 +28,8 @@
   color: var(--ink);
   animation: toastIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.toast--success { border-left-color: #2f9e44; }
-.toast--success .toast-icon { color: #2f9e44; }
+.toast--success { border-left-color: var(--success); }
+.toast--success .toast-icon { color: var(--success); }
 .toast--error { border-left-color: var(--accent); }
 .toast--error .toast-icon { color: var(--accent); }
 .toast--info { border-left-color: var(--gold); }

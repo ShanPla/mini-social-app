@@ -113,7 +113,7 @@
 }
 .post-action-item:hover { background: var(--cream); }
 .post-action-item--danger { color: var(--accent); }
-.post-action-item--danger:hover { background: #fde8e4; }
+.post-action-item--danger:hover { background: var(--accent-tint); }
 
 /* Visibility badge */
 .post-visibility-badge {
