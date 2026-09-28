@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useId } from 'react';
 import { moveFocus } from '../../lib/menuKeys';
 import { Link } from 'react-router-dom';
-import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Users, Lock } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Users, Lock, Link2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import { useTimeAgo } from '../../lib/timeAgo';
@@ -13,6 +13,7 @@ import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import { pruneFolder, removePostImageFiles } from '../../lib/storage';
 import { displayName } from '../../lib/names';
+import { copyText } from '../../lib/clipboard';
 import './PostCard.css';
 
 type PostCardProps = {
@@ -100,6 +101,22 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
 
   const toast = useToast();
 
+  /* Copies /post/:id. Followers-only and private posts say who can actually open the link. */
+  const copyLink = async () => {
+    const url = `${window.location.origin}/post/${currentPost.id}`;
+    if (!(await copyText(url))) {
+      toast.error(`Could not copy the link. Here it is: ${url}`);
+      return;
+    }
+    if (currentPost.visibility === 'followers') {
+      toast.success(isOwner ? 'Link copied. Only your followers can open it.' : 'Link copied. Only people who follow the author can open it.');
+    } else if (currentPost.visibility === 'private') {
+      toast.success(isOwner ? 'Link copied. The post is private, so only you can open it.' : 'Link copied. The post is private, so only its author can open it.');
+    } else {
+      toast.success('Link copied');
+    }
+  };
+
   const handleLike = async () => {
     if (!currentUserId || loading) return;
     setLoading(true);
@@ -172,35 +189,44 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
             </div>
           </Link>
 
-          {/* Actions menu */}
-          {canDelete && (
-            <div className="post-actions-wrap" ref={actionsRef}>
-              <button
-                ref={actionsBtnRef}
-                className="post-actions-btn"
-                onClick={() => setShowActions(!showActions)}
-                aria-haspopup="menu"
-                aria-expanded={showActions}
-                aria-controls={showActions ? menuId : undefined}
-                title="Post options"
-                aria-label="Post options"
-              >
-                <MoreHorizontal size={18} />
-              </button>
-              {showActions && (
-                <div className="post-actions-dropdown" ref={menuRef} id={menuId} role="menu" aria-label="Post options" onKeyDown={handleMenuKey}>
-                  {/* Edit — owner only */}
-                  {isOwner && (
-                    <button
-                      className="post-action-item"
-                      role="menuitem"
-                      tabIndex={-1}
-                      onClick={() => chooseAction(() => setShowEditModal(true))}
-                    >
-                      <Pencil size={14} /> Edit post
-                    </button>
-                  )}
-                  {/* Delete */}
+          {/* Actions menu: everyone can copy the link; the owner edits; the owner or an admin deletes */}
+          <div className="post-actions-wrap" ref={actionsRef}>
+            <button
+              ref={actionsBtnRef}
+              className="post-actions-btn"
+              onClick={() => setShowActions(!showActions)}
+              aria-haspopup="menu"
+              aria-expanded={showActions}
+              aria-controls={showActions ? menuId : undefined}
+              title="Post options"
+              aria-label="Post options"
+            >
+              <MoreHorizontal size={18} />
+            </button>
+            {showActions && (
+              <div className="post-actions-dropdown" ref={menuRef} id={menuId} role="menu" aria-label="Post options" onKeyDown={handleMenuKey}>
+                {/* Copy link — everyone */}
+                <button
+                  className="post-action-item"
+                  role="menuitem"
+                  tabIndex={-1}
+                  onClick={() => chooseAction(() => { void copyLink(); })}
+                >
+                  <Link2 size={14} /> Copy link
+                </button>
+                {/* Edit — owner only */}
+                {isOwner && (
+                  <button
+                    className="post-action-item"
+                    role="menuitem"
+                    tabIndex={-1}
+                    onClick={() => chooseAction(() => setShowEditModal(true))}
+                  >
+                    <Pencil size={14} /> Edit post
+                  </button>
+                )}
+                {/* Delete — owner or admin */}
+                {canDelete && (
                   <button
                     className="post-action-item post-action-item--danger"
                     role="menuitem"
@@ -212,10 +238,10 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
                       : <><Trash2 size={14} /> Delete post</>
                     }
                   </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
         </header>
 
         {/* Visibility badge */}

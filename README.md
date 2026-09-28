@@ -183,6 +183,7 @@ frontend/
 
 **Admin**
 - Admin role via is_admin flag on profiles
+- Copy link on every post (the post options menu): copies /post/:id, and for followers-only or private posts the toast says who can open it
 - Admin can delete any post or comment
 - Enforced server-side via Supabase RLS policies
 
