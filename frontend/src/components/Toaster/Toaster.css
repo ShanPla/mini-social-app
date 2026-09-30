@@ -33,7 +33,7 @@
 .toast--error { border-left-color: var(--accent); }
 .toast--error .toast-icon { color: var(--accent); }
 .toast--info { border-left-color: var(--gold); }
-.toast--info .toast-icon { color: var(--gold); }
+.toast--info .toast-icon { color: var(--gold-text); }
 
 .toast-icon {
   display: flex;

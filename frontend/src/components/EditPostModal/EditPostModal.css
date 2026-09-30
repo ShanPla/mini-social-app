@@ -202,7 +202,8 @@
   bottom: 3px;
   left: 3px;
   background: var(--gold);
-  color: var(--ink);
+  /* Dark on gold in both themes (--ink turns light in dark mode) */
+  color: var(--night);
   font-size: 0.6rem;
   font-weight: 700;
   padding: 1px 5px;

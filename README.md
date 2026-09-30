@@ -244,7 +244,7 @@ frontend/
 - Every form field has a label tied to it, or a name of its own where the design shows none; the handle rule on Register and the profile editor is read out with the field
 - Image tiles, the bell's entries, the photo pickers and the profile photo are real buttons, so Tab and Enter reach everything the mouse can
 - Hover-only controls (unsend a message, close a chat bubble) also appear on keyboard focus
-- Secondary grey text meets the 4.5:1 contrast minimum on every background
+- Every piece of text meets the 4.5:1 contrast minimum in both themes, and meaningful icons (notification types, toast icons) meet 3:1
 - Every dialog is announced as one, takes focus when it opens, keeps Tab inside, closes on Escape and hands focus back to the control that opened it; stacked dialogs close one at a time (lib/useDialog.ts)
 - Post options is a real menu (arrow keys, Home, End, Escape back to the button); the bell panel works the same way and closes when you Tab out; search suggestions are a combobox, so arrows pick a person while typing continues
 

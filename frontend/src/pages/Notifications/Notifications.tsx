@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Heart, MessageCircle, UserPlus, MessageSquare, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { useChat } from '../../context/ChatContext';
@@ -72,13 +73,14 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
     }
   };
 
+  /* Same icons as the bell. Lucide marks them aria-hidden, so the text beside them is what is read */
   const getIcon = (type: string) => {
     switch (type) {
-      case 'like': return '♥';
-      case 'comment': return '✦';
-      case 'follow': return '→';
-      case 'message': return '✉';
-      case 'added': return '+';
+      case 'like': return <Heart size={13} fill="currentColor" />;
+      case 'comment': return <MessageCircle size={13} />;
+      case 'follow': return <UserPlus size={13} />;
+      case 'message': return <MessageSquare size={13} />;
+      case 'added': return <Users size={13} />;
     }
   };
 

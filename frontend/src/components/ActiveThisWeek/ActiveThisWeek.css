@@ -9,4 +9,4 @@
   text-align: center;
   flex-shrink: 0;
 }
-.atw-row:first-child .atw-rank { color: var(--gold); font-weight: 700; }
+.atw-row:first-child .atw-rank { color: var(--gold-text); font-weight: 700; }
