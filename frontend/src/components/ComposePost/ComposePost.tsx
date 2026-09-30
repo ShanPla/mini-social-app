@@ -5,6 +5,7 @@ import type { Post } from '../../lib/supabaseClient';
 import { useCooldown } from '../../lib/useCooldown';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
+import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
 import './ComposePost.css';
 
 type Visibility = 'public' | 'followers' | 'private';
@@ -78,7 +79,8 @@ export default function ComposePost({
       let failed = 0;
 
       for (let i = 0; i < imageFiles.length; i++) {
-        const file = imageFiles[i];
+        /* Big phone photos are resized first, so they fit the 5 MB limit */
+        const file = await shrinkImage(imageFiles[i], IMAGE_MAX_EDGE.post);
         const ext = file.name.split('.').pop();
         const path = `${userId}/${postData.id}/${i}.${ext}`;
         const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file);
@@ -91,7 +93,7 @@ export default function ComposePost({
       }
 
       if (failed > 0) {
-        toast.error(`${failed} of ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} could not be uploaded. Images only, up to 5 MB each.`);
+        toast.error(`${failed} of ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} could not be uploaded. Use JPG, PNG, WebP or GIF; a GIF must be under 5 MB.`);
       }
 
       if (uploadedImages.length > 0) {

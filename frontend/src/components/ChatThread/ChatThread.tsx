@@ -7,6 +7,7 @@ import { useChat } from '../../context/ChatContext';
 import { displayName } from '../../lib/names';
 import { useCooldown } from '../../lib/useCooldown';
 import { parseDbDate } from '../../lib/timeAgo';
+import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
 import {
   conversationTitle,
   dayLabel,
@@ -319,7 +320,8 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) { setError('Only images can be sent.'); return; }
-    if (file.size > MAX_IMAGE_BYTES) { setError('Image must be under 5 MB.'); return; }
+    /* Photos are shrunk on send; a GIF goes as it is, so it must already fit */
+    if (file.type === 'image/gif' && file.size > MAX_IMAGE_BYTES) { setError('A GIF must be under 5 MB.'); return; }
     setError(null);
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
@@ -344,19 +346,26 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
        the message stores that path and the thread signs it when rendering. */
     let image_url: string | null = null;
     if (imageFile) {
+      /* Big phone photos are resized first, so they fit the 5 MB limit */
+      const photo = await shrinkImage(imageFile, IMAGE_MAX_EDGE.chat);
       const extFromType: Record<string, string> = {
         'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
       };
-      const ext = extFromType[imageFile.type];
+      const ext = extFromType[photo.type];
       if (!ext) {
         setError('Only JPG, PNG, GIF or WebP images can be sent.');
+        setSending(false);
+        return;
+      }
+      if (photo.size > MAX_IMAGE_BYTES) {
+        setError('Image must be under 5 MB.');
         setSending(false);
         return;
       }
       const path = `${conversationId}/${userId}/${crypto.randomUUID()}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from('chat-images')
-        .upload(path, imageFile, { contentType: imageFile.type });
+        .upload(path, photo, { contentType: photo.type });
       if (uploadError) {
         setError('Image upload failed. Try again.');
         setSending(false);

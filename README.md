@@ -194,6 +194,7 @@ frontend/
 - Comment likes, replies and deletes update the thread in place instead of refetching every comment
 - Chat image links are signed for an hour and quietly re-signed before they expire, so a popup left open all day never shows broken images
 - Deleting a post, removing images from one, or replacing an avatar also removes the files from storage
+- Pictures are shrunk in the browser before upload (lib/images.ts): the longest edge is capped at 2048 px for posts, 1600 for chat and 1024 for avatars, so a 12 MB phone photo goes up as roughly 1 MB. Transparency is kept, GIFs and small pictures go up untouched, and resized photos lose their hidden metadata, location included
 - Code splitting: every page is its own chunk loaded on first visit, the chat tree loads only when a popup or /messages is opened, and React and Supabase sit in separate long-lived vendor chunks so a deploy only invalidates app code. First load went from one 540 kB file to a 30 kB shell plus vendors
 - The landing page's code downloads while the session is checked, and hovering a navbar link fetches its page early, so the first click rarely waits
 - After a deploy, a tab still holding the old page list reloads itself once instead of showing a broken page; hashed assets are cached for a year on Vercel

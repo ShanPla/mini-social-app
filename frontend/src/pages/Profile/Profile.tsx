@@ -14,6 +14,7 @@ import FollowersModal from '../../components/FollowersModal/FollowersModal';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { displayName } from '../../lib/names';
 import { pruneFolder } from '../../lib/storage';
+import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import './Profile.css';
@@ -154,13 +155,15 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     let uploadedName: string | undefined;
 
     if (avatarMode === 'file' && avatarFile) {
-      const ext = avatarFile.name.split('.').pop();
+      /* A profile photo never needs to be bigger than this */
+      const photo = await shrinkImage(avatarFile, IMAGE_MAX_EDGE.avatar);
+      const ext = photo.name.split('.').pop();
       uploadedName = `avatar.${ext}`;
       const path = `${currentUserId}/${uploadedName}`;
       const { error: uploadError } = await supabase.storage
-        .from('avatars').upload(path, avatarFile, { upsert: true });
+        .from('avatars').upload(path, photo, { upsert: true });
       if (uploadError) {
-        toast.error(describeError(uploadError, 'Could not upload the photo. Images only, up to 5 MB.'));
+        toast.error(describeError(uploadError, 'Could not upload the photo. Use JPG, PNG, WebP or GIF; a GIF must be under 5 MB.'));
         setAvatarUploading(false);
         return;
       }

@@ -8,6 +8,7 @@ import type { Post } from '../../lib/supabaseClient';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import { removePostImageFiles } from '../../lib/storage';
+import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
 import './EditPostModal.css';
 
 type Props = {
@@ -100,7 +101,8 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       let failed = 0;
 
       for (let i = 0; i < newFiles.length; i++) {
-        const file = newFiles[i];
+        /* Big phone photos are resized first, so they fit the 5 MB limit */
+        const file = await shrinkImage(newFiles[i], IMAGE_MAX_EDGE.post);
         const ext = file.name.split('.').pop();
         const path = `${post.user_id}/${post.id}/${Date.now()}-${i}.${ext}`;
         const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file);
@@ -113,7 +115,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       }
 
       if (failed > 0) {
-        toast.error(`${failed} of ${newFiles.length} new image${newFiles.length > 1 ? 's' : ''} could not be uploaded. Images only, up to 5 MB each.`);
+        toast.error(`${failed} of ${newFiles.length} new image${newFiles.length > 1 ? 's' : ''} could not be uploaded. Use JPG, PNG, WebP or GIF; a GIF must be under 5 MB.`);
       }
 
       if (uploadedImages.length > 0) {
