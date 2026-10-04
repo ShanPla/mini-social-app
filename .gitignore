@@ -9,6 +9,5 @@ frontend/dist/
 frontend/.env
 .env
 
-# Lock files (optional but cleaner)
-package-lock.json
-frontend/package-lock.json
+# frontend/package-lock.json is committed on purpose: CI installs from it
+# with npm ci, and Vercel installs the same versions that were tested

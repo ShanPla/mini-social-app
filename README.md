@@ -1,5 +1,7 @@
 # The Chronicle — Mini Social Media App
 
+[![CI](https://github.com/ShanPla/mini-social-app/actions/workflows/ci.yml/badge.svg)](https://github.com/ShanPla/mini-social-app/actions/workflows/ci.yml)
+
 A full-stack social media platform built with React + TypeScript + Vite + Supabase.
 
 ## Project Structure
@@ -324,3 +326,13 @@ npm run dev
 ```
 
 App runs at http://localhost:5173.
+
+### 3. Checks
+
+Every push and pull request runs lint, the type check and a production build on GitHub Actions (`.github/workflows/ci.yml`). The same checks locally:
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+`frontend/package-lock.json` is committed: CI installs from it with `npm ci`, so after adding or upgrading a package, commit the updated lockfile too.
