@@ -20,7 +20,9 @@ export function timeAgo(dateStr: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   if (days < 7) return `${days}d ago`;
   if (weeks < 5) return `${weeks}w ago`;
-  if (months < 12) return `${months}mo ago`;
+  /* Months are counted in 30s, so a 360 day old post reaches 12 before a year
+     is up; cap it at 11 or it would read [0y ago] */
+  if (days < 365) return `${Math.min(months, 11)}mo ago`;
   return `${years}y ago`;
 }
 

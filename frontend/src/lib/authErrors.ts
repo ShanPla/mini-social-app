@@ -14,7 +14,10 @@ export function friendlyAuthError(message: string): string {
     return 'Too many attempts. Please wait a minute and try again.';
   if (m.includes('same password') || m.includes('different from the old'))
     return 'Your new password must be different from the old one.';
-  if (m.includes('password') && m.includes('short')) return 'Password must be at least 6 characters.';
+  /* Supabase says [Password should be at least 6 characters] for a short one and
+     [Password should contain at least one character of each ...] for a weak one */
+  if (m.includes('password') && (m.includes('short') || m.includes('should be at least')))
+    return 'Password must be at least 6 characters.';
   if (m.includes('weak password') || m.includes('password should'))
     return 'Password must contain uppercase, lowercase letters and numbers.';
   if (m.includes('session') && (m.includes('missing') || m.includes('expired')))

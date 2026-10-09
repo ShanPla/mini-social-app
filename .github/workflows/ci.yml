@@ -34,6 +34,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Tests
+        run: npm test
+
       # npm run build is tsc -b (the type check) followed by vite build
       - name: Type check and build
         run: npm run build

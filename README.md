@@ -329,10 +329,12 @@ App runs at http://localhost:5173.
 
 ### 3. Checks
 
-Every push and pull request runs lint, the type check and a production build on GitHub Actions (`.github/workflows/ci.yml`). The same checks locally:
+Every push and pull request runs lint, the unit tests, the type check and a production build on GitHub Actions (`.github/workflows/ci.yml`). The same checks locally:
 ```bash
 cd frontend
 npm run lint
+npm test          # vitest run, or npm run test:watch while working
 npm run build
 ```
+The tests cover the pure helpers in `src/lib` (names, relative times, search escaping, error messages, chat titles and previews, storage paths). Anything that needs a browser is checked by scripted runs instead. Test config lives in `vitest.config.ts`, separate from `vite.config.ts` because Vitest carries its own copy of Vite.
 `frontend/package-lock.json` is committed: CI installs from it with `npm ci`, so after adding or upgrading a package, commit the updated lockfile too.
