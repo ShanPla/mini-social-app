@@ -114,6 +114,10 @@
   scrollbar-width: none;
 }
 .feed-sidebar::-webkit-scrollbar { display: none; }
+/* Cards keep their full height and the column scrolls instead. Without this
+   a column taller than the window squeezed every card, and since cards
+   clip their overflow, their bottoms were cut off. */
+.feed-sidebar > * { flex-shrink: 0; }
 
 /* Tablet: drop the left column */
 @media (max-width: 1000px) {
