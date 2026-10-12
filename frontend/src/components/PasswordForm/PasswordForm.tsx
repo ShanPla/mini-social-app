@@ -1,6 +1,7 @@
 import { useState, useId } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { friendlyAuthError } from '../../lib/authErrors';
+import PasswordInput from '../PasswordInput/PasswordInput';
 import '../../pages/Login/Login.css';
 
 type Props = {
@@ -39,9 +40,8 @@ export default function PasswordForm({ submitLabel = 'Set new password', onDone,
     <form onSubmit={handleSubmit} className="login-form">
       <div className="form-group">
         <label htmlFor={`${id}-new`}>New password</label>
-        <input
+        <PasswordInput
           id={`${id}-new`}
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
@@ -53,9 +53,8 @@ export default function PasswordForm({ submitLabel = 'Set new password', onDone,
       </div>
       <div className="form-group">
         <label htmlFor={`${id}-confirm`}>Confirm new password</label>
-        <input
+        <PasswordInput
           id={`${id}-confirm`}
-          type="password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           placeholder="••••••••"

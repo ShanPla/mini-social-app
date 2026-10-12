@@ -5,6 +5,7 @@ import { usePageTitle } from '../../lib/usePageTitle';
 import { friendlyAuthError, isUnconfirmedEmail } from '../../lib/authErrors';
 import { useToast } from '../../context/ToastContext';
 import AuthLayout from '../../components/AuthLayout/AuthLayout';
+import PasswordInput from '../../components/PasswordInput/PasswordInput';
 import './Login.css';
 
 export default function Login() {
@@ -68,13 +69,13 @@ export default function Login() {
         </div>
         <div className="form-group">
           <label htmlFor={`${id}-password`}>Password</label>
-          <input
+          <PasswordInput
             id={`${id}-password`}
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
             required
+            autoComplete="current-password"
           />
         </div>
 

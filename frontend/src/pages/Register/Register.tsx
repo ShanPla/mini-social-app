@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { friendlyAuthError } from '../../lib/authErrors';
 import { useToast } from '../../context/ToastContext';
+import PasswordInput from '../../components/PasswordInput/PasswordInput';
 import './Register.css';
 
 export default function Register() {
@@ -119,14 +120,14 @@ export default function Register() {
 
           <div className="form-group">
             <label htmlFor={`${id}-password`}>Password</label>
-            <input
+            <PasswordInput
               id={`${id}-password`}
-              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Min. 6 characters"
               required
               minLength={6}
+              autoComplete="new-password"
             />
           </div>
 
