@@ -9,6 +9,7 @@ import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import { removePostImageFiles } from '../../lib/storage';
 import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
+import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL, SUBMIT_SHORTCUT_ARIA } from '../../lib/submitShortcut';
 import './EditPostModal.css';
 
 type Props = {
@@ -63,6 +64,8 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
   };
 
   const handleSave = async () => {
+    /* The keyboard shortcut can fire while a save is already running */
+    if (saving) return;
     if (!content.trim() && existingImages.length === 0 && newFiles.length === 0) {
       setError('Post must have text or at least one image.');
       return;
@@ -178,6 +181,12 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
               rows={4}
               className="edit-textarea"
               placeholder="What's on your mind?"
+              aria-keyshortcuts={SUBMIT_SHORTCUT_ARIA}
+              onKeyDown={(e) => {
+                if (!isSubmitShortcut(e.nativeEvent)) return;
+                e.preventDefault();
+                void handleSave();
+              }}
             />
             <span className="edit-char-count">{content.length}/500</span>
           </div>
@@ -262,7 +271,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
         {/* Footer */}
         <div className="edit-modal-footer">
           <button className="btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}>
+          <button className="btn-primary" onClick={handleSave} disabled={saving} title={`Save (${SUBMIT_SHORTCUT_LABEL})`}>
             {saving ? 'Saving…' : 'Save Changes'}
           </button>
         </div>

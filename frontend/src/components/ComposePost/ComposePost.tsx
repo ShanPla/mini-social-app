@@ -6,6 +6,7 @@ import { useCooldown } from '../../lib/useCooldown';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
+import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL, SUBMIT_SHORTCUT_ARIA } from '../../lib/submitShortcut';
 import './ComposePost.css';
 
 type Visibility = 'public' | 'followers' | 'private';
@@ -130,6 +131,12 @@ export default function ComposePost({
           placeholder={placeholder}
           maxLength={500}
           rows={3}
+          aria-keyshortcuts={SUBMIT_SHORTCUT_ARIA}
+          onKeyDown={(e) => {
+            if (!isSubmitShortcut(e.nativeEvent)) return;
+            e.preventDefault();
+            e.currentTarget.form?.requestSubmit();
+          }}
         />
 
         {/* Image previews */}
@@ -182,7 +189,7 @@ export default function ComposePost({
 
         <div className="compose-footer">
           <span className="char-count">{content.length}/500</span>
-          <button type="submit" className="btn-primary" disabled={posting || !canPost}>
+          <button type="submit" className="btn-primary" disabled={posting || !canPost} title={`Publish (${SUBMIT_SHORTCUT_LABEL})`}>
             {posting ? 'Publishing…' : 'Publish'}
           </button>
         </div>
