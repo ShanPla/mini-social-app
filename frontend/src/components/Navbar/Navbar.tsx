@@ -5,6 +5,7 @@ import { useChat } from '../../context/ChatContext';
 import { markIntentionalSignOut } from '../../lib/session';
 import { prefetchPage } from '../../lib/pages';
 import { useTheme } from '../../lib/theme';
+import { clearAllDrafts } from '../../lib/drafts';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import './Navbar.css';
 
@@ -21,6 +22,8 @@ export default function Navbar({ userId }: NavbarProps) {
   const handleLogout = async () => {
     /* So the session watcher does not announce an expired session for this */
     markIntentionalSignOut();
+    /* Unfinished post text stays on the device otherwise, so wipe it on shared computers */
+    clearAllDrafts();
     await supabase.auth.signOut();
     navigate('/login');
   };

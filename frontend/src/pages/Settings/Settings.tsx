@@ -10,6 +10,7 @@ import { useToast } from '../../context/ToastContext';
 import { markIntentionalSignOut } from '../../lib/session';
 import { pruneFolder, removeUserPostImages } from '../../lib/storage';
 import { useTheme } from '../../lib/theme';
+import { clearAllDrafts } from '../../lib/drafts';
 import type { ThemePreference } from '../../lib/theme';
 import PasswordForm from '../../components/PasswordForm/PasswordForm';
 import '../Login/Login.css';
@@ -91,6 +92,7 @@ export default function SettingsPage({ userId }: Props) {
     }
     /* The user no longer exists server-side; only the local session is left to clear */
     markIntentionalSignOut();
+    clearAllDrafts();
     await supabase.auth.signOut({ scope: 'local' });
     toast.info('Your account has been deleted.');
     navigate('/login', { replace: true });

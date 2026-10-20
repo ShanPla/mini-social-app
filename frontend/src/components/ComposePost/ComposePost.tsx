@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL, SUBMIT_SHORTCUT_ARIA } from '../../lib/submitShortcut';
+import { readDraft, writeDraft } from '../../lib/drafts';
 import './ComposePost.css';
 
 type Visibility = 'public' | 'followers' | 'private';
@@ -27,7 +28,9 @@ export default function ComposePost({
   label = "What's on your mind?",
   placeholder = 'Share something with the world…',
 }: Props) {
-  const [content, setContent] = useState('');
+  /* Unfinished text is kept on this device (per user) until it is published */
+  const draftKey = `post:${userId}`;
+  const [content, setContent] = useState(() => readDraft(draftKey));
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [visibility, setVisibility] = useState<Visibility>('public');
@@ -115,6 +118,7 @@ export default function ComposePost({
     onPosted(newPost);
     toast.success('Post published');
     setContent('');
+    writeDraft(draftKey, '');
     clearImages();
     setPosting(false);
     triggerCooldown();
@@ -127,7 +131,10 @@ export default function ComposePost({
         <textarea
           aria-label={label}
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => {
+            setContent(e.target.value);
+            writeDraft(draftKey, e.target.value);
+          }}
           placeholder={placeholder}
           maxLength={500}
           rows={3}
