@@ -123,8 +123,6 @@
   border-top: 1px solid var(--border);
 }
 
-.char-count { font-size: 0.75rem; color: var(--ink-muted); letter-spacing: 0.04em; }
-
 .compose-visibility {
   padding-top: 8px;
 }

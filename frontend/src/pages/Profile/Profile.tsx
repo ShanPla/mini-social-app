@@ -17,6 +17,7 @@ import { pruneFolder } from '../../lib/storage';
 import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
+import CharCount from '../../components/CharCount/CharCount';
 import './Profile.css';
 
 type ProfilePageProps = {
@@ -374,6 +375,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                 />
                 <span className="edit-hint" id={`${fieldId}-handle-hint`}>Your handle: lowercase letters, numbers and underscores, 3 to 30 characters.</span>
                 <textarea aria-label="Bio" value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder="Write a short bio…" maxLength={200} className="edit-bio" rows={3} />
+                <CharCount length={editBio.length} max={200} className="edit-bio-count" />
                 <div className="edit-actions">
                   <button className="btn-primary" onClick={handleSaveProfile} disabled={saveLoading}>
                     {saveLoading ? 'Saving…' : 'Save'}

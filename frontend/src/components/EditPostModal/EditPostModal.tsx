@@ -10,6 +10,7 @@ import { describeError } from '../../lib/errors';
 import { removePostImageFiles } from '../../lib/storage';
 import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL, SUBMIT_SHORTCUT_ARIA } from '../../lib/submitShortcut';
+import CharCount from '../CharCount/CharCount';
 import './EditPostModal.css';
 
 type Props = {
@@ -188,7 +189,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
                 void handleSave();
               }}
             />
-            <span className="edit-char-count">{content.length}/500</span>
+            <CharCount length={content.length} max={500} className="edit-char-count" />
           </div>
 
           {/* Visibility */}

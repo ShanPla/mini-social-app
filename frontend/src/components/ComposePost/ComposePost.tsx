@@ -8,6 +8,7 @@ import { describeError } from '../../lib/errors';
 import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL, SUBMIT_SHORTCUT_ARIA } from '../../lib/submitShortcut';
 import { readDraft, writeDraft } from '../../lib/drafts';
+import CharCount from '../CharCount/CharCount';
 import './ComposePost.css';
 
 type Visibility = 'public' | 'followers' | 'private';
@@ -195,7 +196,7 @@ export default function ComposePost({
         </div>
 
         <div className="compose-footer">
-          <span className="char-count">{content.length}/500</span>
+          <CharCount length={content.length} max={500} />
           <button type="submit" className="btn-primary" disabled={posting || !canPost} title={`Publish (${SUBMIT_SHORTCUT_LABEL})`}>
             {posting ? 'Publishing…' : 'Publish'}
           </button>

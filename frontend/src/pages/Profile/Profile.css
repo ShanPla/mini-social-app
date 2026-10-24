@@ -231,6 +231,7 @@
 }
 .edit-input:focus, .edit-bio:focus { border-color: var(--ink); }
 .edit-bio { resize: vertical; }
+.edit-bio-count { align-self: flex-end; }
 
 .edit-actions { display: flex; gap: 10px; }
 /* A link dressed as the ghost button */
