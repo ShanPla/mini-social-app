@@ -212,7 +212,11 @@
 }
 
 .edit-add-images {
-  display: block;
+  /* Icon and label side by side, centred on one line */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   background: none;
   font-family: inherit;
