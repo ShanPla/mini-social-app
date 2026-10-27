@@ -87,7 +87,7 @@
   transition: color 0.2s;
   flex-shrink: 0;
 }
-.ci-icon-btn:hover,
+.ci-icon-btn:hover:not(:disabled),
 .ci-close:hover { color: var(--accent); }
 .ci-icon-btn:disabled { opacity: 0.5; }
 

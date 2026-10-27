@@ -178,7 +178,7 @@
   transition: color 0.2s;
   padding: 0;
 }
-.post-action:hover { color: var(--ink); }
+.post-action:hover:not(:disabled) { color: var(--ink); }
 .post-action:disabled { cursor: default; opacity: 0.5; }
 
 .like-btn.liked { color: var(--accent); }

@@ -167,8 +167,8 @@ input, textarea {
   cursor: pointer;
   transition: background 0.2s, transform 0.1s;
 }
-.btn-primary:hover { background: var(--accent); }
-.btn-primary:active { transform: scale(0.98); }
+.btn-primary:hover:not(:disabled) { background: var(--accent); }
+.btn-primary:active:not(:disabled) { transform: scale(0.98); }
 
 .btn-ghost {
   background: transparent;
@@ -181,7 +181,7 @@ input, textarea {
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s;
 }
-.btn-ghost:hover { border-color: var(--ink); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--ink); }
 
 .btn-danger {
   background: transparent;
@@ -194,7 +194,12 @@ input, textarea {
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
 }
-.btn-danger:hover { background: var(--accent); color: var(--on-accent); }
+.btn-danger:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
+
+/* A disabled button looks it, and hovering it does nothing */
+.btn-primary:disabled,
+.btn-ghost:disabled,
+.btn-danger:disabled { opacity: 0.5; cursor: default; }
 
 .form-group {
   display: flex;
@@ -249,7 +254,7 @@ input, textarea {
   align-self: flex-start;
   transition: border-color 0.2s, color 0.2s;
 }
-.auth-inline-btn:hover { border-color: var(--accent); color: var(--accent); }
+.auth-inline-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .auth-inline-btn:disabled { opacity: 0.6; cursor: default; }
 
 /* Non-error feedback, e.g. [check your inbox] after signup */
