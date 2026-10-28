@@ -102,16 +102,16 @@ export default function ComposePost({
       }
 
       if (uploadedImages.length > 0) {
-        const { error: imagesError } = await supabase.from('post_images').insert(uploadedImages);
-        if (imagesError) {
+        /* Read the rows back so the card holds their real ids: editing the
+           post straight away deletes removed images by id */
+        const { data: imageRows, error: imagesError } = await supabase
+          .from('post_images')
+          .insert(uploadedImages)
+          .select('id, post_id, image_url, position');
+        if (imagesError || !imageRows) {
           toast.error('The post went up, but its images could not be attached.');
         } else {
-          newPost.post_images = uploadedImages.map((img, i) => ({
-            id: `temp-${i}`,
-            post_id: postData.id,
-            image_url: img.image_url,
-            position: img.position,
-          }));
+          newPost.post_images = [...imageRows].sort((a, b) => a.position - b.position);
         }
       }
     }
