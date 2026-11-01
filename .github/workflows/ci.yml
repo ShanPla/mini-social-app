@@ -31,6 +31,10 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Production dependencies only; a high or critical advisory fails the run
+      - name: Audit
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Lint
         run: npm run lint
 

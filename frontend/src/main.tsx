@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import { reloadForStaleChunk } from './lib/reloadOnce'
 import { initTheme } from './lib/theme'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 /* Follow the device theme and other tabs from here on (index.html did the first paint) */
 initTheme()
@@ -17,5 +19,8 @@ window.addEventListener('vite:preloadError', (event) => {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
+    {/* Vercel page-view and web-vitals beacons; they do nothing off Vercel */}
+    <Analytics />
+    <SpeedInsights />
   </React.StrictMode>,
 )

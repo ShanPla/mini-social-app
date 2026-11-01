@@ -18,6 +18,9 @@ mini-social/
 
 ```
 frontend/
+├── e2e/                    ← Playwright smoke tests (signed out, no Supabase writes)
+├── public/                 ← Icons, og.png, robots.txt, manifest.webmanifest
+├── vercel.json             ← Security headers (CSP), caching, SPA rewrite
 ├── src/
 │   ├── lib/
 │   │   ├── supabaseClient.ts
@@ -28,6 +31,14 @@ frontend/
 │   │   ├── search.ts           ← Escapes % and _ for ilike patterns
 │   │   ├── names.ts            ← displayName(): display name, else handle
 │   │   ├── session.ts          ← Tells apart Logout from an expired session
+│   │   ├── theme.ts            ← Light / dark / system preference, kept on the device
+│   │   ├── drafts.ts           ← Unsent post, comment and message text kept in localStorage
+│   │   ├── clipboard.ts        ← Copy to clipboard with a fallback
+│   │   ├── images.ts           ← Shrinks big photos in the browser before upload
+│   │   ├── menuKeys.ts         ← Arrow, Home and End focus movement for menus and lists
+│   │   ├── submitShortcut.ts   ← Ctrl/Cmd+Enter to send
+│   │   ├── useDialog.ts        ← Dialog role, focus trap, Escape and focus return for modals
+│   │   ├── useObjectUrls.ts    ← Preview URLs that are revoked when no longer used
 │   │   ├── useScrollLock.ts    ← Counted body scroll lock shared by modals
 │   │   ├── posts.ts            ← fetchPosts(): one RPC for feed, profile, single post
 │   │   ├── usePostList.ts      ← Paged post list with keyset load-more
@@ -49,6 +60,8 @@ frontend/
 │   ├── components/
 │   │   ├── AuthLayout/             ← Art panel + form column shared by the auth pages
 │   │   ├── PasswordForm/           ← New-password form shared by reset and settings
+│   │   ├── PasswordInput/          ← Password field with show/hide and a Caps Lock warning
+│   │   ├── CharCount/              ← Counter that appears and warns as a text limit nears
 │   │   ├── ErrorBoundary/          ← Recovery card instead of a blank page; reloads once after a deploy swaps chunks
 │   │   ├── LoadingScreen/          ← The ✦ shown by the auth gate and while a page chunk loads
 │   │   ├── Toaster/                ← Toast stack, top-centre under the navbar
@@ -81,6 +94,7 @@ frontend/
 │   │   ├── RecentChats/
 │   │   ├── ActiveThisWeek/
 │   │   └── OnlineNow/
+│   ├── main.tsx                    ← Entry: theme init, stale-chunk reload, Vercel Analytics and Speed Insights
 │   └── pages/
 │       ├── Login/
 │       ├── Register/
@@ -99,6 +113,7 @@ frontend/
 ## Features
 
 **Auth**
+- Show / hide password toggle and a Caps Lock warning on every password field
 - Register with live username availability check
 - Login / Logout with session persistence
 - Friendly error messages for common issues
@@ -116,6 +131,9 @@ frontend/
 - Text truncation with "see more / see less"
 - Real-time feed — banner appears when new posts are available
 - Cooldown between submissions to stop accidental double posts
+- Drafts are kept on the device: an unsent post, comment or message survives a reload or a closed tab
+- Ctrl+Enter (Cmd+Enter on a Mac) sends a post, comment or message
+- Character counters appear and warn as a limit nears
 - Compose from the feed or straight from your own profile page
 
 **Interactions**
@@ -208,6 +226,8 @@ frontend/
 - Notifications are written only by database triggers, so they cannot be forged or spammed
 - Server-side rate limits on posts, comments and messages, on top of the client cooldowns
 - Uploads are limited to images, 5 MB, and the uploader's own folder
+- Response headers set in vercel.json: a Content-Security-Policy (scripts only from the app itself plus the hashed theme script, connections only to the app's Supabase project and Vercel's vitals endpoint), X-Frame-Options DENY, nosniff, a strict referrer policy and a locked-down Permissions-Policy. Images allow any https source because an avatar can be set from a URL
+- Dependency hygiene: CI fails on a high or critical advisory in production dependencies (npm audit), and Dependabot opens grouped weekly update pull requests
 
 **Feedback**
 - Toast confirmations on saves: profile, photo, post published, updated, deleted
@@ -223,6 +243,7 @@ frontend/
 - Warm editorial design system — Playfair Display + DM Sans
 - Dark mode: follows the device by default; Settings offers System, Light or Dark and the navbar has a sun and moon switch. The choice is kept on the device (lib/theme.ts), applied by a small script in index.html before the first paint so a dark page never flashes white, and synced across open tabs. Every colour is a CSS variable in styles/global.css with a dark value, and every text colour in the dark theme meets 4.5:1
 - Lucide React icons throughout
+- Installable: a web app manifest with 192 and 512 px icons plus a maskable one; robots.txt keeps search engines to the public pages
 - Page transitions (fade + slide on route change)
 - Staggered post entrance animations
 - Like button bounce animation
@@ -260,7 +281,8 @@ frontend/
 | Backend | Supabase (PostgreSQL, Auth, Storage, Realtime) |
 | Routing | React Router v7 |
 | Icons | Lucide React |
-| Deployment | Vercel (root directory set to frontend) |
+| Deployment | Vercel (root directory set to frontend), with Vercel Analytics and Speed Insights for page views and web vitals |
+| Tests | Vitest (unit), Playwright (browser smoke) |
 
 ## Database Tables
 
@@ -329,12 +351,20 @@ App runs at http://localhost:5173.
 
 ### 3. Checks
 
-Every push and pull request runs lint, the unit tests, the type check and a production build on GitHub Actions (`.github/workflows/ci.yml`). The same checks locally:
+Every push and pull request runs the production dependency audit, lint, the unit tests, the type check and a production build on GitHub Actions (`.github/workflows/ci.yml`). The same checks locally:
 ```bash
 cd frontend
 npm run lint
-npm test          # vitest run, or npm run test:watch while working
-npm run build
+npm test          # vitest run
+npm run test:watch  # while working
+npm run e2e       # Playwright smoke tests in the installed Chrome (not run in CI)
+npm run build     # type check, then production build
 ```
-The tests cover the pure helpers in `src/lib` (names, relative times, search escaping, error messages, chat titles and previews, storage paths). Anything that needs a browser is checked by scripted runs instead. Test config lives in `vitest.config.ts`, separate from `vite.config.ts` because Vitest carries its own copy of Vite.
+The unit tests cover the pure helpers in `src/lib` (names, relative times, search escaping, error messages, chat titles and previews, storage paths, drafts, theme preference, page routing, stale-chunk reload, menu keys) and check that the hash in the Content-Security-Policy still matches the inline theme script in index.html. The e2e smoke tests build the app, serve it with `vite preview` and check the signed-out pages (login, register, 404, redirect, robots.txt); they need Chrome installed and never sign in. Anything else that needs a browser is checked by scripted runs instead. Test config lives in `vitest.config.ts`, separate from `vite.config.ts` because Vitest carries its own copy of Vite, and `playwright.config.ts`.
 `frontend/package-lock.json` is committed: CI installs from it with `npm ci`, so after adding or upgrading a package, commit the updated lockfile too.
+
+Page views and web vitals are collected by Vercel Analytics and Speed Insights; they only report when the app runs on Vercel.
+
+## Licence
+
+MIT, see [LICENSE](LICENSE). Copyright 2026 Shan Platon.

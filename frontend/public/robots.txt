@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Disallow: /feed
+Disallow: /profile
+Disallow: /post
+Disallow: /messages
+Disallow: /notifications
+Disallow: /search
+Disallow: /settings
