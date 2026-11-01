@@ -1,7 +1,7 @@
 /* Form styles shared by the auth pages that sit inside AuthLayout */
 
 .login-header { margin-bottom: 36px; }
-.login-header h2 {
+.login-header h1 {
   font-family: var(--font-display);
   font-size: 2rem;
   font-weight: 700;
@@ -32,6 +32,20 @@
   text-underline-offset: 3px;
 }
 .login-register-link a:hover { color: var(--accent); }
+
+/* Terms and Privacy under the form */
+.auth-legal {
+  margin-top: 16px;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  text-align: center;
+}
+.auth-legal a {
+  color: var(--ink-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth-legal a:hover { color: var(--accent); }
 
 /* Forgot-password link under the fields */
 .login-aux { display: flex; justify-content: flex-end; margin-top: -8px; }

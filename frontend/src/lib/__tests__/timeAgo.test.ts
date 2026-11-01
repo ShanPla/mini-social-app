@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { parseDbDate, timeAgo } from '../timeAgo';
+import { parseDbDate, timeAgo, fullDate } from '../timeAgo';
 
 /* Postgres `timestamp` columns come back with no zone and are UTC */
 describe('parseDbDate', () => {
@@ -51,5 +51,21 @@ describe('timeAgo', () => {
 
   it('says just now for a timestamp a moment in the future, as clock drift can produce', () => {
     expect(timeAgo(new Date(now.getTime() + 2000).toISOString().replace('Z', ''))).toBe('just now');
+  });
+});
+
+describe('fullDate', () => {
+  it('spells out the date with its year for a tooltip', () => {
+    const text = fullDate('2026-03-01T12:00:00Z');
+    expect(text).toContain('2026');
+    expect(text.length).toBeGreaterThan(10);
+  });
+
+  it('reads a bare Postgres timestamp as UTC like parseDbDate', () => {
+    expect(fullDate('2026-03-01 12:00:00')).toBe(fullDate('2026-03-01T12:00:00Z'));
+  });
+
+  it('is empty for something that is not a date', () => {
+    expect(fullDate('not a date')).toBe('');
   });
 });

@@ -8,9 +8,11 @@ import type { Post } from '../../lib/supabaseClient';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import { removePostImageFiles } from '../../lib/storage';
-import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
+import { shrinkImage, imageExtension, IMAGE_MAX_EDGE } from '../../lib/images';
+import { revokePreview, useRevokeOnUnmount } from '../../lib/useObjectUrls';
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL, SUBMIT_SHORTCUT_ARIA } from '../../lib/submitShortcut';
 import CharCount from '../CharCount/CharCount';
+import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import './EditPostModal.css';
 
 type Props = {
@@ -37,14 +39,45 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
   const [newPreviews, setNewPreviews] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /* What the database holds for this post right now. Starts as the opening
+     snapshot and follows every delete and insert, so a retried save works
+     from the real state rather than the stale post prop. */
+  const savedImagesRef = useRef<NonNullable<Post['post_images']>>(post.post_images || []);
+  /* New file -> URL it was already uploaded to, so Save again does not upload it twice */
+  const uploadedRef = useRef(new Map<File, string>());
   const boxRef = useRef<HTMLDivElement>(null);
   const fieldId = useId();
   const toast = useToast();
 
-  /* The page stops scrolling underneath; focus in, Tab kept inside, Escape closes */
+  /* Anything that differs from the saved post: text, visibility, removed or added images */
+  const dirty = content !== post.content
+    || visibility !== (post.visibility || 'public')
+    || existingImages.length !== (post.post_images || []).length
+    || newFiles.length > 0;
+
+  /* Every way out (Escape, backdrop, X, Cancel) asks first when there is something to lose */
+  const requestClose = () => {
+    /* Never close mid-save: the save would carry on against an unmounted modal */
+    if (saving) return;
+    if (dirty) setConfirmDiscard(true);
+    else discardAndClose();
+  };
+
+  /* Leaving without a successful save: files a failed attempt already uploaded
+     would otherwise stay in post-images with no row pointing at them */
+  const discardAndClose = () => {
+    const leftovers = [...uploadedRef.current.values()];
+    uploadedRef.current.clear();
+    if (leftovers.length > 0) void removePostImageFiles(leftovers);
+    onClose();
+  };
+
+  /* The page stops scrolling underneath; focus in, Tab kept inside, Escape asks or closes */
   useScrollLock();
-  useDialog(boxRef, onClose);
+  useDialog(boxRef, requestClose);
+  useRevokeOnUnmount(newPreviews);
 
   const handleNewFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -60,6 +93,13 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
   };
 
   const removeNew = (index: number) => {
+    revokePreview(newPreviews[index]);
+    /* An earlier failed save may already have uploaded this one: take it back */
+    const uploaded = uploadedRef.current.get(newFiles[index]);
+    if (uploaded) {
+      uploadedRef.current.delete(newFiles[index]);
+      void removePostImageFiles([uploaded]);
+    }
     setNewFiles((prev) => prev.filter((_, i) => i !== index));
     setNewPreviews((prev) => prev.filter((_, i) => i !== index));
   };
@@ -85,8 +125,10 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       return;
     }
 
-    /* Delete removed images: the rows first, then the files behind them */
-    const removedImages = (post.post_images || []).filter((img) => !existingImages.find((e) => e.id === img.id));
+    /* Delete removed images: the rows first, then the files behind them.
+       Compared with what is stored now (not the opening snapshot), so a retry
+       after a partial failure does not delete the same rows again. */
+    const removedImages = savedImagesRef.current.filter((img) => !existingImages.find((e) => e.id === img.id));
 
     if (removedImages.length > 0) {
       const { error: removeError } = await supabase.from('post_images').delete().in('id', removedImages.map((img) => img.id));
@@ -95,27 +137,34 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
         setSaving(false);
         return;
       }
+      savedImagesRef.current = savedImagesRef.current.filter((img) => !removedImages.includes(img));
       void removePostImageFiles(removedImages.map((img) => img.image_url));
     }
 
-    /* Upload new images */
+    /* Upload new images. Files uploaded by an earlier attempt are reused. */
     if (newFiles.length > 0) {
-      const startPosition = existingImages.length;
+      /* New images go after the highest position still in use: positions only
+         sort, and removing a middle image leaves a gap, so counting images
+         would hand out a position a kept image already has */
+      const startPosition = savedImagesRef.current.reduce((max, img) => Math.max(max, img.position + 1), 0);
       const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
       let failed = 0;
 
       for (let i = 0; i < newFiles.length; i++) {
-        /* Big phone photos are resized first, so they fit the 5 MB limit */
-        const file = await shrinkImage(newFiles[i], IMAGE_MAX_EDGE.post);
-        const ext = file.name.split('.').pop();
-        const path = `${post.user_id}/${post.id}/${Date.now()}-${i}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file);
-        if (uploadError) {
-          failed += 1;
-        } else {
-          const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(path);
-          uploadedImages.push({ post_id: post.id, image_url: urlData.publicUrl, position: startPosition + i });
+        let url = uploadedRef.current.get(newFiles[i]);
+        if (!url) {
+          /* Big phone photos are resized first, so they fit the 5 MB limit */
+          const file = await shrinkImage(newFiles[i], IMAGE_MAX_EDGE.post);
+          const path = `${post.user_id}/${post.id}/${crypto.randomUUID()}.${imageExtension(file)}`;
+          const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file, { contentType: file.type || undefined });
+          if (uploadError) {
+            failed += 1;
+            continue;
+          }
+          url = supabase.storage.from('post-images').getPublicUrl(path).data.publicUrl;
+          uploadedRef.current.set(newFiles[i], url);
         }
+        uploadedImages.push({ post_id: post.id, image_url: url, position: startPosition + uploadedImages.length });
       }
 
       if (failed > 0) {
@@ -123,12 +172,17 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       }
 
       if (uploadedImages.length > 0) {
-        const { error: insertError } = await supabase.from('post_images').insert(uploadedImages);
+        const { data: insertedRows, error: insertError } = await supabase
+          .from('post_images')
+          .insert(uploadedImages)
+          .select('id, post_id, image_url, position');
         if (insertError) {
           setError('The text was saved, but the new images could not be attached. Try Save again.');
           setSaving(false);
           return;
         }
+        savedImagesRef.current = [...savedImagesRef.current, ...(insertedRows || [])];
+        uploadedRef.current.clear();
       }
     }
 
@@ -148,8 +202,10 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
   /* Portaled to body: the page wrapper keeps a transform after its entrance
      animation, which would otherwise anchor this fixed overlay to the page
      instead of the viewport */
-  return createPortal(
-    <div className="edit-modal-backdrop" onClick={onClose}>
+  return (
+    <>
+    {createPortal(
+    <div className="edit-modal-backdrop" onClick={requestClose}>
       <div
         className="edit-modal-box"
         ref={boxRef}
@@ -163,7 +219,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
         {/* Header */}
         <div className="edit-modal-header">
           <h3 id={`${fieldId}-title`}>Edit Post</h3>
-          <button className="edit-modal-close" onClick={onClose} aria-label="Close" title="Close">
+          <button className="edit-modal-close" onClick={requestClose} aria-label="Close" title="Close">
             <X size={16} />
           </button>
         </div>
@@ -223,7 +279,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
               <div className="edit-images-grid">
                 {existingImages.map((img) => (
                   <div key={img.id} className="edit-image-item">
-                    <img src={img.image_url} alt="Post image" />
+                    <img src={img.image_url} alt="Post image" width={80} height={80} decoding="async" />
                     <button className="edit-image-remove" onClick={() => removeExisting(img.id)} type="button" aria-label="Remove image" title="Remove">
                       <X size={10} />
                     </button>
@@ -237,7 +293,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
               <div className="edit-images-grid">
                 {newPreviews.map((src, i) => (
                   <div key={i} className="edit-image-item edit-image-item--new">
-                    <img src={src} alt={`New image ${i + 1}`} />
+                    <img src={src} alt={`New image ${i + 1}`} width={80} height={80} decoding="async" />
                     <button className="edit-image-remove" onClick={() => removeNew(i)} type="button" aria-label={`Remove new image ${i + 1}`} title="Remove">
                       <X size={10} />
                     </button>
@@ -271,7 +327,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
 
         {/* Footer */}
         <div className="edit-modal-footer">
-          <button className="btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn-ghost" onClick={requestClose} disabled={saving}>Cancel</button>
           <button className="btn-primary" onClick={handleSave} disabled={saving} title={`Save (${SUBMIT_SHORTCUT_LABEL})`}>
             {saving ? 'Saving…' : 'Save Changes'}
           </button>
@@ -279,5 +335,20 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       </div>
     </div>,
     document.body
+    )}
+
+    {/* Sibling of the dialog, not a child: clicks inside it must not reach the backdrop */}
+    {confirmDiscard && (
+      <ConfirmModal
+        title="Discard changes?"
+        message="Your edits to this post have not been saved and will be lost."
+        confirmLabel="Discard"
+        cancelLabel="Keep editing"
+        danger
+        onConfirm={() => { setConfirmDiscard(false); discardAndClose(); }}
+        onCancel={() => setConfirmDiscard(false)}
+      />
+    )}
+    </>
   );
 }

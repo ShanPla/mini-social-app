@@ -22,10 +22,10 @@ export default function AuthLayout({ children }: Props) {
 
         <div className="login-brand">
           <p className="brand-tagline">Share your story,</p>
-          <h1 className="brand-headline">
+          <p className="brand-headline">
             one post<br />
             <em>at a time.</em>
-          </h1>
+          </p>
         </div>
 
         <div className="login-deco">

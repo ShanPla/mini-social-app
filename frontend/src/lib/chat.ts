@@ -93,7 +93,7 @@ export function sortConversations(list: Conversation[]): Conversation[] {
   );
 }
 
-export const MOBILE_QUERY = '(max-width: 700px)';
+export const MOBILE_QUERY = '(max-width: 680px)';
 export function isMobile(): boolean {
   return typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches;
 }

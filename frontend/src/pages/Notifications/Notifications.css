@@ -1,5 +1,6 @@
 .notif-page {
   min-height: calc(100vh - 60px);
+  min-height: calc(100dvh - 60px);
   padding: 36px 24px;
 }
 
@@ -17,7 +18,7 @@
   border-bottom: 1px solid var(--border);
 }
 
-.notif-page-header h2 {
+.notif-page-header h1 {
   font-family: var(--font-display);
   font-size: 1.6rem;
   font-weight: 700;
@@ -25,7 +26,7 @@
   letter-spacing: -0.02em;
 }
 
-.notif-count { font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.notif-mark-all { padding: 6px 14px; font-size: 0.78rem; }
 
 /* Skeletons */
 .notif-skeletons { display: flex; flex-direction: column; gap: 2px; }
@@ -127,32 +128,28 @@
 }
 .notif-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-.notif-body { flex: 1; min-width: 0; }
+.notif-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .notif-body p { font-size: 0.88rem; color: var(--ink-light); line-height: 1.5; }
 
-.notif-actor { font-weight: 600; color: var(--ink); text-decoration: none; transition: color 0.2s; }
+.notif-actor { position: relative; z-index: 1; font-weight: 600; color: var(--ink); text-decoration: none; transition: color 0.2s; }
 .notif-actor:hover { color: var(--accent); }
 
-.notif-post-link { color: var(--ink-muted); text-decoration: none; font-size: 0.8rem; transition: color 0.2s; }
-.notif-post-link:hover { color: var(--accent); }
+/* The message text is the row's link; its ::after stretches over the whole row.
+   The name link and the time sit above it. */
+.notif-main-link { color: inherit; text-decoration: none; }
+.notif-main-link::after { content: ''; position: absolute; inset: 0; }
+.notif-main-link:focus-visible { outline: none; }
+.notif-main-link:focus-visible::after { outline: 2px solid var(--accent); outline-offset: -2px; }
+.notif-item:hover .notif-main-link { color: var(--accent); }
 
-/* Chat notifications open a popup instead of navigating, so this one is a button */
-.notif-chat-link {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-family: var(--font-body);
-}
-
-.notif-time { display: block; font-size: 0.75rem; color: var(--ink-muted); margin-top: 3px; }
+.notif-time { position: relative; display: block; width: fit-content; font-size: 0.75rem; color: var(--ink-muted); margin-top: 3px; }
 
 .notif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
 /* Mobile */
 @media (max-width: 560px) {
   .notif-page { padding: 24px 16px; }
-  .notif-page-header h2 { font-size: 1.3rem; }
+  .notif-page-header h1 { font-size: 1.3rem; }
   .notif-item { padding: 12px; gap: 8px; }
   .notif-icon { display: none; }
 }

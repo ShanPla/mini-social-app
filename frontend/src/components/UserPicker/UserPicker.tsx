@@ -34,6 +34,7 @@ export default function UserPicker({ excludeIds, selected, onChange, placeholder
     if (!value.trim()) {
       setResults([]);
       setSearched(false);
+      setLoading(false);
     }
   };
 
@@ -41,6 +42,8 @@ export default function UserPicker({ excludeIds, selected, onChange, placeholder
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const q = query.trim();
     if (!q) return;
+    /* A slow earlier search must not overwrite a newer one (or a cleared box) */
+    let cancelled = false;
 
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
@@ -49,12 +52,16 @@ export default function UserPicker({ excludeIds, selected, onChange, placeholder
         .select('id, username, display_name, avatar_url')
         .ilike('username', `%${escapeLike(q)}%`)
         .limit(8);
+      if (cancelled) return;
       setResults(((data as PickedUser[]) || []).filter((u) => !excludeIds.includes(u.id)));
       setSearched(true);
       setLoading(false);
     }, 250);
 
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => {
+      cancelled = true;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 

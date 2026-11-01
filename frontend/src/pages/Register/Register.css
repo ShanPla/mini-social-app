@@ -1,6 +1,7 @@
 .register-page {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -29,7 +30,7 @@
 }
 .register-back:hover { color: var(--accent); }
 
-.register-header h2 {
+.register-header h1 {
   font-family: var(--font-display);
   font-size: 2rem;
   font-weight: 700;
@@ -52,6 +53,21 @@
 .form-group input.input-error { border-color: var(--accent); }
 .form-group input.input-success { border-color: var(--success); }
 .field-hint { font-size: 0.72rem; color: var(--ink-muted); margin-top: 2px; }
+.register-char-count { align-self: flex-end; }
+
+/* Agreement line under the submit button */
+.register-legal {
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  text-align: center;
+  line-height: 1.5;
+}
+.register-legal a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.register-legal a:hover { color: var(--accent); }
 
 /* ── RIGHT PANEL (dark) ── */
 .register-art {
@@ -195,7 +211,13 @@
 
 /* Mobile */
 @media (max-width: 700px) {
-  .register-page { flex-direction: column; height: auto; min-height: 100vh; overflow: auto; }
+  .register-page {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+    min-height: 100dvh;
+  }
   .register-box { width: 100%; padding: 36px 24px; }
   .register-art { min-height: 280px; flex: none; padding: 32px 28px; }
   .register-art-watermark { font-size: 120px; }

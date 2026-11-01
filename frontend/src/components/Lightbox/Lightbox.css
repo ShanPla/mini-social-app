@@ -142,3 +142,14 @@
   .lightbox-image { max-height: 70vh; }
   .lightbox-thumbs { bottom: 12px; }
 }
+
+/* Touch: the close button was a 34px glyph box */
+@media (pointer: coarse) {
+  .lightbox-close {
+    min-width: 44px;
+    min-height: 44px;
+    top: 12px;
+    right: 12px;
+  }
+  .lightbox-nav { min-width: 44px; min-height: 44px; }
+}

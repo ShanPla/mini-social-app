@@ -1,5 +1,6 @@
 .post-detail-page {
   min-height: calc(100vh - 60px);
+  min-height: calc(100dvh - 60px);
   padding: 40px 24px;
 }
 
@@ -25,14 +26,6 @@
 }
 .back-btn:hover { color: var(--ink); }
 
-.post-page-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-  color: var(--ink-muted);
-  font-style: italic;
-}
 
 /* Mobile */
 @media (max-width: 680px) {

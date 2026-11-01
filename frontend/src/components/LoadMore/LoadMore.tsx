@@ -6,6 +6,8 @@ type Props = {
   loading: boolean;
   onMore: () => void;
   endLabel?: string;
+  /* The last page failed: stop auto-loading and offer a retry */
+  failed?: boolean;
 };
 
 /*
@@ -13,11 +15,11 @@ type Props = {
  * does the same for keyboards, screen readers and when the observer is not
  * available. Shows the end label once there is nothing left.
  */
-export default function LoadMore({ hasMore, loading, onMore, endLabel = 'You are all caught up' }: Props) {
+export default function LoadMore({ hasMore, loading, onMore, endLabel = 'You are all caught up', failed = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!hasMore || loading) return;
+    if (!hasMore || loading || failed) return;
     const el = ref.current;
     if (!el || typeof IntersectionObserver === 'undefined') return;
     const io = new IntersectionObserver(
@@ -26,14 +28,15 @@ export default function LoadMore({ hasMore, loading, onMore, endLabel = 'You are
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [hasMore, loading, onMore]);
+  }, [hasMore, loading, failed, onMore]);
 
   if (!hasMore) return <p className="load-more-end">{endLabel}</p>;
 
   return (
     <div ref={ref} className="load-more">
+      {failed && <p className="load-more-end" role="alert">Could not load more.</p>}
       <button type="button" className="btn-ghost" onClick={onMore} disabled={loading}>
-        {loading ? 'Loading…' : 'Load more'}
+        {loading ? 'Loading…' : failed ? 'Try again' : 'Load more'}
       </button>
     </div>
   );

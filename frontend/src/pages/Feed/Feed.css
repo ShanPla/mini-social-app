@@ -1,5 +1,6 @@
 .feed-page {
   min-height: calc(100vh - 60px);
+  min-height: calc(100dvh - 60px);
   padding: 36px 24px;
 }
 
@@ -13,9 +14,20 @@
 }
 
 .feed-main { display: flex; flex-direction: column; gap: 20px; }
+/* While the first page loads the column keeps a screenful of height, so going Back
+   has somewhere to scroll to */
+.feed-main--loading { min-height: 100vh; min-height: 100dvh; }
 
-/* New posts banner */
+/* New posts banner: its wrapper stays in view while the reader scrolls the column */
+.new-posts-slot {
+  position: sticky;
+  top: 72px;
+  z-index: 50;
+}
 .new-posts-banner {
+  display: block;
+  width: 100%;
+  box-shadow: var(--shadow-hover);
   background: var(--ink);
   color: var(--cream);
   border: none;
@@ -30,7 +42,7 @@
   text-align: center;
   animation: slideDown 0.3s ease;
 }
-.new-posts-banner:hover { background: var(--accent); }
+.new-posts-banner:hover { background: var(--accent); color: var(--on-accent); }
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -56,50 +68,6 @@
 .feed-tab:hover { color: var(--ink); }
 .feed-tab.active { color: var(--ink); border-bottom-color: var(--ink); }
 
-/* Skeletons */
-.feed-skeletons { display: flex; flex-direction: column; gap: 16px; }
-
-.skeleton-post-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.skeleton-header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
-
-.skeleton-avatar-sm {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: linear-gradient(90deg, var(--border) 25%, var(--cream) 50%, var(--border) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s infinite;
-  flex-shrink: 0;
-}
-
-.skeleton-meta { display: flex; flex-direction: column; gap: 6px; flex: 1; }
-
-.skeleton-line {
-  height: 12px;
-  border-radius: 4px;
-  background: linear-gradient(90deg, var(--border) 25%, var(--cream) 50%, var(--border) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s infinite;
-}
-.skeleton-line.wide { width: 80%; }
-.skeleton-line.medium { width: 55%; }
-.skeleton-line.short { width: 30%; }
-.skeleton-line.xshort { width: 20%; }
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
 .posts-list { display: flex; flex-direction: column; gap: 16px; }
 
 /* Sidebar */
@@ -110,6 +78,7 @@
   flex-direction: column;
   gap: 16px;
   max-height: calc(100vh - 100px);
+  max-height: calc(100dvh - 100px);
   overflow-y: auto;
   scrollbar-width: none;
 }
@@ -125,6 +94,12 @@
   .feed-sidebar--left { display: none; }
 }
 
+/* Narrow tablet: a 240px column would squeeze the posts, so the feed stands alone */
+@media (max-width: 860px) {
+  .feed-inner { grid-template-columns: minmax(0, 1fr); max-width: 640px; }
+  .feed-sidebar { display: none; }
+}
+
 /* Mobile */
 @media (max-width: 680px) {
   .feed-page { padding: 20px 16px; }
@@ -135,3 +110,6 @@
 
 /* This box clips overflow, so focus rings inside it are drawn inward */
 .feed-sidebar :focus-visible { outline-offset: -2px; }
+
+/* Tab panel: same rhythm as the column it sits in */
+.feed-panel { display: flex; flex-direction: column; gap: 20px; }

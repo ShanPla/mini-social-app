@@ -7,6 +7,7 @@ import type { Profile, ChatMember } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import { conversationTitle } from '../../lib/chat';
 import UserPicker from '../UserPicker/UserPicker';
+import CharCount from '../CharCount/CharCount';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import { displayName } from '../../lib/names';
 import { useScrollLock } from '../../lib/useScrollLock';
@@ -131,6 +132,7 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
                   autoFocus
                   onKeyDown={(e) => { if (e.key === 'Enter') handleRename(); }}
                 />
+                {nameDraft.length >= 48 && <CharCount length={nameDraft.length} max={60} className="ci-char-count" />}
                 <button className="ci-icon-btn" onClick={handleRename} disabled={saving} title="Save" aria-label="Save name"><Check size={15} /></button>
                 <button className="ci-icon-btn" onClick={() => { setRenaming(false); setNameDraft(conv.name || ''); }} title="Cancel" aria-label="Cancel rename"><X size={15} /></button>
               </div>
@@ -157,7 +159,7 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
                 <Link to={`/profile/${m.user_id}`} className="ci-member-link" onClick={onClose}>
                   <div className="ci-avatar">
                     {m.avatar_url
-                      ? <img src={m.avatar_url} alt={m.username} loading="lazy" />
+                      ? <img src={m.avatar_url} alt={m.username} width={34} height={34} loading="lazy" decoding="async" />
                       : <span>{(m.username[0] || '?').toUpperCase()}</span>
                     }
                   </div>

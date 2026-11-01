@@ -29,7 +29,7 @@ export default function ResetPassword({ userId }: Props) {
     return (
       <AuthLayout>
         <div className="login-header">
-          <h2>Link expired</h2>
+          <h1>Link expired</h1>
           <p>{linkError || 'This reset link is invalid or has already been used.'}</p>
         </div>
         <div className="login-form">
@@ -45,7 +45,7 @@ export default function ResetPassword({ userId }: Props) {
   return (
     <AuthLayout>
       <div className="login-header">
-        <h2>Choose a new password</h2>
+        <h1>Choose a new password</h1>
         <p>At least 6 characters. You will stay signed in afterwards.</p>
       </div>
 

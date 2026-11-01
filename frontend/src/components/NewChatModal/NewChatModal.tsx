@@ -6,6 +6,7 @@ import { useChat } from '../../context/ChatContext';
 import { useScrollLock } from '../../lib/useScrollLock';
 import { useDialog } from '../../lib/useDialog';
 import UserPicker from '../UserPicker/UserPicker';
+import CharCount from '../CharCount/CharCount';
 import './NewChatModal.css';
 
 type PickedUser = Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
@@ -83,6 +84,7 @@ export default function NewChatModal({ onClose, onCreated }: Props) {
                 placeholder="e.g. Weekend plans"
                 maxLength={60}
               />
+              {groupName.length >= 48 && <CharCount length={groupName.length} max={60} className="nc-char-count" />}
             </div>
           )}
 

@@ -19,7 +19,11 @@ const BROWSER_BAR = { light: '#faf8f4', dark: '#15110e' };
 
 const listeners = new Set<() => void>();
 
+/* The choice made this session when storage refused it, so the page still follows it */
+let unsavedPreference: ThemePreference | null = null;
+
 export function getThemePreference(): ThemePreference {
+  if (unsavedPreference) return unsavedPreference;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'light' || stored === 'dark') return stored;
@@ -53,8 +57,10 @@ export function setThemePreference(preference: ThemePreference) {
   try {
     if (preference === 'system') localStorage.removeItem(STORAGE_KEY);
     else localStorage.setItem(STORAGE_KEY, preference);
+    unsavedPreference = null;
   } catch {
-    /* storage blocked: the change still applies to this page */
+    /* storage blocked: keep the choice in memory so it still applies to this page */
+    unsavedPreference = preference;
   }
   applyTheme();
 }

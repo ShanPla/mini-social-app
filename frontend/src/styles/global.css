@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap');
-
 :root {
   --cream: #f5f0e8;
   --warm-white: #faf8f4;
@@ -292,4 +290,56 @@ input, textarea {
     padding: 11px 18px;
     font-size: 0.82rem;
   }
+}
+
+/* Text for screen readers only (a page's h1 where the design shows none, "Unread" beside a dot) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Fingers need 40-44px hit areas. Only sizes are set here (min-width/height),
+   so the look and each component's own padding stay as they are. */
+@media (pointer: coarse) {
+  .nav-theme-btn,
+  .bell-btn,
+  .nav-logout,
+  .searchbar-clear,
+  .password-input-toggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .nav-logout { min-width: 0; }
+  .nav-theme-btn,
+  .bell-btn,
+  .searchbar-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .navbar-links { gap: 4px; }
+  .feed-tab,
+  .back-btn,
+  .settings-back,
+  .register-back,
+  .login-aux a,
+  .auth-inline-btn,
+  .load-more .btn-ghost,
+  .notif-mark-all {
+    min-height: 44px;
+  }
+  .login-aux a { display: inline-flex; align-items: center; }
+  .mobile-nav-tab { min-width: 44px; min-height: 44px; }
+  .bell-item,
+  .bell-see-all,
+  .dropdown-item,
+  .dropdown-see-all { min-height: 44px; }
+  .nav-theme-btn:hover { transform: none; }
 }

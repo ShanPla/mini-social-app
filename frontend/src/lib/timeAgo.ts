@@ -5,6 +5,14 @@ export function parseDbDate(dateStr: string): Date {
   return new Date(/Z$|[+-]\d\d:?\d\d$/.test(dateStr) ? dateStr : dateStr + 'Z');
 }
 
+/* Full localized date and time, for a hover tooltip or <time title>.
+   Returns an empty string for a value that is not a date. */
+export function fullDate(dateStr: string): string {
+  const date = parseDbDate(dateStr);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' });
+}
+
 export function timeAgo(dateStr: string): string {
   const date = parseDbDate(dateStr);
   const diff = Date.now() - date.getTime();

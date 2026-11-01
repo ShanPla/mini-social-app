@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Newspaper, MessageCircle, Bell, User, Settings } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
+import { isActivePath } from '../../lib/navActive';
 import './QuickLinks.css';
 
 type Props = {
@@ -23,9 +24,9 @@ export default function QuickLinks({ userId }: Props) {
   return (
     <nav className="quick-links">
       {links.map((l) => {
-        const active = location.pathname === l.to || (l.to !== '/feed' && location.pathname.startsWith(l.to));
+        const active = isActivePath(location.pathname, l.to);
         return (
-          <Link key={l.to} to={l.to} className={`quick-link ${active ? 'quick-link--active' : ''}`}>
+          <Link key={l.to} to={l.to} className={`quick-link ${active ? 'quick-link--active' : ''}`} aria-current={active ? 'page' : undefined}>
             <span className="quick-link-icon">{l.icon}</span>
             <span className="quick-link-label">{l.label}</span>
             {!!l.badge && <span className="quick-link-badge">{l.badge > 9 ? '9+' : l.badge}</span>}

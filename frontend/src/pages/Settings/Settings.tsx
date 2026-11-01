@@ -1,6 +1,6 @@
 import { useState, useEffect, useId } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, KeyRound, Trash2, SunMoon, Monitor, Sun, Moon } from 'lucide-react';
+import { Mail, KeyRound, Trash2, SunMoon, Monitor, Sun, Moon, LogOut, FileText } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
@@ -8,10 +8,12 @@ import { friendlyAuthError } from '../../lib/authErrors';
 import { describeError } from '../../lib/errors';
 import { useToast } from '../../context/ToastContext';
 import { markIntentionalSignOut } from '../../lib/session';
+import { logOut } from '../../lib/logout';
 import { pruneFolder, removeUserPostImages } from '../../lib/storage';
 import { useTheme } from '../../lib/theme';
 import { clearAllDrafts } from '../../lib/drafts';
 import type { ThemePreference } from '../../lib/theme';
+import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import PasswordForm from '../../components/PasswordForm/PasswordForm';
 import '../Login/Login.css';
 import './Settings.css';
@@ -32,12 +34,21 @@ export default function SettingsPage({ userId }: Props) {
   const toast = useToast();
   const [email, setEmail] = useState<string | null>(null);
   const [username, setUsername] = useState('');
+  /* The email/username fetch failed; Retry bumps version to run it again */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [version, setVersion] = useState(0);
+  /* Which fetch the email and username belong to; loading is derived from it */
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const loadKey = `${userId}:${version}`;
+  const loading = loadedKey !== loadKey;
   const [newEmail, setNewEmail] = useState('');
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailNotice, setEmailNotice] = useState('');
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  /* The last step before the account goes: a plain yes/no after the typed handle */
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const id = useId();
   const { preference, setPreference } = useTheme();
 
@@ -46,16 +57,18 @@ export default function SettingsPage({ userId }: Props) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [{ data: auth }, { data: profile }] = await Promise.all([
+      const [{ data: auth, error: authError }, { data: profile, error: profileError }] = await Promise.all([
         supabase.auth.getUser(),
         supabase.from('profiles').select('username').eq('id', userId).maybeSingle(),
       ]);
       if (cancelled) return;
+      setLoadFailed(!!authError || !!profileError);
       setEmail(auth.user?.email ?? null);
       setUsername(profile?.username ?? '');
+      setLoadedKey(`${userId}:${version}`);
     })();
     return () => { cancelled = true; };
-  }, [userId]);
+  }, [userId, version]);
 
   const handleEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +83,7 @@ export default function SettingsPage({ userId }: Props) {
     /* With confirmation on, Supabase parks the new address until the link is clicked */
     if (data.user?.new_email) {
       setEmailNotice(`Almost there. Confirm the change from your inbox at ${target} to finish.`);
+      toast.info(`Check ${target} for a confirmation link to finish the change.`);
       return;
     }
     setEmail(data.user?.email ?? target);
@@ -77,9 +91,10 @@ export default function SettingsPage({ userId }: Props) {
     toast.success('Email updated');
   };
 
-  const canDelete = username.length > 0 && confirmText.trim().toLowerCase() === username;
+  const canDelete = !loading && username.length > 0 && confirmText.trim().toLowerCase() === username;
 
   const handleDelete = async () => {
+    setConfirmingDelete(false);
     if (!canDelete || deleting) return;
     setDeleting(true);
     /* Files first: once the row is gone the storage policies no longer know us */
@@ -98,6 +113,11 @@ export default function SettingsPage({ userId }: Props) {
     navigate('/login', { replace: true });
   };
 
+  const handleLogout = async () => {
+    await logOut();
+    navigate('/login');
+  };
+
   return (
     <div className="settings-page">
       <div className="settings-inner">
@@ -105,8 +125,15 @@ export default function SettingsPage({ userId }: Props) {
           {/* Settings is reached from the profile, so that is where back leads */}
           <Link to={`/profile/${userId}`} className="settings-back">← Back to profile</Link>
           <h1>Settings</h1>
-          <p>Signed in as <strong>@{username || '…'}</strong>. Name, bio and photo are edited on your profile.</p>
+          <p>Signed in as <strong>@{loading ? 'loading…' : username || '…'}</strong>. Name, bio and photo are edited on your profile.</p>
         </header>
+
+        {loadFailed && (
+          <p className="error-msg" role="alert">
+            Could not load your account details.{' '}
+            <button type="button" className="btn-ghost" onClick={() => setVersion((v) => v + 1)}>Retry</button>
+          </p>
+        )}
 
         {/* Appearance: native radios, so arrow keys move between the three */}
         <section className="settings-card">
@@ -132,7 +159,7 @@ export default function SettingsPage({ userId }: Props) {
         {/* Email */}
         <section className="settings-card">
           <h2><Mail size={16} /> Email</h2>
-          <p className="settings-current">Current address: <strong>{email ?? '…'}</strong></p>
+          <p className="settings-current">Current address: <strong>{loading ? 'Loading…' : email ?? '…'}</strong></p>
           <form onSubmit={handleEmail} className="login-form">
             <div className="form-group">
               <label htmlFor={`${id}-email`}>New email</label>
@@ -168,7 +195,7 @@ export default function SettingsPage({ userId }: Props) {
             them. Messages you sent stay in their conversations as [Deleted user]. This cannot be undone.
           </p>
           <div className="form-group">
-            <label htmlFor={`${id}-confirm`}>Type your handle <strong>@{username || '…'}</strong> to confirm</label>
+            <label htmlFor={`${id}-confirm`}>Type your handle <strong>@{loading ? 'loading…' : username || '…'}</strong> to confirm</label>
             <input
               id={`${id}-confirm`}
               type="text"
@@ -176,13 +203,38 @@ export default function SettingsPage({ userId }: Props) {
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder={username}
               autoComplete="off"
+              disabled={loading}
             />
           </div>
-          <button type="button" className="settings-delete-btn" onClick={handleDelete} disabled={!canDelete || deleting}>
+          <button type="button" className="settings-delete-btn" onClick={() => setConfirmingDelete(true)} disabled={!canDelete || deleting}>
             {deleting ? 'Deleting…' : 'Delete my account'}
           </button>
         </section>
+
+        {/* Session and the legal pages. Logout is also in the navbar; phones reach it here too. */}
+        <section className="settings-card">
+          <h2><LogOut size={16} /> Session</h2>
+          <button type="button" className="btn-ghost settings-logout" onClick={handleLogout}>Log out</button>
+        </section>
+
+        <section className="settings-card">
+          <h2><FileText size={16} /> About</h2>
+          <p className="settings-legal">
+            <Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy Policy</Link>
+          </p>
+        </section>
       </div>
+
+      {confirmingDelete && (
+        <ConfirmModal
+          title="Delete your account?"
+          message="This permanently removes your profile, posts, comments, likes, follows and notifications. It cannot be undone."
+          confirmLabel="Delete my account"
+          danger
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmingDelete(false)}
+        />
+      )}
     </div>
   );
 }

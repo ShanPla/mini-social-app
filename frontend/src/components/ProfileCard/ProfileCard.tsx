@@ -23,7 +23,7 @@ export default function ProfileCard({ userId }: Props) {
     let cancelled = false;
     (async () => {
       const [{ data }, posts, followers, following] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', userId).single(),
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
         supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', userId),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),

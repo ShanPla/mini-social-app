@@ -1,22 +1,20 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
-import { ImagePlus, Send, X } from 'lucide-react';
+import { ChevronsDown } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabaseClient';
 import type { ChatMember, ChatMessage } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import { displayName } from '../../lib/names';
-import { useCooldown } from '../../lib/useCooldown';
 import { parseDbDate } from '../../lib/timeAgo';
-import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
 import {
   conversationTitle,
   dayLabel,
   isDifferentDay,
   seenBy,
   MESSAGE_PAGE_SIZE,
-  MAX_IMAGE_BYTES,
 } from '../../lib/chat';
 import MessageBubble from '../MessageBubble/MessageBubble';
+import ChatComposer from '../ChatComposer/ChatComposer';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import Lightbox from '../Lightbox/Lightbox';
 import './ChatThread.css';
@@ -33,6 +31,15 @@ type TypingMap = Record<string, { username: string; until: number }>;
 
 const DELETED_SENDER: ChatMember = { user_id: '', username: 'Deleted user', avatar_url: null, last_read_at: '' };
 type SenderMap = Record<string, ChatMember>;
+
+/* Merge two lists of messages by id, oldest first (created_at, then id as the tiebreak) */
+function mergeMessages(a: ChatMessage[], b: ChatMessage[]): ChatMessage[] {
+  const byId = new Map<string, ChatMessage>();
+  for (const m of a) byId.set(m.id, m);
+  for (const m of b) byId.set(m.id, m);
+  return [...byId.values()].sort((x, y) =>
+    parseDbDate(x.created_at).getTime() - parseDbDate(y.created_at).getTime() || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+}
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 const TYPING_TTL_MS = 3000;
@@ -57,11 +64,19 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
   const [loading, setLoading] = useState(true);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  const [text, setText] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  /* The first page, or an older page, failed to load; Retry runs it again */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [olderFailed, setOlderFailed] = useState(false);
+  const [loadVersion, setLoadVersion] = useState(0);
+  /* Unsend that failed, kept so Retry can run it again */
+  const [unsendFailed, setUnsendFailed] = useState<ChatMessage | null>(null);
+  /* When I last read this thread, as of opening it (markRead moves the real value at once) */
+  const [readAtOpen] = useState(() => conv?.members.find((m) => m.user_id === userId)?.last_read_at || null);
+  /* First message that was unread on open: the [New messages] divider goes above it */
+  const [unreadFromId, setUnreadFromId] = useState<string | null>(null);
+  /* Scrolled up more than a screen, and messages from others that arrived meanwhile */
+  const [showJump, setShowJump] = useState(false);
+  const [newCount, setNewCount] = useState(0);
   const [typing, setTyping] = useState<TypingMap>({});
   const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -71,16 +86,23 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
   const [signTick, setSignTick] = useState(0);
   /* senders who are no longer members (left the group / deleted) */
   const [extraSenders, setExtraSenders] = useState<SenderMap>({});
-  const [isOnCooldown, triggerCooldown] = useCooldown(500);
 
   const listRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  /* Ids unsent while a fetch was in flight, so the fetched copy does not bring them back */
+  const deletedIdsRef = useRef(new Set<string>());
+  const dividerRef = useRef<HTMLDivElement>(null);
+  const dividerShownRef = useRef(false);
   const typingChannelRef = useRef<RealtimeChannel | null>(null);
   const lastTypingSentRef = useRef(0);
   const stickToBottomRef = useRef(true);
   const hasMoreRef = useRef(false);
   const loadingOlderRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const el = listRef.current;
@@ -93,7 +115,7 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     let cancelled = false;
 
     (async () => {
-      const { data } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
@@ -102,14 +124,22 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
         .limit(MESSAGE_PAGE_SIZE);
       if (cancelled) return;
       const rows = ((data as ChatMessage[]) || []).reverse();
-      setMessages(rows);
+      /* Merge, never replace: a message that arrived live while this was in
+         flight is already in the list */
+      setMessages((prev) => mergeMessages(rows.filter((m) => !deletedIdsRef.current.has(m.id)), prev));
+      if (readAtOpen) {
+        const readAt = parseDbDate(readAtOpen).getTime();
+        const firstUnread = rows.find((m) => m.sender_id !== userId && parseDbDate(m.created_at).getTime() > readAt);
+        if (firstUnread) setUnreadFromId((cur) => cur ?? firstUnread.id);
+      }
+      setLoadFailed(!!fetchError);
       hasMoreRef.current = rows.length === MESSAGE_PAGE_SIZE;
       setHasMore(hasMoreRef.current);
       setLoading(false);
     })();
 
     return () => { cancelled = true; };
-  }, [conversationId]);
+  }, [conversationId, loadVersion, readAtOpen, userId]);
 
   /* ── Mark active + read while mounted ── */
   useEffect(() => {
@@ -142,7 +172,10 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
         if (senderId !== userId && document.visibilityState === 'visible') {
           markRead(conversationId);
         }
+        /* Arrived while reading older messages: count it for the Jump button */
+        if (senderId !== userId && !stickToBottomRef.current) setNewCount((c) => c + 1);
       } else {
+        deletedIdsRef.current.add(e.id);
         setMessages((prev) => prev.filter((m) => m.id !== e.id));
       }
     });
@@ -266,9 +299,14 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     if (stickToBottomRef.current) scrollToBottom(loading ? 'auto' : 'smooth');
   }, [messages, typing, loading, scrollToBottom]);
 
+  /* Opening with unread messages: land on the divider, not on the bottom */
   useEffect(() => {
-    if (autoFocus && !loading) textareaRef.current?.focus();
-  }, [autoFocus, loading, conversationId]);
+    const list = listRef.current;
+    const divider = dividerRef.current;
+    if (loading || !list || !divider || dividerShownRef.current) return;
+    dividerShownRef.current = true;
+    list.scrollTop += divider.getBoundingClientRect().top - list.getBoundingClientRect().top - 8;
+  }, [loading, unreadFromId]);
 
   const loadOlder = useCallback(async () => {
     if (loadingOlderRef.current || !hasMoreRef.current) return;
@@ -277,21 +315,37 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     if (!el || !first) return;
     loadingOlderRef.current = true;
     setLoadingOlder(true);
+    setOlderFailed(false);
     const prevHeight = el.scrollHeight;
-    const { data } = await supabase
+    /* <= not <: messages sharing the oldest timestamp would otherwise be
+       skipped. The ones already on screen are dropped by id below. */
+    const { data, error: olderError } = await supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', conversationId)
-      .lt('created_at', first.created_at)
+      .lte('created_at', first.created_at)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(MESSAGE_PAGE_SIZE);
+    if (!mountedRef.current) return;
+    if (olderError) {
+      /* Keep hasMore: the history is still there, the user can retry */
+      setOlderFailed(true);
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+      return;
+    }
     const rows = ((data as ChatMessage[]) || []).reverse();
     stickToBottomRef.current = false;
-    setMessages((prev) => [...rows, ...prev]);
+    setMessages((prev) => {
+      const seen = new Set(prev.map((m) => m.id));
+      const fresh = rows.filter((m) => !seen.has(m.id) && !deletedIdsRef.current.has(m.id));
+      return fresh.length === 0 ? prev : [...fresh, ...prev];
+    });
     hasMoreRef.current = rows.length === MESSAGE_PAGE_SIZE;
     setHasMore(hasMoreRef.current);
     requestAnimationFrame(() => {
+      if (!mountedRef.current) return;
       if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight - prevHeight;
       loadingOlderRef.current = false;
       setLoadingOlder(false);
@@ -303,122 +357,44 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     stickToBottomRef.current = distanceFromBottom < 80;
-    if (el.scrollTop < 40 && hasMoreRef.current && !loadingOlderRef.current) loadOlder();
+    setShowJump(distanceFromBottom > el.clientHeight);
+    if (stickToBottomRef.current) setNewCount(0);
+    if (el.scrollTop < 40 && hasMoreRef.current && !loadingOlderRef.current && !olderFailed) loadOlder();
   };
 
-  /* ── Composer ── */
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setText(e.target.value);
-    const ta = e.target;
-    ta.style.height = 'auto';
-    ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`;
-    if (e.target.value.trim()) sendTyping(true);
-    else sendTyping(false);
+  /* ── Composer hand-offs (stable, so typing never touches the message list) ── */
+  const handleSent = useCallback((sent: ChatMessage) => {
+    setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
+    stickToBottomRef.current = true;
+    setNewCount(0);
+  }, []);
+
+  const jumpToLatest = () => {
+    stickToBottomRef.current = true;
+    setNewCount(0);
+    setShowJump(false);
+    scrollToBottom('smooth');
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) { setError('Only images can be sent.'); return; }
-    /* Photos are shrunk on send; a GIF goes as it is, so it must already fit */
-    if (file.type === 'image/gif' && file.size > MAX_IMAGE_BYTES) { setError('A GIF must be under 5 MB.'); return; }
-    setError(null);
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-  };
-
-  const clearImage = () => {
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImageFile(null);
-    setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const canSend = (text.trim().length > 0 || !!imageFile) && !sending && !isOnCooldown;
-
-  const handleSend = async () => {
-    if (!canSend || !userId) return;
-    const body = text.trim();
-    setSending(true);
-    setError(null);
-
-    /* Image goes to the private bucket at {conversation}/{sender}/{uuid}.{ext};
-       the message stores that path and the thread signs it when rendering. */
-    let image_url: string | null = null;
-    if (imageFile) {
-      /* Big phone photos are resized first, so they fit the 5 MB limit */
-      const photo = await shrinkImage(imageFile, IMAGE_MAX_EDGE.chat);
-      const extFromType: Record<string, string> = {
-        'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
-      };
-      const ext = extFromType[photo.type];
-      if (!ext) {
-        setError('Only JPG, PNG, GIF or WebP images can be sent.');
-        setSending(false);
-        return;
-      }
-      if (photo.size > MAX_IMAGE_BYTES) {
-        setError('Image must be under 5 MB.');
-        setSending(false);
-        return;
-      }
-      const path = `${conversationId}/${userId}/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('chat-images')
-        .upload(path, photo, { contentType: photo.type });
-      if (uploadError) {
-        setError('Image upload failed. Try again.');
-        setSending(false);
-        return;
-      }
-      image_url = path;
-    }
-
-    const { data, error: insertError } = await supabase
-      .from('messages')
-      .insert({ conversation_id: conversationId, sender_id: userId, content: body || null, image_url })
-      .select()
-      .single();
-
-    if (insertError || !data) {
-      /* don't leave an orphaned upload behind */
-      if (image_url) supabase.storage.from('chat-images').remove([image_url]);
-      setError(
-        insertError?.code === '23514' || body.length > 4000
-          ? 'Message is too long (max 4000 characters).'
-          : 'Could not send. Try again.'
-      );
-      setSending(false);
+  const unsend = async (target: ChatMessage) => {
+    const { id, image_url } = target;
+    setUnsendFailed(null);
+    /* RLS refuses a delete with no error and no rows, so count the rows back */
+    const { data: deleted, error: delError } = await supabase.from('messages').delete().eq('id', id).select('id');
+    if (delError || !deleted || deleted.length === 0) {
+      setUnsendFailed(target);
       return;
     }
-
-    const sent = data as ChatMessage;
-    setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
-    setText('');
-    clearImage();
-    sendTyping(false);
-    triggerCooldown();
-    stickToBottomRef.current = true;
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
-    setSending(false);
-    textareaRef.current?.focus();
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const handleDeleteConfirmed = async () => {
-    if (!deleteTarget) return;
-    const { id, image_url } = deleteTarget;
-    setDeleteTarget(null);
-    const { error: delError } = await supabase.from('messages').delete().eq('id', id);
-    if (delError) return;
+    deletedIdsRef.current.add(id);
     setMessages((prev) => prev.filter((m) => m.id !== id));
     if (image_url) supabase.storage.from('chat-images').remove([image_url]);
+  };
+
+  const handleDeleteConfirmed = () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    void unsend(target);
   };
 
   /* null sender: the account was deleted but the message was kept */
@@ -456,7 +432,8 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
 
   return (
     <div className={`chat-thread ${compact ? 'chat-thread--compact' : ''}`}>
-      {/* Messages */}
+      {/* Messages (the wrapper anchors the Jump button over the list) */}
+      <div className="chat-list-wrap">
       <div className="chat-list" ref={listRef} onScroll={handleScroll}>
         {loading ? (
           <div className="chat-loading">
@@ -467,12 +444,28 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
         ) : (
           <>
             {loadingOlder && <div className="chat-older">Loading older messages…</div>}
+            {olderFailed && !loadingOlder && (
+              <div className="chat-older" role="alert">
+                Could not load older messages.{' '}
+                <button type="button" className="chat-retry" onClick={() => loadOlder()}>Retry</button>
+              </div>
+            )}
             {!hasMore && messages.length > 0 && conv && (
               <div className="chat-beginning">
                 {conv.is_group ? 'The beginning of the group' : `This is the beginning of your conversation with ${title}`}
               </div>
             )}
-            {messages.length === 0 && (
+            {loadFailed && messages.length === 0 && (
+              <div className="chat-empty" role="alert">
+                <p>Could not load messages.</p>
+                <button
+                  type="button"
+                  className="chat-retry"
+                  onClick={() => { setLoading(true); setLoadFailed(false); setLoadVersion((v) => v + 1); }}
+                >Retry</button>
+              </div>
+            )}
+            {!loadFailed && messages.length === 0 && (
               <div className="chat-empty">
                 <p>{conv?.is_group ? 'No messages yet. Say something.' : `Say hello to ${title}.`}</p>
               </div>
@@ -494,17 +487,22 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
               return (
                 <Fragment key={m.id}>
                   {showDay && <div className="chat-day"><span>{dayLabel(m.created_at)}</span></div>}
+                  {m.id === unreadFromId && (
+                    <div className="chat-unread" role="separator" aria-label="New messages" ref={dividerRef}>
+                      <span>New messages</span>
+                    </div>
+                  )}
                   <MessageBubble
                     message={m}
                     imageSrc={m.image_url ? signedUrls[m.image_url]?.url : undefined}
                     isOwn={isOwn}
-                    sender={sender}
+                    sender={isOwn ? undefined : sender}
                     showSender={!!conv?.is_group && !isOwn && !grouped}
                     showAvatar={!isOwn && !nextGrouped}
                     grouped={grouped}
                     seenLabel={seenLabel}
-                    onDelete={isOwn ? () => setDeleteTarget(m) : undefined}
-                    onImageClick={(url) => setLightboxUrl(url)}
+                    onDelete={isOwn ? setDeleteTarget : undefined}
+                    onImageClick={setLightboxUrl}
                   />
                 </Fragment>
               );
@@ -521,60 +519,33 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
         )}
       </div>
 
-      {/* Composer */}
-      <div className="chat-composer">
-        {imagePreview && (
-          <div className="chat-image-preview">
-            <img src={imagePreview} alt="Preview" />
-            <button type="button" className="chat-image-remove" onClick={clearImage} title="Remove" aria-label="Remove photo">
-              <X size={12} />
-            </button>
-          </div>
-        )}
-        {error && <div className="chat-error">{error}</div>}
-        <div className="chat-composer-row">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            style={{ display: 'none' }}
-          />
-          <button
-            type="button"
-            className="chat-attach"
-            onClick={() => fileInputRef.current?.click()}
-            title="Send a photo"
-            aria-label="Send a photo"
-            disabled={sending}
-          >
-            <ImagePlus size={18} />
-          </button>
-          <textarea
-            ref={textareaRef}
-            className="chat-input"
-            aria-label="Message"
-            rows={1}
-            placeholder="Write a message…"
-            value={text}
-            onChange={handleTextChange}
-            onKeyDown={handleKeyDown}
-            onBlur={() => sendTyping(false)}
-            maxLength={4000}
-            disabled={sending}
-          />
-          <button
-            type="button"
-            className="chat-send"
-            onClick={handleSend}
-            disabled={!canSend}
-            title="Send (Enter)"
-            aria-label="Send"
-          >
-            <Send size={16} />
-          </button>
-        </div>
+      {/* Jump to the newest message when scrolled up, with a count of what arrived meanwhile */}
+      {(showJump || newCount > 0) && (
+        <button type="button" className="chat-jump" onClick={jumpToLatest}>
+          <ChevronsDown size={14} />
+          <span>{newCount > 0 ? `${newCount} new ${newCount === 1 ? 'message' : 'messages'}` : 'Jump to latest'}</span>
+        </button>
+      )}
       </div>
+
+      {/* An unsend that failed: say so, with a way to try again */}
+      {unsendFailed && (
+        <div className="chat-error chat-error--thread" role="alert">
+          <span>Could not unsend that message.</span>
+          <button type="button" className="chat-retry" onClick={() => void unsend(unsendFailed)}>Retry</button>
+          <button type="button" className="chat-retry chat-retry--quiet" onClick={() => setUnsendFailed(null)}>Dismiss</button>
+        </div>
+      )}
+
+      {/* Composer */}
+      <ChatComposer
+        conversationId={conversationId}
+        userId={userId}
+        ready={!loading}
+        autoFocus={autoFocus}
+        onSent={handleSent}
+        sendTyping={sendTyping}
+      />
 
       {/* Unsend confirmation */}
       {deleteTarget && (

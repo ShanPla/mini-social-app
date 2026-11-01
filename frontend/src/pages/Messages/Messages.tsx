@@ -33,7 +33,7 @@ export default function MessagesPage() {
         {/* Sidebar: conversation list */}
         <aside className="messages-sidebar">
           <div className="messages-sidebar-header">
-            <h2>Messages</h2>
+            <h1>Messages</h1>
             <button className="messages-compose" onClick={() => setShowNew(true)} title="New message" aria-label="New message">
               <SquarePen size={18} />
             </button>

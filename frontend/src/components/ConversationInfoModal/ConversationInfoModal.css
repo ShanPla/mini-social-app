@@ -204,3 +204,17 @@
   .ci-backdrop { padding: 0; align-items: flex-end; }
   .ci-modal { max-width: 100%; max-height: 90vh; border-radius: 12px 12px 0 0; }
 }
+
+.ci-char-count { white-space: nowrap; flex-shrink: 0; }
+
+/* Touch: icon buttons and the leave link get 40px+ targets */
+@media (pointer: coarse) {
+  .ci-icon-btn,
+  .ci-close {
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+  }
+  .ci-leave { min-height: 44px; }
+  .ci-member-link { min-height: 44px; }
+}

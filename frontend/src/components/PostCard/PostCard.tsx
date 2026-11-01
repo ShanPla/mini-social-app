@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useId } from 'react';
+import { memo, useState, useRef, useEffect, useId } from 'react';
 import { moveFocus } from '../../lib/menuKeys';
 import { Link } from 'react-router-dom';
 import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Users, Lock, Link2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
-import { useTimeAgo } from '../../lib/timeAgo';
+import { useTimeAgo, parseDbDate, fullDate } from '../../lib/timeAgo';
 import CommentSection from '../CommentSection/CommentSection';
 import ImageCollage from '../ImageCollage/ImageCollage';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
@@ -40,7 +40,7 @@ const VisibilityBadge = ({ visibility }: { visibility?: string }) => {
   );
 };
 
-export default function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowComments = false }: PostCardProps) {
+function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowComments = false }: PostCardProps) {
   const [currentPost, setCurrentPost] = useState(post);
   const [liked, setLiked] = useState(post.liked_by_me);
   const [likeCount, setLikeCount] = useState(post.like_count);
@@ -132,7 +132,10 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
       ? await supabase.from('likes').delete().eq('post_id', currentPost.id).eq('user_id', currentUserId)
       : await supabase.from('likes').insert({ post_id: currentPost.id, user_id: currentUserId });
 
-    if (error) {
+    if (error?.code === '23505' && !wasLiked) {
+      /* Already liked (added elsewhere after this card loaded): the like
+         exists, which is what was asked for, so keep the heart and the +1 */
+    } else if (error) {
       setLiked(wasLiked);
       setLikeCount((c) => c + (wasLiked ? 1 : -1));
       toast.error(describeError(error, wasLiked ? 'Could not remove your like.' : 'Could not like this post.'));
@@ -142,8 +145,9 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
   };
 
   const handleDeleteConfirmed = async () => {
-    const { error } = await supabase.from('posts').delete().eq('id', currentPost.id);
-    if (error) {
+    /* RLS refuses a delete with no error and no rows, so count the rows back */
+    const { data, error } = await supabase.from('posts').delete().eq('id', currentPost.id).select('id');
+    if (error || !data || data.length === 0) {
       toast.error(describeError(error, 'Could not delete the post.'));
     } else {
       toast.success('Post deleted');
@@ -176,7 +180,7 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
           <Link to={`/profile/${currentPost.user_id}`} className="post-author">
             <div className="author-avatar">
               {currentPost.profiles?.avatar_url
-                ? <img src={currentPost.profiles.avatar_url} alt={currentPost.profiles.username} loading="lazy" />
+                ? <img src={currentPost.profiles.avatar_url} alt={currentPost.profiles.username} width={38} height={38} loading="lazy" decoding="async" />
                 : <span>{currentPost.profiles?.username?.[0]?.toUpperCase() || '?'}</span>
               }
             </div>
@@ -185,7 +189,11 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
                 {currentPost.profiles ? displayName(currentPost.profiles) : 'Unknown'}
                 {currentPost.profiles?.display_name && <span className="author-handle">@{currentPost.profiles.username}</span>}
               </span>
-              <span className="post-date">{postDate}</span>
+              <time
+                className="post-date"
+                dateTime={parseDbDate(currentPost.created_at).toISOString()}
+                title={fullDate(currentPost.created_at)}
+              >{postDate}</time>
             </div>
           </Link>
 
@@ -323,3 +331,6 @@ export default function PostCard({ post, currentUserId, isAdmin = false, onDelet
     </>
   );
 }
+
+/* Memoised: a feed re-renders every card when one changes; props are the post, the user and stable callbacks */
+export default memo(PostCard);

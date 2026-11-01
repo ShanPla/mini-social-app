@@ -1,14 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, Reply, Trash2, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { useTimeAgo } from '../../lib/timeAgo';
+import { useTimeAgo, parseDbDate, fullDate } from '../../lib/timeAgo';
 import { useCooldown } from '../../lib/useCooldown';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
+import CharCount from '../CharCount/CharCount';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import { displayName } from '../../lib/names';
 import './CommentSection.css';
+
+/* Comments and replies stop at 300; the counter only shows once the end is in sight */
+const COMMENT_MAX = 300;
+const COMMENT_COUNT_FROM = 240;
 
 type CommentData = {
   id: string;
@@ -72,6 +77,8 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
   /* Total including replies; null until the first load */
   const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  /* The comments fetch failed: say so instead of claiming there are none */
+  const [loadFailed, setLoadFailed] = useState(false);
   const [isOnCooldown, triggerCooldown] = useCooldown(3000);
   /* Bumped only to recover from a failed write; the effect below owns the fetch */
   const [version, setVersion] = useState(0);
@@ -85,12 +92,14 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('comments')
         .select('*, profiles(id, username, display_name, avatar_url), comment_likes(id, user_id)')
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
-      if (cancelled || !data) return;
+      if (cancelled) return;
+      if (error || !data) { setLoadFailed(true); return; }
+      setLoadFailed(false);
 
       /* Build nested tree */
       const map = new Map<string, CommentData>();
@@ -149,8 +158,9 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
     const removed = node ? 1 + countTree(node.replies || []) : 1;
     setComments((prev) => removeFromTree(prev, commentId));
     setTotal((t) => Math.max(0, (t ?? removed) - removed));
-    const { error } = await supabase.from('comments').delete().eq('id', commentId);
-    if (error) {
+    /* RLS refuses a delete with no error and no rows, so count the rows back */
+    const { data: deleted, error } = await supabase.from('comments').delete().eq('id', commentId).select('id');
+    if (error || !deleted || deleted.length === 0) {
       toast.error(describeError(error, 'Could not delete the comment.'));
       refresh();
     }
@@ -163,7 +173,8 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
     const { error } = isLiked
       ? await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', currentUserId)
       : await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: currentUserId });
-    if (error) {
+    /* 23505: the like already exists, which is what was asked for */
+    if (error && !(error.code === '23505' && !isLiked)) {
       setComments((prev) => setLikeInTree(prev, commentId, currentUserId, isLiked));
       toast.error(describeError(error, 'Could not update your like.'));
     }
@@ -173,7 +184,13 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
     <div className="comment-section">
       {/* Top-level comments */}
       <div className="comments-list">
-        {comments.length === 0 && (
+        {loadFailed && (
+          <p className="no-comments" role="alert">
+            Could not load comments.{' '}
+            <button type="button" className="btn-ghost" onClick={refresh}>Retry</button>
+          </p>
+        )}
+        {!loadFailed && comments.length === 0 && (
           <p className="no-comments">No comments yet. Be the first.</p>
         )}
         {comments.map((comment) => (
@@ -219,8 +236,9 @@ function TopLevelForm({ onSubmit, loading, isOnCooldown }: {
         onChange={(e) => setValue(e.target.value)}
         placeholder="Add a comment..."
         aria-label="Add a comment"
-        maxLength={300}
+        maxLength={COMMENT_MAX}
       />
+      {value.length >= COMMENT_COUNT_FROM && <CharCount length={value.length} max={COMMENT_MAX} className="comment-char-count" />}
       <button type="submit" disabled={loading || isOnCooldown || !value.trim()}>
         {isOnCooldown ? 'Wait…' : 'Post'}
       </button>
@@ -248,6 +266,7 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
   const [replyValue, setReplyValue] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const commentTime = useTimeAgo(comment.created_at);
+  const replyBtnRef = useRef<HTMLButtonElement>(null);
 
   const isOwner = currentUserId === comment.user_id;
   const canDelete = isOwner || isAdmin;
@@ -263,7 +282,7 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
           {/* Avatar */}
           <Link to={`/profile/${comment.user_id}`} className="comment-avatar">
             {comment.profiles?.avatar_url
-              ? <img src={comment.profiles.avatar_url} alt={comment.profiles.username} loading="lazy" />
+              ? <img src={comment.profiles.avatar_url} alt={comment.profiles.username} width={28} height={28} loading="lazy" decoding="async" />
               : <span>{comment.profiles?.username?.[0]?.toUpperCase() || '?'}</span>
             }
           </Link>
@@ -291,7 +310,11 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
 
         {/* Actions row */}
         <div className="comment-actions">
-          <span className="comment-time">{commentTime}</span>
+          <time
+            className="comment-time"
+            dateTime={parseDbDate(comment.created_at).toISOString()}
+            title={fullDate(comment.created_at)}
+          >{commentTime}</time>
 
           {/* Like */}
           <button
@@ -308,6 +331,7 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
           {/* Reply */}
           {currentUserId && (
             <button
+              ref={replyBtnRef}
               className="comment-action-btn"
               onClick={() => setShowReplyForm(!showReplyForm)}
             >
@@ -344,9 +368,19 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
               onChange={(e) => setReplyValue(e.target.value)}
               placeholder={`Reply to @${comment.profiles?.username}…`}
               aria-label={`Reply to ${comment.profiles ? displayName(comment.profiles) : 'this comment'}`}
-              maxLength={300}
+              maxLength={COMMENT_MAX}
               autoFocus
+              onKeyDown={(e) => {
+                /* Escape closes the form and hands focus back to the Reply button */
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowReplyForm(false);
+                  replyBtnRef.current?.focus();
+                }
+              }}
             />
+            {replyValue.length >= COMMENT_COUNT_FROM && <CharCount length={replyValue.length} max={COMMENT_MAX} className="comment-char-count" />}
             <button type="submit" disabled={loading || isOnCooldown || !replyValue.trim()}>
               {isOnCooldown ? 'Wait…' : 'Reply'}
             </button>

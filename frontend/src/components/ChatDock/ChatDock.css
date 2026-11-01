@@ -89,3 +89,26 @@
   .chat-dock-windows .chat-popup:nth-child(n+2) { display: none; }
   .chat-dock { right: 12px; }
 }
+
+/* Touch: no hover to reveal the close button, so it stays visible; its hit area is 44px
+   (the ::after reaches past the 22px circle) */
+@media (hover: none), (pointer: coarse) {
+  .chat-bubble-close { opacity: 1; }
+}
+@media (pointer: coarse) {
+  .chat-bubble-close {
+    width: 24px;
+    height: 24px;
+  }
+  .chat-bubble-close::after {
+    content: '';
+    position: absolute;
+    inset: -10px;
+  }
+  /* The popup header buttons live in ChatPopup.css; bigger here so that file stays untouched */
+  .chat-dock .chat-popup-actions { gap: 0; }
+  .chat-dock .chat-popup-actions button {
+    width: 40px;
+    height: 40px;
+  }
+}

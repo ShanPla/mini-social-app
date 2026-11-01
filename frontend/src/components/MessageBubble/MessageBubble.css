@@ -137,6 +137,24 @@
   font-style: italic;
 }
 
-@media (hover: none) {
-  .msg-delete { opacity: 0.6; }
+/* Tap time under a bubble */
+.msg-time {
+  font-size: 0.68rem;
+  color: var(--ink-muted);
+  margin: 3px 6px 0;
+}
+.msg-bubble[role="button"] { cursor: pointer; }
+
+/* No hover on a phone: Unsend stays visible, quieter than the text, with a 40px target.
+   The negative margins keep the bubble as wide as before. */
+@media (hover: none), (pointer: coarse) {
+  .msg-delete { opacity: 0.85; }
+}
+@media (pointer: coarse) {
+  .msg-delete {
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+    margin: -8px 0 -8px -14px;
+  }
 }

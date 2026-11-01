@@ -4,6 +4,7 @@
 .login-page {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -174,7 +175,13 @@
 
 /* Mobile */
 @media (max-width: 700px) {
-  .login-page { flex-direction: column; height: auto; min-height: 100vh; overflow: auto; }
+  .login-page {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+    min-height: 100dvh;
+  }
   .login-left { min-height: 280px; padding: 32px 28px; flex: none; }
   .login-watermark { font-size: 120px; }
   .login-right { width: 100%; padding: 32px 24px; }

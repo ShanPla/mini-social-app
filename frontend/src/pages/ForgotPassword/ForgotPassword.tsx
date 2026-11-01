@@ -36,7 +36,7 @@ export default function ForgotPassword() {
   return (
     <AuthLayout>
       <div className="login-header">
-        <h2>Reset password</h2>
+        <h1>Reset password</h1>
         <p>We will email you a link to choose a new one.</p>
       </div>
 

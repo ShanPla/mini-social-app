@@ -1,0 +1,40 @@
+.post-skels { display: flex; flex-direction: column; gap: 16px; }
+
+.post-skel {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.post-skel-header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+
+.post-skel-avatar,
+.post-skel-line {
+  background: linear-gradient(90deg, var(--border) 25%, var(--cream) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.post-skel-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.post-skel-meta { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+
+.post-skel-line { height: 12px; border-radius: 4px; }
+.post-skel-line--wide { width: 80%; }
+.post-skel-line--medium { width: 55%; }
+.post-skel-line--short { width: 30%; }
+.post-skel-line--xshort { width: 20%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .post-skel-avatar,
+  .post-skel-line { animation: none; }
+}

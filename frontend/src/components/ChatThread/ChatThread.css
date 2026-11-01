@@ -55,6 +55,24 @@
   font-style: italic;
 }
 
+/* Retry link-button for a failed history load */
+.chat-retry {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-style: normal;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.chat-empty:has(.chat-retry) {
+  flex-direction: column;
+  gap: 8px;
+}
+
 .chat-day {
   display: flex;
   align-items: center;
@@ -107,90 +125,71 @@
   30% { transform: translateY(-4px); opacity: 1; }
 }
 
-/* ── Composer ── */
-.chat-composer {
+/* ── Jump to latest ── */
+.chat-list-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chat-list-wrap > .chat-list { flex: 1; }
+
+.chat-jump {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-hover);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chat-jump:hover { border-color: var(--ink); }
+
+/* ── New messages divider ── */
+.chat-unread {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 16px 2px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.chat-unread::before,
+.chat-unread::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--accent);
+}
+
+/* Failed unsend: sits just above the composer */
+.chat-error--thread {
+  padding: 6px 12px;
   border-top: 1px solid var(--border);
-  padding: 8px 10px;
   background: var(--warm-white);
   flex-shrink: 0;
 }
+.chat-retry--quiet { color: var(--ink-muted); }
 
-.chat-composer-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-}
+/* A long group title in the opening line wraps instead of widening the list */
+.chat-beginning { overflow-wrap: anywhere; }
 
-.chat-attach,
-.chat-send {
-  background: none;
-  border: none;
-  color: var(--ink-muted);
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: color 0.2s, background 0.2s;
-}
-.chat-attach:hover:not(:disabled) { color: var(--ink); background: var(--cream); }
-.chat-send { color: var(--accent); }
-.chat-send:hover:not(:disabled) { background: var(--cream); color: var(--accent-hover); }
-.chat-send:disabled { color: var(--border); cursor: default; }
-.chat-attach:disabled { cursor: default; }
-
-.chat-input {
-  flex: 1;
-  min-width: 0;
-  resize: none;
-  border: 1px solid var(--border);
-  background: var(--cream);
-  border-radius: 18px;
-  padding: 8px 14px;
-  font-size: 0.9rem;
-  line-height: 1.4;
-  color: var(--ink);
-  outline: none;
-  max-height: 120px;
-  transition: border-color 0.2s;
-}
-.chat-input:focus { border-color: var(--ink); }
-.chat-input:disabled { opacity: 0.7; }
-
-.chat-image-preview {
-  position: relative;
-  display: inline-block;
-  margin: 2px 0 8px 40px;
-}
-.chat-image-preview img {
-  height: 72px;
-  width: auto;
-  max-width: 160px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  display: block;
-}
-.chat-image-remove {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--cream);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.chat-image-remove:hover { background: var(--accent); }
-
-.chat-error {
-  color: var(--accent);
-  font-size: 0.78rem;
-  padding: 0 6px 6px;
+/* Touch: the Retry / Dismiss links get a real target */
+@media (pointer: coarse) {
+  .chat-thread .chat-retry { min-height: 40px; padding: 0 8px; }
+  .chat-jump { min-height: 40px; }
 }

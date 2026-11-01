@@ -1,5 +1,6 @@
 .error-boundary {
   min-height: calc(100vh - 60px);
+  min-height: calc(100dvh - 60px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -23,7 +24,7 @@
 
 .error-boundary-icon { color: var(--accent); margin-bottom: 4px; }
 
-.error-boundary-card h2 {
+.error-boundary-card h1 {
   font-family: var(--font-display);
   font-size: 1.5rem;
   color: var(--ink);

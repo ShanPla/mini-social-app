@@ -25,6 +25,19 @@ export const IMAGE_MAX_EDGE = {
 const SMALL_ENOUGH_BYTES = 1.5 * 1024 * 1024;
 const QUALITY = 0.85;
 const EXTENSION: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+const UPLOAD_EXTENSION: Record<string, string> = { ...EXTENSION, 'image/gif': 'gif' };
+
+/* Lower-case file extension for an upload, from its MIME type (a name like
+   [photo] or [0.photo] has no usable extension, and [.JPG] must not be kept
+   as is). Unknown types fall back to a sane name suffix, else jpg; the
+   bucket still decides what it accepts from the contentType. */
+export function imageExtension(file: File): string {
+  const known = UPLOAD_EXTENSION[file.type];
+  if (known) return known;
+  const dot = file.name.lastIndexOf('.');
+  const suffix = dot > 0 ? file.name.slice(dot + 1).toLowerCase() : '';
+  return /^[a-z0-9]{1,5}$/.test(suffix) ? suffix : 'jpg';
+}
 
 function decode(file: File): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(file);

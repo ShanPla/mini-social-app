@@ -1,5 +1,6 @@
 .settings-page {
   min-height: calc(100vh - 60px);
+  min-height: calc(100dvh - 60px);
   padding: 36px 24px;
 }
 
@@ -100,6 +101,14 @@
 }
 .settings-delete-btn:hover:not(:disabled) { background: var(--accent-hover); }
 .settings-delete-btn:disabled { opacity: 0.45; cursor: default; }
+
+.settings-logout { align-self: flex-start; }
+.settings-legal a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.settings-legal a:hover { color: var(--accent); }
 
 @media (max-width: 680px) {
   .settings-page { padding: 20px 14px; }

@@ -15,6 +15,7 @@ export default function NotFound({ userId }: Props) {
     <div className="not-found-page">
       <EmptyState
         icon="search"
+        asPageHeading
         title="Page not found"
         subtitle="That address does not lead anywhere on The Chronicle. It may have moved, or the link was mistyped."
         action={

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useId } from 'react';
+import { useState, useEffect, useMemo, useRef, useId } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ImagePlus, Link2, MessageCircle, Settings } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
@@ -14,7 +14,8 @@ import FollowersModal from '../../components/FollowersModal/FollowersModal';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { displayName } from '../../lib/names';
 import { pruneFolder } from '../../lib/storage';
-import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
+import { shrinkImage, imageExtension, IMAGE_MAX_EDGE } from '../../lib/images';
+import { revokePreview, useRevokeOnUnmount } from '../../lib/useObjectUrls';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import CharCount from '../../components/CharCount/CharCount';
@@ -24,6 +25,11 @@ type ProfilePageProps = {
   currentUserId: string | null;
   isAdmin: boolean;
 };
+
+/* Avatar links must be https */
+function isHttpsUrl(value: string): boolean {
+  return /^https:\/\/\S+$/i.test(value.trim());
+}
 
 export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps) {
   const { userId } = useParams<{ userId: string }>();
@@ -35,6 +41,9 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  /* Bumped by Retry to reload the profile and its posts */
+  const [version, setVersion] = useState(0);
   const [postCount, setPostCount] = useState<number | null>(null);
   const [followLoading, setFollowLoading] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -57,9 +66,48 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
 
   const isOwnProfile = currentUserId === userId;
   /* Paged through fetch_posts; the stat below is a real count, not the page length */
-  const { posts, loading: postsLoading, loadingMore, hasMore, loadMore, prepend, remove } = usePostList({ author: userId }, 0, !!userId);
+  const { posts, loading: postsLoading, loadingMore, hasMore, error: postsError, moreError, loadMore, prepend, remove } = usePostList({ author: userId }, version, !!userId);
 
   usePageTitle(profile ? `@${profile.username}` : 'Profile');
+
+  /* Free the avatar preview if the page goes away with one still showing */
+  const avatarPreviewList = useMemo(() => (avatarPreview ? [avatarPreview] : []), [avatarPreview]);
+  useRevokeOnUnmount(avatarPreviewList);
+
+  /* Editor fields always start from the saved profile, so a cancelled draft never comes back */
+  const openEditor = () => {
+    if (profile) {
+      setEditBio(profile.bio || '');
+      setEditUsername(profile.username);
+      setEditDisplayName(profile.display_name || '');
+    }
+    setSaveError('');
+    setEditing(true);
+  };
+
+  const cancelEditor = () => {
+    if (profile) {
+      setEditBio(profile.bio || '');
+      setEditUsername(profile.username);
+      setEditDisplayName(profile.display_name || '');
+    }
+    setSaveError('');
+    setEditing(false);
+  };
+
+  /* Escape cancels the editor, unless a dialog (followers list, photo viewer,
+     a post's edit or delete dialog) is open and wants the key itself */
+  useEffect(() => {
+    if (!editing) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      cancelEditor();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, profile]);
 
   /* App remounts this page per path, so state starts fresh for every profile.
      The cancelled flag covers the remaining case: a response landing after
@@ -69,8 +117,9 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     let cancelled = false;
 
     (async () => {
-      const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
       if (cancelled) return;
+      setLoadFailed(!!error);
       if (data) {
         setProfile(data);
         setEditBio(data.bio || '');
@@ -107,7 +156,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     })();
 
     return () => { cancelled = true; };
-  }, [userId, currentUserId]);
+  }, [userId, currentUserId, version]);
 
   const handleFollow = async () => {
     if (!currentUserId || !userId || followLoading) return;
@@ -138,14 +187,19 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    revokePreview(avatarPreview);
     setAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
   };
 
   const handleAvatarUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    revokePreview(avatarPreview);
     setAvatarUrl(e.target.value);
-    setAvatarPreview(e.target.value || null);
+    /* Only an https link is previewed, so nothing is fetched over plain http */
+    setAvatarPreview(isHttpsUrl(e.target.value) ? e.target.value.trim() : null);
   };
+
+  const avatarUrlInvalid = avatarUrl.trim() !== '' && !isHttpsUrl(avatarUrl);
 
   const handleAvatarSave = async () => {
     if (!currentUserId || avatarUploading) return;
@@ -158,11 +212,10 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     if (avatarMode === 'file' && avatarFile) {
       /* A profile photo never needs to be bigger than this */
       const photo = await shrinkImage(avatarFile, IMAGE_MAX_EDGE.avatar);
-      const ext = photo.name.split('.').pop();
-      uploadedName = `avatar.${ext}`;
+      uploadedName = `avatar.${imageExtension(photo)}`;
       const path = `${currentUserId}/${uploadedName}`;
       const { error: uploadError } = await supabase.storage
-        .from('avatars').upload(path, photo, { upsert: true });
+        .from('avatars').upload(path, photo, { upsert: true, contentType: photo.type || undefined });
       if (uploadError) {
         toast.error(describeError(uploadError, 'Could not upload the photo. Use JPG, PNG, WebP or GIF; a GIF must be under 5 MB.'));
         setAvatarUploading(false);
@@ -171,9 +224,8 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
       finalUrl = `${urlData.publicUrl}?t=${Date.now()}`;
     } else if (avatarMode === 'url' && avatarUrl.trim()) {
-      /* Only http(s) may land in an img src */
-      if (!/^https?:\/\//i.test(avatarUrl.trim())) {
-        toast.error('Enter a full image link starting with https://');
+      /* Only https may land in an img src */
+      if (!isHttpsUrl(avatarUrl)) {
         setAvatarUploading(false);
         return;
       }
@@ -189,6 +241,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
         setProfile((p) => p ? { ...p, avatar_url: finalUrl } : p);
         setAvatarFile(null);
         setAvatarUrl('');
+        revokePreview(avatarPreview);
         setAvatarPreview(null);
         toast.success('Profile photo updated');
         /* upsert only overwrites the same extension; older uploads with other
@@ -269,7 +322,16 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   if (!profile) return (
     <div className="profile-page">
       <div className="profile-inner">
-        <EmptyState icon="search" title="User not found" subtitle="This profile doesn't exist or may have been removed." />
+        {loadFailed ? (
+          <EmptyState
+            icon="alert"
+            title="Could not load this profile"
+            subtitle="Check your connection and try again."
+            action={<button type="button" className="btn-ghost" onClick={() => { setLoading(true); setLoadFailed(false); setVersion((v) => v + 1); }}>Retry</button>}
+          />
+        ) : (
+          <EmptyState icon="search" title="User not found" subtitle="This profile doesn't exist or may have been removed." />
+        )}
       </div>
     </div>
   );
@@ -335,7 +397,14 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                     placeholder="Paste image URL…"
                     value={avatarUrl}
                     onChange={handleAvatarUrlChange}
+                    aria-invalid={avatarUrlInvalid}
+                    aria-describedby={avatarUrlInvalid ? `${fieldId}-avatar-url-error` : undefined}
                   />
+                )}
+                {avatarMode === 'url' && avatarUrlInvalid && (
+                  <p className="edit-error" id={`${fieldId}-avatar-url-error`} role="alert">
+                    Use a full image link that starts with https:// (plain http links are not accepted).
+                  </p>
                 )}
 
                 {avatarPreview && (
@@ -345,7 +414,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                 )}
 
                 {(avatarFile || avatarUrl) && (
-                  <button className="btn-primary avatar-save-btn" onClick={handleAvatarSave} disabled={avatarUploading}>
+                  <button className="btn-primary avatar-save-btn" onClick={handleAvatarSave} disabled={avatarUploading || (avatarMode === 'url' && avatarUrlInvalid)}>
                     {avatarUploading ? 'Saving…' : 'Save Photo'}
                   </button>
                 )}
@@ -364,6 +433,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                   maxLength={40}
                   className="edit-input"
                 />
+                <CharCount length={editDisplayName.length} max={40} className="edit-bio-count" />
                 <input
                   aria-label="Username"
                   aria-describedby={`${fieldId}-handle-hint`}
@@ -380,7 +450,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                   <button className="btn-primary" onClick={handleSaveProfile} disabled={saveLoading}>
                     {saveLoading ? 'Saving…' : 'Save'}
                   </button>
-                  <button className="btn-ghost" onClick={() => { setEditing(false); setSaveError(''); }}>Cancel</button>
+                  <button className="btn-ghost" onClick={cancelEditor}>Cancel</button>
                 </div>
                 {saveError && <p className="edit-error">{saveError}</p>}
               </div>
@@ -416,7 +486,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
             <div className="profile-actions">
               {isOwnProfile && !editing && (
                 <>
-                  <button className="btn-ghost" onClick={() => setEditing(true)}>Edit Profile</button>
+                  <button className="btn-ghost" onClick={openEditor}>Edit Profile</button>
                   <Link to="/settings" className="btn-ghost profile-settings-btn"><Settings size={14} /> Settings</Link>
                 </>
               )}
@@ -457,6 +527,13 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                 </div>
               ))}
             </div>
+          ) : postsError && posts.length === 0 ? (
+            <EmptyState
+              icon="alert"
+              title="Could not load posts"
+              subtitle="Check your connection and try again."
+              action={<button type="button" className="btn-ghost" onClick={() => setVersion((v) => v + 1)}>Retry</button>}
+            />
           ) : posts.length === 0 ? (
             <EmptyState
               icon="pen"
@@ -470,7 +547,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                   <PostCard key={post.id} post={post} currentUserId={currentUserId} isAdmin={isAdmin} onDelete={handleDelete} />
                 ))}
               </div>
-              <LoadMore hasMore={hasMore} loading={loadingMore} onMore={loadMore} endLabel="No more posts" />
+              <LoadMore hasMore={hasMore} loading={loadingMore} onMore={loadMore} failed={!!moreError} endLabel="No more posts" />
             </>
           )}
         </section>

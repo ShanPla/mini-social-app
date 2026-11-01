@@ -57,7 +57,7 @@ export default function ChatDock() {
                   )}
                 </button>
                 <button className="chat-bubble-close" onClick={() => closeChat(id)} title="Close" aria-label={`Close chat with ${conversationTitle(conv, userId)}`}>
-                  <X size={11} />
+                  <X size={12} />
                 </button>
               </div>
             );

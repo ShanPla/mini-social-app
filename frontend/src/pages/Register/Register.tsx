@@ -1,14 +1,20 @@
 import { useState, useId } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { friendlyAuthError } from '../../lib/authErrors';
+import { redirectTarget } from '../../lib/redirect';
+import type { FromState } from '../../lib/redirect';
 import { useToast } from '../../context/ToastContext';
 import PasswordInput from '../../components/PasswordInput/PasswordInput';
+import CharCount from '../../components/CharCount/CharCount';
 import './Register.css';
 
 export default function Register() {
   const navigate = useNavigate();
+  const location = useLocation();
+  /* Carried over from the sign-in page, so a deep link survives the detour */
+  const fromState = location.state as FromState;
   const toast = useToast();
   const [resending, setResending] = useState(false);
   const id = useId();
@@ -70,7 +76,7 @@ export default function Register() {
       setLoading(false);
       return;
     }
-    navigate('/feed');
+    navigate(redirectTarget(fromState), { replace: true });
     setLoading(false);
   };
 
@@ -78,8 +84,8 @@ export default function Register() {
     <div className="register-page">
       <div className="register-box">
         <div className="register-header">
-          <Link to="/login" className="register-back">← Back to Sign In</Link>
-          <h2>Create Account</h2>
+          <Link to="/login" state={fromState} className="register-back">← Back to Sign In</Link>
+          <h1>Create Account</h1>
           <p>Join The Chronicle today</p>
         </div>
 
@@ -95,6 +101,11 @@ export default function Register() {
               id={`${id}-username`}
               aria-describedby={`${id}-username-hint`}
               type="text"
+              name="username"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              autoFocus
               value={username}
               onChange={(e) => handleUsernameChange(e.target.value)}
               placeholder="your_username"
@@ -104,6 +115,7 @@ export default function Register() {
               className={usernameStatus === 'taken' ? 'input-error' : usernameStatus === 'available' ? 'input-success' : ''}
             />
             <span className="field-hint" id={`${id}-username-hint`}>Letters, numbers, and underscores only.</span>
+            {username.length >= 20 && <CharCount length={username.length} max={30} className="register-char-count" />}
           </div>
 
           <div className="form-group">
@@ -111,6 +123,9 @@ export default function Register() {
             <input
               id={`${id}-email`}
               type="email"
+              name="email"
+              inputMode="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="yourname@gmail.com"
@@ -148,6 +163,10 @@ export default function Register() {
           >
             {loading ? 'Creating account…' : 'Create Account'}
           </button>
+
+          <p className="register-legal">
+            By creating an account you agree to the <Link to="/terms">Terms</Link> and <Link to="/privacy">Privacy Policy</Link>.
+          </p>
         </form>
       </div>
 
@@ -160,10 +179,10 @@ export default function Register() {
         </div>
 
         <div className="register-art-main">
-          <h2 className="register-art-headline">
+          <p className="register-art-headline">
             Your story<br />
             <em>starts here.</em>
-          </h2>
+          </p>
           <p className="register-art-sub">
             Join a community of voices.<br />
             Share what matters to you.

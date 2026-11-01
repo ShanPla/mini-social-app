@@ -13,6 +13,8 @@ import { consumeIntentionalSignOut } from './lib/session';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import LoadingScreen from './components/LoadingScreen/LoadingScreen';
 import { pageLoaders, pageForPath, prefetchPage } from './lib/pages';
+import { redirectTarget } from './lib/redirect';
+import type { FromState } from './lib/redirect';
 import './styles/global.css';
 import './styles/animations.css';
 
@@ -31,6 +33,8 @@ const NotificationsPage = lazy(pageLoaders.notifications);
 const MessagesPage = lazy(pageLoaders.messages);
 const NotFound = lazy(pageLoaders.notFound);
 const SettingsPage = lazy(pageLoaders.settings);
+const PrivacyPage = lazy(pageLoaders.privacy);
+const TermsPage = lazy(pageLoaders.terms);
 /* The chat tree (thread, bubbles, pickers) is shared by the popups and the
    /messages page; it loads with whichever is used first */
 const ChatDock = lazy(() => import('./components/ChatDock/ChatDock'));
@@ -41,6 +45,19 @@ const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password
    broadcast to every open tab through a BroadcastChannel, so without this every
    tab the user had open would be steered to the reset form. */
 const landedOnRecoveryLink = /(^#|&)type=recovery(&|$)/.test(window.location.hash);
+
+/* A signed-out visitor to a members-only page goes to sign in and remembers
+   where they were headed (path and query), so signing in lands them there. */
+function ToLogin() {
+  const location = useLocation();
+  return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+}
+
+/* The sign-in pages when someone is already (or has just become) signed in */
+function ToWhereTheyWereGoing() {
+  const location = useLocation();
+  return <Navigate to={redirectTarget(location.state as FromState)} replace />;
+}
 
 // Says so when the session ends without the user clicking Logout (a refresh
 // token that stopped working). Lives under ToastProvider so it can toast.
@@ -142,19 +159,22 @@ function AppInner({ userId, isAdmin, recovery, onRecoverySteered }: AppInnerProp
         <Suspense fallback={<LoadingScreen compact />}>
         <div className="page-enter">
         <Routes>
-          <Route path="/login" element={!userId ? <Login /> : <Navigate to="/feed" />} />
-          <Route path="/register" element={!userId ? <Register /> : <Navigate to="/feed" />} />
-          <Route path="/forgot-password" element={!userId ? <ForgotPassword /> : <Navigate to="/feed" />} />
+          <Route path="/login" element={!userId ? <Login /> : <ToWhereTheyWereGoing />} />
+          <Route path="/register" element={!userId ? <Register /> : <ToWhereTheyWereGoing />} />
+          <Route path="/forgot-password" element={!userId ? <ForgotPassword /> : <ToWhereTheyWereGoing />} />
           {/* Reachable signed in or out: the recovery link signs you in first,
               and no session means the link was bad */}
           <Route path="/reset-password" element={<ResetPassword userId={userId} />} />
-          <Route path="/feed" element={userId ? <Feed userId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
-          <Route path="/profile/:userId" element={userId ? <ProfilePage currentUserId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
-          <Route path="/post/:postId" element={userId ? <PostPage currentUserId={userId} isAdmin={isAdmin} /> : <Navigate to="/login" />} />
-          <Route path="/search" element={userId ? <SearchPage /> : <Navigate to="/login" />} />
-          <Route path="/notifications" element={userId ? <NotificationsPage currentUserId={userId} /> : <Navigate to="/login" />} />
-          <Route path="/messages/:conversationId?" element={userId ? <MessagesPage /> : <Navigate to="/login" />} />
-          <Route path="/settings" element={userId ? <SettingsPage userId={userId} /> : <Navigate to="/login" />} />
+          <Route path="/feed" element={userId ? <Feed userId={userId} isAdmin={isAdmin} /> : <ToLogin />} />
+          <Route path="/profile/:userId" element={userId ? <ProfilePage currentUserId={userId} isAdmin={isAdmin} /> : <ToLogin />} />
+          <Route path="/post/:postId" element={userId ? <PostPage currentUserId={userId} isAdmin={isAdmin} /> : <ToLogin />} />
+          <Route path="/search" element={userId ? <SearchPage /> : <ToLogin />} />
+          <Route path="/notifications" element={userId ? <NotificationsPage currentUserId={userId} /> : <ToLogin />} />
+          <Route path="/messages/:conversationId?" element={userId ? <MessagesPage /> : <ToLogin />} />
+          <Route path="/settings" element={userId ? <SettingsPage userId={userId} /> : <ToLogin />} />
+          {/* Legal pages: readable signed in or out */}
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           <Route path="/" element={<Navigate to={userId ? '/feed' : '/login'} replace />} />
           {/* Anything else is a real 404, not a silent bounce to the feed */}
           <Route path="*" element={<NotFound userId={userId} />} />
@@ -175,6 +195,9 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [recovery, setRecovery] = useState(false);
   const clearRecovery = useCallback(() => setRecovery(false), []);
+  /* Who is signed in right now. An admin check that answers after a sign-out
+     or an account switch belongs to someone else and is dropped. */
+  const currentUidRef = useRef<string | null>(null);
 
   /*
    * Only updates isAdmin when the DB actually answers.
@@ -183,7 +206,8 @@ function App() {
    */
   const fetchAdminStatus = async (uid: string) => {
     try {
-      const { data, error } = await supabase.from('profiles').select('is_admin').eq('id', uid).single();
+      const { data, error } = await supabase.from('profiles').select('is_admin').eq('id', uid).maybeSingle();
+      if (currentUidRef.current !== uid) return;
       if (error || !data) return;
       setIsAdmin(!!data.is_admin);
     } catch (e) {
@@ -198,6 +222,7 @@ function App() {
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       const uid = session?.user?.id ?? null;
+      currentUidRef.current = uid;
       setUserId(uid);
       if (uid) {
         // Gate the loading screen for at most 1.5s; the fetch itself keeps
@@ -212,9 +237,12 @@ function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const uid = session?.user?.id ?? null;
+      const changed = currentUidRef.current !== uid;
+      currentUidRef.current = uid;
       setUserId(uid);
+      /* A different account must not inherit the previous one's admin flag */
+      if (changed) setIsAdmin(false);
       if (uid) fetchAdminStatus(uid);
-      else setIsAdmin(false);
       if (event === 'PASSWORD_RECOVERY' && landedOnRecoveryLink) setRecovery(true);
     });
 

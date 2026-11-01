@@ -1,8 +1,10 @@
 import { useState, useId } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { friendlyAuthError, isUnconfirmedEmail } from '../../lib/authErrors';
+import { redirectTarget } from '../../lib/redirect';
+import type { FromState } from '../../lib/redirect';
 import { useToast } from '../../context/ToastContext';
 import AuthLayout from '../../components/AuthLayout/AuthLayout';
 import PasswordInput from '../../components/PasswordInput/PasswordInput';
@@ -10,6 +12,9 @@ import './Login.css';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  /* The page that sent them here, if any (see ToLogin in App.tsx) */
+  const fromState = location.state as FromState;
   const toast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,7 +40,7 @@ export default function Login() {
       setLoading(false);
       return;
     }
-    navigate('/feed');
+    navigate(redirectTarget(fromState), { replace: true });
   };
 
   const handleResend = async () => {
@@ -50,7 +55,7 @@ export default function Login() {
   return (
     <AuthLayout>
       <div className="login-header">
-        <h2>Sign In</h2>
+        <h1>Sign In</h1>
         <p>Welcome back to The Chronicle</p>
       </div>
 
@@ -60,6 +65,9 @@ export default function Login() {
           <input
             id={`${id}-email`}
             type="email"
+            name="email"
+            inputMode="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
@@ -97,7 +105,10 @@ export default function Login() {
 
       <p className="login-register-link">
         New here?{' '}
-        <Link to="/register">Create an account</Link>
+        <Link to="/register" state={fromState}>Create an account</Link>
+      </p>
+      <p className="auth-legal">
+        <Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy</Link>
       </p>
     </AuthLayout>
   );

@@ -107,7 +107,10 @@ export default function SearchBar() {
           {/* Search icon */}
           <Search size={15} className="searchbar-icon" />
           <input
-            type="text"
+            type="search"
+            name="q"
+            enterKeyHint="search"
+            autoComplete="off"
             className="searchbar-input"
             placeholder="Search users…"
             aria-label="Search users"

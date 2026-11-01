@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
@@ -7,6 +7,23 @@ import { escapeLike } from '../../lib/search';
 import { displayName } from '../../lib/names';
 import './Search.css';
 import EmptyState from '../../components/EmptyState/EmptyState';
+import LoadMore from '../../components/LoadMore/LoadMore';
+
+const PAGE_SIZE = 20;
+
+/* Alphabetical by username (unique), so the next page is simply "after the last one seen" */
+async function searchUsers(query: string, after?: string) {
+  let q = supabase
+    .from('profiles')
+    .select('*')
+    .ilike('username', `%${escapeLike(query)}%`)
+    .order('username', { ascending: true })
+    .limit(PAGE_SIZE + 1);
+  if (after) q = q.gt('username', after);
+  const { data, error } = await q;
+  const rows = (data as Profile[]) || [];
+  return { rows: rows.slice(0, PAGE_SIZE), hasMore: rows.length > PAGE_SIZE, error: !!error };
+}
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
@@ -15,26 +32,58 @@ export default function SearchPage() {
   /* Which query the results belong to. Loading is derived, so the effect
      never has to set state synchronously. */
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
-  const loading = !!query && loadedFor !== query;
+  const [failed, setFailed] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreFailed, setMoreFailed] = useState(false);
+  /* Bumped by Retry to run the same search again */
+  const [version, setVersion] = useState(0);
+  const key = `${query}:${version}`;
+  const keyRef = useRef(key);
+  const loading = !!query && loadedFor !== key;
 
   usePageTitle(query ? `Search: ${query}` : 'Search');
+
+  useEffect(() => {
+    keyRef.current = key;
+  }, [key]);
 
   useEffect(() => {
     if (!query) return;
     /* A slow earlier search must not overwrite a faster later one */
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .ilike('username', `%${escapeLike(query)}%`)
-        .limit(20);
+      const page = await searchUsers(query);
       if (cancelled) return;
-      setResults((data as Profile[]) || []);
-      setLoadedFor(query);
+      setResults(page.rows);
+      setHasMore(page.hasMore);
+      setFailed(page.error);
+      setMoreFailed(false);
+      setLoadedFor(key);
     })();
     return () => { cancelled = true; };
-  }, [query]);
+  }, [query, key]);
+
+  const loadMore = useCallback(async () => {
+    const last = results[results.length - 1];
+    if (!last || loadingMore || !hasMore) return;
+    const startedFor = key;
+    setLoadingMore(true);
+    setMoreFailed(false);
+    const page = await searchUsers(query, last.username);
+    if (keyRef.current !== startedFor) { setLoadingMore(false); return; }
+    if (page.error) {
+      setMoreFailed(true);
+      setLoadingMore(false);
+      return;
+    }
+    setResults((prev) => {
+      const seen = new Set(prev.map((u) => u.id));
+      return [...prev, ...page.rows.filter((u) => !seen.has(u.id))];
+    });
+    setHasMore(page.hasMore);
+    setLoadingMore(false);
+  }, [results, loadingMore, hasMore, key, query]);
 
   const shown = query ? results : [];
 
@@ -42,11 +91,17 @@ export default function SearchPage() {
     <div className="search-page">
       <div className="search-page-inner">
         <div className="search-page-header">
-          <h2>Results for <em>"{query}"</em></h2>
-          {!loading && <span className="result-count">{shown.length} user{shown.length !== 1 ? 's' : ''} found</span>}
+          {query
+            ? <h1>Results for <em>"{query}"</em></h1>
+            : <h1>Search</h1>}
+          {query && !loading && !failed && (
+            <span className="result-count">{shown.length}{hasMore ? '+' : ''} user{shown.length !== 1 ? 's' : ''} found</span>
+          )}
         </div>
 
-        {loading ? (
+        {!query ? (
+          <EmptyState icon="search" title="Type a name to search" subtitle="Use the search bar above to find people by username." />
+        ) : loading ? (
           <div className="search-skeletons">
             {[1, 2, 3].map((i) => (
               <div key={i} className="skeleton-result">
@@ -58,9 +113,17 @@ export default function SearchPage() {
               </div>
             ))}
           </div>
+        ) : failed ? (
+          <EmptyState
+            icon="alert"
+            title="Could not search right now"
+            subtitle="Check your connection and try again."
+            action={<button type="button" className="btn-ghost" onClick={() => setVersion((v) => v + 1)}>Retry</button>}
+          />
         ) : shown.length === 0 ? (
           <EmptyState icon="search" title={`No users found for "${query}"`} subtitle="Try a different username." />
         ) : (
+          <>
           <div className="search-results-list">
             {shown.map((user) => (
               <Link to={`/profile/${user.id}`} key={user.id} className="search-result-card">
@@ -79,6 +142,8 @@ export default function SearchPage() {
               </Link>
             ))}
           </div>
+          <LoadMore hasMore={hasMore} loading={loadingMore} onMore={loadMore} failed={moreFailed} endLabel="That is everyone" />
+          </>
         )}
       </div>
     </div>

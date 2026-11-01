@@ -259,3 +259,23 @@
   .comment-reply-form { padding-left: 30px; }
   .comment-content { font-size: 0.86rem; }
 }
+
+.comment-char-count { align-self: center; white-space: nowrap; }
+
+/* Touch: 40-44px hit areas. The action row keeps its look; padding grows the target
+   and negative margins give the space back. */
+@media (pointer: coarse) {
+  .comment-delete {
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+    margin: -4px -8px -4px 0;
+  }
+  .comment-actions { gap: 4px; margin-top: 0; }
+  .comment-action-btn { min-height: 40px; padding: 0 8px; }
+  .comment-actions .comment-time { margin-right: 4px; }
+  .reply-cancel { min-height: 40px; padding: 0 10px; }
+  .comment-reply-form button[type="submit"] { min-height: 40px; }
+  .comment-form button { min-height: 44px; }
+  .comment-form input { min-height: 44px; }
+}

@@ -1,11 +1,10 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
-import { supabase } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
-import { markIntentionalSignOut } from '../../lib/session';
+import { logOut } from '../../lib/logout';
+import { isActivePath } from '../../lib/navActive';
 import { prefetchPage } from '../../lib/pages';
 import { useTheme } from '../../lib/theme';
-import { clearAllDrafts } from '../../lib/drafts';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import './Navbar.css';
 
@@ -20,15 +19,12 @@ export default function Navbar({ userId }: NavbarProps) {
   const { theme, setPreference } = useTheme();
 
   const handleLogout = async () => {
-    /* So the session watcher does not announce an expired session for this */
-    markIntentionalSignOut();
-    /* Unfinished post text stays on the device otherwise, so wipe it on shared computers */
-    clearAllDrafts();
-    await supabase.auth.signOut();
+    await logOut();
     navigate('/login');
   };
 
-  const isActive = (path: string) => location.pathname.startsWith(path);
+  const isActive = (path: string) => isActivePath(location.pathname, path);
+  const profilePath = userId ? `/profile/${userId}` : '';
 
   return (
     <nav className="navbar">
@@ -41,16 +37,17 @@ export default function Navbar({ userId }: NavbarProps) {
         {userId && (
           <div className="navbar-links">
             {/* Hover or focus fetches the page chunk, so the click renders at once */}
-            <Link to="/feed" className={`nav-link ${isActive('/feed') ? 'nav-link--active' : ''}`} onMouseEnter={() => prefetchPage('feed')} onFocus={() => prefetchPage('feed')}>Feed</Link>
+            <Link to="/feed" className={`nav-link ${isActive('/feed') ? 'nav-link--active' : ''}`} aria-current={isActive('/feed') ? 'page' : undefined} onMouseEnter={() => prefetchPage('feed')} onFocus={() => prefetchPage('feed')}>Feed</Link>
             {/* The feed's quick links only exist on the feed; every other page needs this one.
                 Hidden below 680px, where the bottom bar carries it. */}
-            <Link to="/messages" className={`nav-link nav-link--badged ${isActive('/messages') ? 'nav-link--active' : ''}`} onMouseEnter={() => prefetchPage('messages')} onFocus={() => prefetchPage('messages')}>
+            <Link to="/messages" className={`nav-link nav-link--badged ${isActive('/messages') ? 'nav-link--active' : ''}`} aria-current={isActive('/messages') ? 'page' : undefined} onMouseEnter={() => prefetchPage('messages')} onFocus={() => prefetchPage('messages')}>
               Messages
               {unreadConversations > 0 && (
                 <span className="nav-badge">{unreadConversations > 9 ? '9+' : unreadConversations}</span>
               )}
             </Link>
-            <Link to={`/profile/${userId}`} className={`nav-link ${isActive('/profile') ? 'nav-link--active' : ''}`} onMouseEnter={() => prefetchPage('profile')} onFocus={() => prefetchPage('profile')}>Profile</Link>
+            {/* Only your own profile lights up, not anyone else's */}
+            <Link to={profilePath} className={`nav-link ${isActive(profilePath) ? 'nav-link--active' : ''}`} aria-current={isActive(profilePath) ? 'page' : undefined} onMouseEnter={() => prefetchPage('profile')} onFocus={() => prefetchPage('profile')}>Profile</Link>
             <NotificationBell currentUserId={userId} />
             {/* Flips light and dark; Settings also offers following the device */}
             <button

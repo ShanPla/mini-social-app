@@ -2,6 +2,7 @@
   width: 328px;
   height: 455px;
   max-height: calc(100vh - 80px);
+  max-height: calc(100dvh - 80px);
   display: flex;
   flex-direction: column;
   background: var(--card-bg);

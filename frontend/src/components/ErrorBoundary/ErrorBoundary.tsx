@@ -49,7 +49,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       <div className="error-boundary">
         <div className="error-boundary-card">
           <div className="error-boundary-icon"><AlertTriangle size={26} strokeWidth={1.6} /></div>
-          <h2>{stale ? 'The Chronicle was updated' : 'Something went wrong'}</h2>
+          <h1>{stale ? 'The Chronicle was updated' : 'Something went wrong'}</h1>
           <p>{stale
             ? 'A newer version is live. Reload to pick it up.'
             : 'This part of the page hit an error it could not recover from.'}</p>

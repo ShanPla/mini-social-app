@@ -44,6 +44,9 @@
   font-family: var(--font-body);
 }
 .searchbar-input::placeholder { color: var(--ink-muted); }
+/* type=search brings a native clear button; the bar has its own */
+.searchbar-input::-webkit-search-cancel-button,
+.searchbar-input::-webkit-search-decoration { appearance: none; -webkit-appearance: none; display: none; }
 
 .searchbar-spinner {
   font-size: 0.8rem;

@@ -5,7 +5,9 @@ import type { Post } from '../../lib/supabaseClient';
 import { useCooldown } from '../../lib/useCooldown';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
-import { shrinkImage, IMAGE_MAX_EDGE } from '../../lib/images';
+import { shrinkImage, imageExtension, IMAGE_MAX_EDGE } from '../../lib/images';
+import { removePostImageFiles } from '../../lib/storage';
+import { revokePreview, useRevokeOnUnmount } from '../../lib/useObjectUrls';
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL, SUBMIT_SHORTCUT_ARIA } from '../../lib/submitShortcut';
 import { readDraft, writeDraft } from '../../lib/drafts';
 import CharCount from '../CharCount/CharCount';
@@ -40,18 +42,24 @@ export default function ComposePost({
   const [isOnCooldown, triggerCooldown] = useCooldown(3000);
   const toast = useToast();
 
+  /* Blob previews still held when the composer goes away get freed */
+  useRevokeOnUnmount(imagePreviews);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []).slice(0, 10);
+    imagePreviews.forEach(revokePreview);
     setImageFiles(files);
     setImagePreviews(files.map((f) => URL.createObjectURL(f)));
   };
 
   const removeImage = (index: number) => {
+    revokePreview(imagePreviews[index]);
     setImageFiles((prev) => prev.filter((_, i) => i !== index));
     setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const clearImages = () => {
+    imagePreviews.forEach(revokePreview);
     setImageFiles([]);
     setImagePreviews([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -82,13 +90,13 @@ export default function ComposePost({
     if (imageFiles.length > 0) {
       const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
       let failed = 0;
+      let attachFailed = false;
 
       for (let i = 0; i < imageFiles.length; i++) {
         /* Big phone photos are resized first, so they fit the 5 MB limit */
         const file = await shrinkImage(imageFiles[i], IMAGE_MAX_EDGE.post);
-        const ext = file.name.split('.').pop();
-        const path = `${userId}/${postData.id}/${i}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file);
+        const path = `${userId}/${postData.id}/${i}.${imageExtension(file)}`;
+        const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file, { contentType: file.type || undefined });
         if (uploadError) {
           failed += 1;
         } else {
@@ -109,10 +117,25 @@ export default function ComposePost({
           .insert(uploadedImages)
           .select('id, post_id, image_url, position');
         if (imagesError || !imageRows) {
-          toast.error('The post went up, but its images could not be attached.');
+          attachFailed = true;
+          void removePostImageFiles(uploadedImages.map((img) => img.image_url));
+          if (content.trim()) toast.error('The post went up, but its images could not be attached.');
         } else {
           newPost.post_images = [...imageRows].sort((a, b) => a.position - b.position);
         }
+      }
+
+      /* An image-only post with no image attached would be a blank post:
+         take it back and keep the draft so the user can try again */
+      if (!content.trim() && (newPost.post_images ?? []).length === 0) {
+        if (!attachFailed) void removePostImageFiles(uploadedImages.map((img) => img.image_url));
+        const { error: undoError } = await supabase.from('posts').delete().eq('id', postData.id);
+        if (undoError) console.warn('could not remove the empty post:', undoError.message);
+        toast.error(attachFailed
+          ? 'Your photos could not be attached, so nothing was published. Please try again.'
+          : 'Your photos could not be uploaded, so nothing was published. Please try again.');
+        setPosting(false);
+        return;
       }
     }
 

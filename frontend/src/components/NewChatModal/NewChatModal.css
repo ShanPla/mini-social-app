@@ -96,3 +96,10 @@
   .nc-footer { flex-direction: column; align-items: stretch; }
   .nc-hint { white-space: normal; text-align: center; }
 }
+
+.nc-char-count { display: block; text-align: right; margin-top: 4px; }
+
+/* Touch: close button gets a 44px target */
+@media (pointer: coarse) {
+  .nc-close { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+}

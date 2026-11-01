@@ -65,7 +65,7 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
 
       {/* Image */}
       <div className="lightbox-image-wrap" onClick={(e) => e.stopPropagation()}>
-        <img src={images[current]} alt={`Image ${current + 1}`} className="lightbox-image" loading="lazy" />
+        <img src={images[current]} alt={`Image ${current + 1}`} className="lightbox-image" decoding="async" />
       </div>
 
       {/* Next */}
@@ -90,7 +90,7 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
               aria-label={`Show image ${i + 1}`}
               aria-current={i === current ? 'true' : undefined}
             >
-              <img src={src} alt="" loading="lazy" />
+              <img src={src} alt="" width={52} height={52} loading="lazy" decoding="async" />
             </button>
           ))}
         </div>

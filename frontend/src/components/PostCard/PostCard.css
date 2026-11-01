@@ -200,3 +200,21 @@
 
 /* This box clips overflow, so focus rings inside it are drawn inward */
 .post-actions-dropdown :focus-visible { outline-offset: -2px; }
+
+/* Touch: 40-44px hit areas, visuals unchanged (negative margins keep the layout tight) */
+@media (pointer: coarse) {
+  .post-actions-btn {
+    min-width: 44px;
+    min-height: 44px;
+    margin: -8px -8px -8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .post-action-item { min-height: 44px; }
+  .post-footer { padding-top: 4px; gap: 8px; }
+  .post-action { min-height: 44px; padding: 0 8px; margin-left: -8px; }
+  .post-action + .post-action { margin-left: 0; }
+  /* Inline in the text: vertical padding grows the tap area without moving lines */
+  .see-more-btn { padding: 12px 8px; margin: -12px -8px; }
+}

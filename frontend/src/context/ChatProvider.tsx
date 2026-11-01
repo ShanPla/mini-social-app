@@ -33,7 +33,11 @@ export default function ChatProvider({ userId, children }: Props) {
 
   /* Refs so realtime handlers never read stale state */
   const conversationsRef = useRef<Conversation[]>([]);
-  const activeRef = useRef<Set<string>>(new Set());
+  /* conversation id -> how many mounted threads show it (popup and /messages
+     can both), so one closing does not make the other look inactive */
+  const activeRef = useRef<Map<string, number>>(new Map());
+  /* Numbers each get_conversations call; only the newest response is applied */
+  const refreshSeq = useRef(0);
   const listenersRef = useRef<Map<string, Set<MessageHandler>>>(new Map());
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onMessagesPageRef = useRef(false);
@@ -56,7 +60,10 @@ export default function ChatProvider({ userId, children }: Props) {
   /* ── Fetch list ── */
   const refreshConversations = useCallback(async () => {
     if (!userId) return;
+    const seq = ++refreshSeq.current;
     const { data, error } = await supabase.rpc('get_conversations');
+    /* A newer request was sent meanwhile (or we signed out): this answer is stale */
+    if (seq !== refreshSeq.current) return;
     if (!error && data) {
       const list = (data as Conversation[]).map((c) => ({
         ...c,
@@ -77,8 +84,10 @@ export default function ChatProvider({ userId, children }: Props) {
   /* ── Own profile (typing indicator needs the username) ── */
   useEffect(() => {
     if (!userId) return;
-    supabase.from('profiles').select('id, username, display_name, avatar_url').eq('id', userId).single()
-      .then(({ data }) => { if (data) setMe(data as MeProfile); });
+    let cancelled = false;
+    supabase.from('profiles').select('id, username, display_name, avatar_url').eq('id', userId).maybeSingle()
+      .then(({ data }) => { if (!cancelled && data) setMe(data as MeProfile); });
+    return () => { cancelled = true; };
   }, [userId]);
 
   /* ── Popups ── */
@@ -187,8 +196,10 @@ export default function ChatProvider({ userId, children }: Props) {
 
   /* ── Thread wiring ── */
   const setActive = useCallback((conversationId: string, active: boolean) => {
-    if (active) activeRef.current.add(conversationId);
-    else activeRef.current.delete(conversationId);
+    const map = activeRef.current;
+    const count = (map.get(conversationId) ?? 0) + (active ? 1 : -1);
+    if (count > 0) map.set(conversationId, count);
+    else map.delete(conversationId);
   }, []);
 
   const onMessage = useCallback((conversationId: string, handler: MessageHandler) => {
@@ -332,6 +343,8 @@ export default function ChatProvider({ userId, children }: Props) {
       supabase.removeChannel(channel);
       document.removeEventListener('visibilitychange', handleVisibility);
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      /* Anything still in flight belongs to a user that is gone */
+      refreshSeq.current += 1;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, toast]);

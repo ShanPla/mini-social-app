@@ -256,3 +256,22 @@
 
 /* This box clips overflow, so focus rings inside it are drawn inward */
 .edit-image-item :focus-visible { outline-offset: -2px; }
+
+/* Touch: 40px+ hit areas (the remove button lives inside a clipped tile, so it stops at 36) */
+@media (pointer: coarse) {
+  .edit-modal-close {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: -8px -10px -8px 0;
+  }
+  .edit-image-remove {
+    width: 36px;
+    height: 36px;
+    top: 2px;
+    right: 2px;
+  }
+  .edit-add-images { min-height: 44px; }
+}

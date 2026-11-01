@@ -18,6 +18,8 @@ export function usePostList(query: PostsQuery, refreshKey = 0, enabled = true) {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* A failed Load more keeps the list and hasMore, so it can be retried */
+  const [moreError, setMoreError] = useState<string | null>(null);
   const keyRef = useRef(key);
   const loading = enabled && loadedKey !== key;
 
@@ -34,6 +36,7 @@ export function usePostList(query: PostsQuery, refreshKey = 0, enabled = true) {
       setPosts(page.posts);
       setHasMore(page.hasMore);
       setError(page.error);
+      setMoreError(null);
       setLoadedKey(key);
     })();
     return () => { cancelled = true; };
@@ -44,20 +47,27 @@ export function usePostList(query: PostsQuery, refreshKey = 0, enabled = true) {
     const last = posts[posts.length - 1];
     if (!last) return;
     setLoadingMore(true);
+    setMoreError(null);
     const page = await fetchPosts({ mode, author, postId }, last);
     /* A tab switch or refresh while this was in flight: that list is gone */
     if (keyRef.current !== key) { setLoadingMore(false); return; }
+    if (page.error) {
+      setMoreError(page.error);
+      setLoadingMore(false);
+      return;
+    }
     setPosts((prev) => {
       const seen = new Set(prev.map((p) => p.id));
       return [...prev, ...page.posts.filter((p) => !seen.has(p.id))];
     });
     setHasMore(page.hasMore);
-    if (page.error) setError(page.error);
     setLoadingMore(false);
   }, [loadingMore, hasMore, posts, mode, author, postId, key]);
 
-  const prepend = useCallback((post: Post) => setPosts((prev) => [post, ...prev]), []);
+  /* Drops any copy already in the list: a refetch can land while a post is
+     still being published, and the new post would otherwise show twice */
+  const prepend = useCallback((post: Post) => setPosts((prev) => [post, ...prev.filter((p) => p.id !== post.id)]), []);
   const remove = useCallback((id: string) => setPosts((prev) => prev.filter((p) => p.id !== id)), []);
 
-  return { posts, loading, loadingMore, hasMore, error, loadMore, prepend, remove };
+  return { posts, loading, loadingMore, hasMore, error, moreError, loadMore, prepend, remove };
 }
