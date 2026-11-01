@@ -9,7 +9,7 @@ import { describeError } from '../../lib/errors';
 import { useToast } from '../../context/ToastContext';
 import { markIntentionalSignOut } from '../../lib/session';
 import { logOut } from '../../lib/logout';
-import { pruneFolder, removeUserPostImages } from '../../lib/storage';
+import { pruneFolder, removeUserPostImages, removeUserChatImages } from '../../lib/storage';
 import { useTheme } from '../../lib/theme';
 import { clearAllDrafts } from '../../lib/drafts';
 import type { ThemePreference } from '../../lib/theme';
@@ -116,7 +116,7 @@ export default function SettingsPage({ userId, isAdmin = false }: Props) {
       return;
     }
     /* Files first: once the row is gone the storage policies no longer know us */
-    await Promise.all([pruneFolder('avatars', userId), removeUserPostImages(userId)]);
+    await Promise.all([pruneFolder('avatars', userId), removeUserPostImages(userId), removeUserChatImages()]);
     const { error } = await supabase.rpc('delete_my_account');
     if (error) {
       toast.error(describeError(error, 'Could not delete the account. Please try again.'));

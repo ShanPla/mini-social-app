@@ -57,3 +57,17 @@ export async function pruneFolder(bucket: string, folder: string, keep?: string)
   const { error: rmError } = await supabase.storage.from(bucket).remove(targets);
   if (rmError) console.warn(`${bucket} cleanup failed:`, rmError.message);
 }
+
+/* Every chat photo a user sent, also in chats they have left (the bucket
+   listing only covers chats you are still in, so the database names them).
+   Used when the account is deleted. */
+export async function removeUserChatImages(): Promise<void> {
+  const { data, error } = await supabase.rpc('my_chat_image_paths');
+  if (error || !Array.isArray(data) || data.length === 0) return;
+  const paths = (data as unknown[]).filter((p): p is string => typeof p === 'string');
+  const bucket = supabase.storage.from('chat-images');
+  for (let i = 0; i < paths.length; i += 100) {
+    const { error: rmError } = await bucket.remove(paths.slice(i, i + 100));
+    if (rmError) console.warn('chat-images cleanup failed:', rmError.message);
+  }
+}

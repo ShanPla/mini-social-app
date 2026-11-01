@@ -1743,7 +1743,9 @@ grant execute on function public.hide_conversation(uuid) to authenticated;
 -- messages table) and a group whose creator is deleted passes to its
 -- longest-standing member (on_member_delete). Files in storage are removed
 -- by the client before it calls this, while the storage policies still
--- recognise the user.
+-- recognise the user; chat photos are found with my_chat_image_paths().
+-- Messages that were only a photo are removed, and the rest lose their
+-- photo, so nobody is left looking at a broken image.
 create or replace function public.delete_my_account()
 returns void
 language plpgsql
@@ -1755,12 +1757,38 @@ begin
   if me is null then
     raise exception 'Not authenticated';
   end if;
+  delete from messages
+  where sender_id = me and image_url is not null and not coalesce(content ~ '\S', false);
+  update messages set image_url = null
+  where sender_id = me and image_url is not null;
   delete from auth.users where id = me;
 end;
 $$;
 
 revoke all on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
+
+
+-- my_chat_image_paths()
+-- Every file the caller uploaded to chat-images, also in conversations they
+-- have left (the bucket listing only shows chats you are still in). The
+-- client removes these through the Storage API before delete_my_account.
+create or replace function public.my_chat_image_paths()
+returns setof text
+language sql
+security definer
+stable
+set search_path = public, pg_temp
+as $$
+  select o.name
+  from storage.objects o
+  where o.bucket_id = 'chat-images'
+    and auth.uid() is not null
+    and (storage.foldername(o.name))[2] = auth.uid()::text;
+$$;
+
+revoke all on function public.my_chat_image_paths() from public, anon;
+grant execute on function public.my_chat_image_paths() to authenticated;
 
 
 
@@ -2604,6 +2632,17 @@ using (
   bucket_id = 'chat-images'
   and (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
   and public.is_conversation_member(((storage.foldername(name))[1])::uuid)
+);
+
+-- The sender can always read their own uploads, also after leaving the
+-- chat: Storage only deletes files the caller can read, and account
+-- deletion removes every chat photo the person sent.
+drop policy if exists "Users can read own chat images" on storage.objects;
+create policy "Users can read own chat images"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'chat-images'
+  and (storage.foldername(name))[2] = auth.uid()::text
 );
 
 drop policy if exists "Members can upload chat images" on storage.objects;
