@@ -324,17 +324,26 @@ export default function ChatProvider({ userId, children }: Props) {
         (payload) => handleMessageInsert(payload.new as ChatMessage))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' },
         (payload) => handleMessageDelete(payload.old as Partial<ChatMessage>))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_members' },
-        (payload) => handleMemberChange(
-          payload.eventType,
-          (payload.eventType === 'DELETE' ? payload.old : payload.new) as { conversation_id?: string; user_id?: string; last_read_at?: string },
-        ))
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' },
         (payload) => handleConversationUpdate(payload.new as Partial<Conversation>))
       .subscribe((status) => {
         /* postgres_changes is at-most-once: after a reconnect, refetch what we missed */
         if (status === 'SUBSCRIBED' && subscribedOnceRef.current) refreshConversations();
         if (status === 'SUBSCRIBED') subscribedOnceRef.current = true;
+      });
+
+    /* Membership changes arrive on a private inbox only this user can hear,
+       not as table events that every subscriber would see (schema 3k) */
+    let inboxSubscribedOnce = false;
+    const inbox = supabase
+      .channel(`inbox:${userId}`, { config: { private: true } })
+      .on('broadcast', { event: 'member' }, ({ payload }) => {
+        const p = payload as { op?: string; conversation_id?: string; user_id?: string; last_read_at?: string };
+        if (p.op) handleMemberChange(p.op, p);
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' && inboxSubscribedOnce) refreshConversations();
+        if (status === 'SUBSCRIBED') inboxSubscribedOnce = true;
       });
 
     /* Refetch when the tab comes back — realtime may have dropped while hidden */
@@ -345,6 +354,7 @@ export default function ChatProvider({ userId, children }: Props) {
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(inbox);
       document.removeEventListener('visibilitychange', handleVisibility);
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
       /* Anything still in flight belongs to a user that is gone */

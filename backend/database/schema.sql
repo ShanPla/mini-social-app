@@ -1462,6 +1462,68 @@ on conflict (post_id) do update
         is distinct from (excluded.like_count, excluded.comment_count);
 
 
+-- 3k. Membership changes reach only the people in that conversation.
+--     Realtime sends DELETE events of a published table to every subscriber,
+--     whatever the row level security says, so anyone listening could see
+--     who left or was removed from any conversation. conversation_members
+--     is therefore not in the realtime publication (section 7a). Instead
+--     this trigger sends a private broadcast, event [member], on the topic
+--     inbox:{user_id} of each person concerned: the members of the
+--     conversation, plus the person who was removed. Section 7c lets each
+--     user listen only to their own inbox. A failed broadcast never blocks
+--     the membership change itself.
+create or replace function public.broadcast_member_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  row_data conversation_members;
+  payload jsonb;
+  target uuid;
+begin
+  if tg_op = 'DELETE' then
+    row_data := old;
+  else
+    row_data := new;
+  end if;
+
+  if tg_op = 'UPDATE' and new.last_read_at is not distinct from old.last_read_at then
+    return null;
+  end if;
+
+  payload := jsonb_build_object(
+    'op', tg_op,
+    'conversation_id', row_data.conversation_id,
+    'user_id', row_data.user_id,
+    'last_read_at', row_data.last_read_at
+  );
+
+  for target in
+    select m.user_id from conversation_members m where m.conversation_id = row_data.conversation_id
+    union
+    select row_data.user_id
+  loop
+    begin
+      perform realtime.send(payload, 'member', 'inbox:' || target::text, true);
+    exception when others then
+      null;
+    end;
+  end loop;
+  return null;
+end;
+$$;
+
+revoke all on function public.broadcast_member_change() from public, anon, authenticated;
+
+drop trigger if exists trg_broadcast_member_change on conversation_members;
+create trigger trg_broadcast_member_change
+after insert or update of last_read_at or delete on conversation_members
+for each row execute procedure public.broadcast_member_change();
+
+
+
 -- --------------------------------------------
 -- 4. RPCs
 -- --------------------------------------------
@@ -2568,13 +2630,14 @@ using (
 -- --------------------------------------------
 
 -- 7a. postgres_changes. RLS scopes INSERT/UPDATE events per subscriber.
+--     conversation_members is left out on purpose, see 3k.
 --     posts feeds the [new posts] banner; the rest drive chat and the bell.
 --     message_reactions drives live reactions in an open chat.
 do $$
 declare t text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    foreach t in array array['posts', 'notifications', 'messages', 'conversation_members', 'conversations', 'message_reactions'] loop
+    foreach t in array array['posts', 'notifications', 'messages', 'conversations', 'message_reactions'] loop
       if not exists (
         select 1 from pg_publication_tables
         where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
@@ -2582,6 +2645,13 @@ begin
         execute format('alter publication supabase_realtime add table public.%I', t);
       end if;
     end loop;
+    -- Membership changes go out as private broadcasts instead (3k)
+    if exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'conversation_members'
+    ) then
+      alter publication supabase_realtime drop table public.conversation_members;
+    end if;
   end if;
 end $$;
 
@@ -2613,6 +2683,17 @@ with check (
   realtime.messages.extension = 'broadcast'
   and realtime.topic() ~ '^typing:[0-9a-f-]{36}$'
   and public.is_conversation_member(split_part(realtime.topic(), ':', 2)::uuid)
+);
+
+
+-- 7c. Private inbox topic inbox:{user_id}: membership changes (3k). Only
+--     the user can listen; nobody can send from the client.
+drop policy if exists "Users can receive their inbox" on realtime.messages;
+create policy "Users can receive their inbox"
+on realtime.messages for select to authenticated
+using (
+  realtime.messages.extension = 'broadcast'
+  and realtime.topic() = 'inbox:' || auth.uid()::text
 );
 
 
