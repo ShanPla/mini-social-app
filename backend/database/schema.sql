@@ -1799,8 +1799,10 @@ revoke all on all tables in schema public from anon;
 -- 6. STORAGE
 -- --------------------------------------------
 
--- avatars and post-images are public buckets (served by URL; post-images
--- goes private in 6b once the app signs its URLs). Uploads
+-- avatars is a public bucket (served by URL). post-images is PRIVATE since
+-- 2026-11-01: the app shows post photos through signed URLs
+-- (frontend/src/lib/postImages.ts) while post_images.image_url keeps the
+-- public-URL form, which the client turns back into a storage path. Uploads
 -- are limited to images, 5 MB, and to the uploader's own folder.
 --   avatars:     {user_id}/avatar.{ext}
 --   post-images: {user_id}/{post_id}/{n}.{ext}
@@ -1809,7 +1811,7 @@ revoke all on all tables in schema public from anon;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('avatars', 'avatars', true, 5242880, array['image/jpeg', 'image/png', 'image/gif', 'image/webp']),
-  ('post-images', 'post-images', true, 5242880, array['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
+  ('post-images', 'post-images', false, 5242880, array['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
 on conflict (id) do update
   set public = excluded.public,
       file_size_limit = excluded.file_size_limit,
@@ -1846,10 +1848,30 @@ using (
   and (storage.foldername(name))[1] = auth.uid()::text
 );
 
+-- Readable by: the uploader (own folder), an admin (to clean up after
+-- removing someone else's post), or anyone who can see the post the file
+-- belongs to. Path is {user_id}/{post_id}/{file}, so folder 2 is the post id;
+-- the subquery runs as the caller, so the posts policy (public / followers /
+-- private) decides. The CASE keeps a malformed path from raising a uuid cast
+-- error.
 drop policy if exists "Anyone can view post images" on storage.objects;
-create policy "Anyone can view post images"
-on storage.objects for select
-using (bucket_id = 'post-images');
+drop policy if exists "Viewers can read post images" on storage.objects;
+create policy "Viewers can read post images"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'post-images'
+  and (
+    (storage.foldername(name))[1] = auth.uid()::text
+    or exists (select 1 from profiles where id = auth.uid() and is_admin = true)
+    or exists (
+      select 1 from public.posts p
+      where p.id = case
+        when (storage.foldername(name))[2] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        then ((storage.foldername(name))[2])::uuid
+      end
+    )
+  )
+);
 
 drop policy if exists "Authenticated users can upload post images" on storage.objects;
 create policy "Authenticated users can upload post images"
@@ -1914,48 +1936,6 @@ using (
   bucket_id = 'chat-images'
   and (storage.foldername(name))[2] = auth.uid()::text
 );
-
-
--- --------------------------------------------
--- 6b. POST IMAGES PRIVATE + SIGNED READS  (NOT ACTIVE)
---
--- Enable after the app signs post image URLs (createSignedUrls on every
--- read of post_images.image_url / fetch_posts / the lightbox). Until then
--- the bucket stays public above, because every <img> in the app uses the
--- plain public URL and would break the moment the bucket goes private.
---
--- To enable: also set 'post-images' to false in the bucket upsert in
--- section 6 (otherwise it flips back on each run), then uncomment below.
--- post_images_url_check keeps requiring https:// ; if the app starts storing
--- bare paths instead of URLs, relax that check first.
--- Avatars stay public.
--- --------------------------------------------
-
--- -- bucket: private
--- update storage.buckets set public = false where id = 'post-images';
---
--- -- Readable by: the uploader (own folder), or anyone who can see the post the
--- -- file belongs to. Path is {user_id}/{post_id}/{file}, so folder 2 is the
--- -- post id. The subquery runs as the caller, so the posts policy
--- -- (public / followers / private) decides. The CASE keeps a malformed path
--- -- from raising a uuid cast error.
--- drop policy if exists "Anyone can view post images" on storage.objects;
--- drop policy if exists "Viewers can read post images" on storage.objects;
--- create policy "Viewers can read post images"
--- on storage.objects for select to authenticated
--- using (
---   bucket_id = 'post-images'
---   and (
---     (storage.foldername(name))[1] = auth.uid()::text
---     or exists (
---       select 1 from public.posts p
---       where p.id = case
---         when (storage.foldername(name))[2] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
---         then ((storage.foldername(name))[2])::uuid
---       end
---     )
---   )
--- );
 
 
 -- --------------------------------------------
