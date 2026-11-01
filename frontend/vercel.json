@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/((?!.*\.).*)", "destination": "/index.html" }
+    { "source": "/((?!.*\\.).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -23,7 +23,7 @@
       ]
     },
     {
-      "source": "/(favicon.svg|favicon.ico|apple-touch-icon.png|og.png|manifest.webmanifest|icon-.*\.png)",
+      "source": "/(favicon.svg|favicon.ico|apple-touch-icon.png|og.png|manifest.webmanifest|icon-.*\\.png)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]
