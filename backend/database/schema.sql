@@ -1387,6 +1387,81 @@ before insert on conversation_members
 for each row execute procedure public.check_member_blocked();
 
 
+-- 3j. Like and comment counters. fetch_posts used to count likes and
+--     comments per post through the child tables' row level security,
+--     which checks every single like row and gets slow on popular posts.
+--     The counts now live in post_stats, kept up to date by these triggers.
+--     They count every like and comment, including ones the viewer can not
+--     see because of a block. The row is only ever updated on delete (never
+--     inserted), so a cascade from a post being deleted can not trip the
+--     foreign key.
+create table if not exists post_stats (
+  post_id uuid primary key references posts(id) on delete cascade,
+  like_count integer not null default 0,
+  comment_count integer not null default 0
+);
+
+alter table post_stats enable row level security;
+revoke all on post_stats from public, anon, authenticated;
+grant select on post_stats to authenticated;
+
+drop policy if exists "Viewers can read post stats" on post_stats;
+create policy "Viewers can read post stats"
+on post_stats for select to authenticated
+using (exists (select 1 from posts where id = post_id));
+
+create or replace function public.bump_post_stats()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if tg_table_name = 'likes' then
+    if tg_op = 'INSERT' then
+      insert into post_stats as s (post_id, like_count) values (new.post_id, 1)
+      on conflict (post_id) do update set like_count = s.like_count + 1;
+    else
+      update post_stats set like_count = greatest(like_count - 1, 0) where post_id = old.post_id;
+    end if;
+  else
+    if tg_op = 'INSERT' then
+      insert into post_stats as s (post_id, comment_count) values (new.post_id, 1)
+      on conflict (post_id) do update set comment_count = s.comment_count + 1;
+    else
+      update post_stats set comment_count = greatest(comment_count - 1, 0) where post_id = old.post_id;
+    end if;
+  end if;
+  return null;
+end;
+$$;
+
+revoke all on function public.bump_post_stats() from public, anon, authenticated;
+
+drop trigger if exists trg_post_stats_likes on likes;
+create trigger trg_post_stats_likes
+after insert or delete on likes
+for each row execute procedure public.bump_post_stats();
+
+drop trigger if exists trg_post_stats_comments on comments;
+create trigger trg_post_stats_comments
+after insert or delete on comments
+for each row execute procedure public.bump_post_stats();
+
+-- Backfill, and repair any drift on every run of this file.
+insert into post_stats (post_id, like_count, comment_count)
+select
+  p.id,
+  (select count(*) from likes l where l.post_id = p.id),
+  (select count(*) from comments c where c.post_id = p.id)
+from posts p
+on conflict (post_id) do update
+  set like_count = excluded.like_count,
+      comment_count = excluded.comment_count
+  where (post_stats.like_count, post_stats.comment_count)
+        is distinct from (excluded.like_count, excluded.comment_count);
+
+
 -- --------------------------------------------
 -- 4. RPCs
 -- --------------------------------------------
@@ -1632,8 +1707,7 @@ grant execute on function public.delete_my_account() to authenticated;
 -- posts (p_mode = 'saved'). Returns like and comment counts plus whether the
 -- caller liked and saved it, instead of every like row, and the author and
 -- images as jsonb. security invoker: the posts policy (visibility and
--- blocks) decides what is returned, and the likes and comments counts only
--- count rows the caller may see.
+-- blocks) decides what is returned. The counts come from post_stats (3j).
 -- Keyset pagination on (created_at, id): pass the last row's values back
 -- as p_before / p_before_id to get the next page. The saved mode pages the
 -- same way, by the post's own created_at.
@@ -1676,8 +1750,8 @@ as $$
     p.visibility,
     p.created_at,
     p.updated_at,
-    (select count(*) from likes l where l.post_id = p.id)::integer as like_count,
-    (select count(*) from comments c where c.post_id = p.id)::integer as comment_count,
+    coalesce(ps.like_count, 0) as like_count,
+    coalesce(ps.comment_count, 0) as comment_count,
     exists (select 1 from likes l where l.post_id = p.id and l.user_id = auth.uid()) as liked_by_me,
     exists (select 1 from saved_posts sp where sp.post_id = p.id and sp.user_id = auth.uid()) as saved_by_me,
     (
@@ -1699,6 +1773,7 @@ as $$
       where pi.post_id = p.id
     ), '[]'::jsonb) as post_images
   from posts p
+  left join post_stats ps on ps.post_id = p.id
   where (p_post_id is null or p.id = p_post_id)
     and (p_author is null or p.user_id = p_author)
     and (
