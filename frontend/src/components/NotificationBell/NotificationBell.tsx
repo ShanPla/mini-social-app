@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { moveFocus } from '../../lib/menuKeys';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Heart, MessageCircle, MessageSquare, UserPlus, Users } from 'lucide-react';
+import { Bell, Heart, MessageCircle, MessageSquare, UserPlus, Users, AtSign } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import { shortTime } from '../../lib/chat';
@@ -10,10 +10,12 @@ import './NotificationBell.css';
 
 type Notification = {
   id: string;
-  type: 'like' | 'comment' | 'follow' | 'message' | 'added';
+  type: 'like' | 'comment' | 'follow' | 'message' | 'added' | 'mention';
   is_read: boolean;
   created_at: string;
   post_id: string | null;
+  /* Set on a mention inside a comment; null for a mention in the post text */
+  comment_id: string | null;
   conversation_id: string | null;
   actor: {
     id: string;
@@ -33,7 +35,7 @@ type Props = {
 };
 
 const SELECT =
-  'id, type, is_read, created_at, post_id, conversation_id, ' +
+  'id, type, is_read, created_at, post_id, comment_id, conversation_id, ' +
   'actor:actor_id(id, username, display_name, avatar_url), ' +
   'conversation:conversation_id(id, is_group, name)';
 
@@ -155,6 +157,7 @@ export default function NotificationBell({ currentUserId }: Props) {
         ? `messaged ${n.conversation.name || 'the group'}`
         : 'sent you a message';
       case 'added': return `added you to ${n.conversation?.name || 'a group'}`;
+      case 'mention': return n.comment_id ? 'mentioned you in a comment' : 'mentioned you in a post';
     }
   };
 
@@ -166,6 +169,7 @@ export default function NotificationBell({ currentUserId }: Props) {
       case 'follow': return <UserPlus size={12} />;
       case 'message': return <MessageSquare size={12} />;
       case 'added': return <Users size={12} />;
+      case 'mention': return <AtSign size={12} />;
     }
   };
 

@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, X, Check } from 'lucide-react';
-import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
-import { escapeLike } from '../../lib/search';
+import { searchProfiles } from '../../lib/searchProfiles';
 import { displayName } from '../../lib/names';
 import './UserPicker.css';
 
@@ -47,13 +46,9 @@ export default function UserPicker({ excludeIds, selected, onChange, placeholder
 
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url')
-        .ilike('username', `%${escapeLike(q)}%`)
-        .limit(8);
+      const { rows } = await searchProfiles(q, null, 8);
       if (cancelled) return;
-      setResults(((data as PickedUser[]) || []).filter((u) => !excludeIds.includes(u.id)));
+      setResults(rows.filter((u) => !excludeIds.includes(u.id)));
       setSearched(true);
       setLoading(false);
     }, 250);

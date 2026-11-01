@@ -14,6 +14,7 @@ import { revokePreview, useRevokeOnUnmount } from '../../lib/useObjectUrls';
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL, SUBMIT_SHORTCUT_ARIA } from '../../lib/submitShortcut';
 import CharCount from '../CharCount/CharCount';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
+import MentionInput from '../MentionInput/MentionInput';
 import './EditPostModal.css';
 
 type Props = {
@@ -242,10 +243,11 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
           {/* Text */}
           <div className="edit-section">
             <label className="edit-label" htmlFor={`${fieldId}-content`}>Content</label>
-            <textarea
+            <MentionInput
+              multiline
               id={`${fieldId}-content`}
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onValueChange={setContent}
               maxLength={500}
               rows={4}
               className="edit-textarea"

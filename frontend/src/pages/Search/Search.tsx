@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabaseClient';
-import type { Profile } from '../../lib/supabaseClient';
+import { searchProfiles } from '../../lib/searchProfiles';
+import type { FoundProfile } from '../../lib/searchProfiles';
 import { usePageTitle } from '../../lib/usePageTitle';
-import { escapeLike } from '../../lib/search';
 import { displayName } from '../../lib/names';
 import './Search.css';
 import EmptyState from '../../components/EmptyState/EmptyState';
@@ -13,22 +12,14 @@ const PAGE_SIZE = 20;
 
 /* Alphabetical by username (unique), so the next page is simply "after the last one seen" */
 async function searchUsers(query: string, after?: string) {
-  let q = supabase
-    .from('profiles')
-    .select('*')
-    .ilike('username', `%${escapeLike(query)}%`)
-    .order('username', { ascending: true })
-    .limit(PAGE_SIZE + 1);
-  if (after) q = q.gt('username', after);
-  const { data, error } = await q;
-  const rows = (data as Profile[]) || [];
+  const { rows, error } = await searchProfiles(query, after, PAGE_SIZE + 1);
   return { rows: rows.slice(0, PAGE_SIZE), hasMore: rows.length > PAGE_SIZE, error: !!error };
 }
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q')?.trim() || '';
-  const [results, setResults] = useState<Profile[]>([]);
+  const [results, setResults] = useState<FoundProfile[]>([]);
   /* Which query the results belong to. Loading is derived, so the effect
      never has to set state synchronously. */
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
@@ -100,7 +91,7 @@ export default function SearchPage() {
         </div>
 
         {!query ? (
-          <EmptyState icon="search" title="Type a name to search" subtitle="Use the search bar above to find people by username." />
+          <EmptyState icon="search" title="Type a name to search" subtitle="Use the search bar above to find people by name or username." />
         ) : loading ? (
           <div className="search-skeletons">
             {[1, 2, 3].map((i) => (
@@ -121,7 +112,7 @@ export default function SearchPage() {
             action={<button type="button" className="btn-ghost" onClick={() => setVersion((v) => v + 1)}>Retry</button>}
           />
         ) : shown.length === 0 ? (
-          <EmptyState icon="search" title={`No users found for "${query}"`} subtitle="Try a different username." />
+          <EmptyState icon="search" title={`No users found for "${query}"`} subtitle="Try a different name or username." />
         ) : (
           <>
           <div className="search-results-list">

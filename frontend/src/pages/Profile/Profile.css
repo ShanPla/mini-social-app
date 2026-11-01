@@ -250,6 +250,23 @@
   margin-bottom: 20px;
 }
 
+/* Posts / Saved switch on your own profile */
+.profile-tabs { display: flex; gap: 6px; margin-bottom: 20px; }
+.profile-tab {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: inherit;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+}
+.profile-tab:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-muted); }
+.profile-tab[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--cream); }
+
 .posts-list { display: flex; flex-direction: column; gap: 16px; }
 
 /* Mobile */

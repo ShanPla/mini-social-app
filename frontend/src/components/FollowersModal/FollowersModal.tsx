@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
 import { displayName } from '../../lib/names';
+import { fetchBlockedIds } from '../../lib/blocks';
 import { useScrollLock } from '../../lib/useScrollLock';
 import { useDialog } from '../../lib/useDialog';
 import './FollowersModal.css';
@@ -38,12 +39,17 @@ export default function FollowersModal({ userId, type, onClose }: Props) {
     /* Flipping followers/following mid-fetch must not show the wrong list */
     let cancelled = false;
     (async () => {
-      const { data } = type === 'followers'
-        ? await supabase.from('follows').select('profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, bio)').eq('following_id', userId).limit(FOLLOW_LIST_CAP)
-        : await supabase.from('follows').select('profiles!follows_following_id_fkey(id, username, display_name, avatar_url, bio)').eq('follower_id', userId).limit(FOLLOW_LIST_CAP);
+      /* People you blocked stay out of the list (their profile rows are not hidden by the database) */
+      const [{ data }, blockedIds] = await Promise.all([
+        type === 'followers'
+          ? supabase.from('follows').select('profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, bio)').eq('following_id', userId).limit(FOLLOW_LIST_CAP)
+          : supabase.from('follows').select('profiles!follows_following_id_fkey(id, username, display_name, avatar_url, bio)').eq('follower_id', userId).limit(FOLLOW_LIST_CAP),
+        fetchBlockedIds(),
+      ]);
       if (cancelled) return;
+      const hidden = new Set(blockedIds ?? []);
       const rows = (data as unknown as FollowRow[]) || [];
-      setUsers(rows.map((r) => r.profiles).filter((p): p is Profile => !!p));
+      setUsers(rows.map((r) => r.profiles).filter((p): p is Profile => !!p && !hidden.has(p.id)));
       setLoadedFor(key);
     })();
     return () => { cancelled = true; };

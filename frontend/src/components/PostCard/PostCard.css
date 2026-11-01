@@ -194,6 +194,8 @@
 .post-action:disabled { cursor: default; opacity: 0.5; }
 
 .like-btn.liked { color: var(--accent); }
+.save-btn { margin-left: auto; }
+.save-btn.saved { color: var(--accent); }
 .like-icon { font-size: 1rem; }
 
 /* Admin delete style */
@@ -227,6 +229,7 @@
   .post-footer { padding-top: 4px; gap: 8px; }
   .post-action { min-height: 44px; padding: 0 8px; margin-left: -8px; }
   .post-action + .post-action { margin-left: 0; }
+  .post-action.save-btn { margin-left: auto; }
   /* Inline in the text: vertical padding grows the tap area without moving lines */
   .see-more-btn { padding: 12px 8px; margin: -12px -8px; }
 }

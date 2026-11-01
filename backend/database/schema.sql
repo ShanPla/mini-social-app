@@ -14,7 +14,8 @@
 -- Sections
 --   1. Tables and constraints
 --   2. Helper functions
---   3. Triggers (profile creation, rate limits, notifications, chat)
+--   3. Triggers (profile creation, rate limits, notifications, mentions,
+--      blocks, chat)
 --   4. RPCs
 --   5. Row level security and column grants
 --   6. Storage buckets and policies
@@ -262,9 +263,18 @@ begin
 end $$;
 
 
+-- Quoted reply: the message this one answers (same conversation, enforced by
+-- trg_check_message_reply). Goes null when the original is deleted.
+alter table messages
+  add column if not exists reply_to_id uuid references messages(id) on delete set null;
+
+create index if not exists idx_messages_reply_to on messages(reply_to_id) where reply_to_id is not null;
+
+
 -- Notifications are written ONLY by the triggers in section 3. Each type
 -- points at exactly one target: a post (like), a post + comment (comment),
--- nothing (follow) or a conversation (message).
+-- nothing (follow), a conversation (message, added) or a post plus an
+-- optional comment (mention).
 create table if not exists notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references profiles(id) on delete cascade not null,
@@ -285,7 +295,7 @@ alter table notifications
 
 -- The original type CHECK was created inline, so its name is not guaranteed.
 -- Replace the single-column CHECK(s) on `type` only when there is not
--- exactly one, correctly named, listing exactly the five types below.
+-- exactly one, correctly named, listing exactly the six types below.
 do $$
 declare
   c record;
@@ -297,8 +307,8 @@ begin
     from (
       select con.conname = 'notifications_type_check'
              and d ~ '''like''::text' and d ~ '''comment''::text' and d ~ '''follow''::text'
-             and d ~ '''message''::text' and d ~ '''added''::text'
-             and (select count(*) from regexp_matches(d, '''[^'']*''::text', 'g')) = 5 as ok
+             and d ~ '''message''::text' and d ~ '''added''::text' and d ~ '''mention''::text'
+             and (select count(*) from regexp_matches(d, '''[^'']*''::text', 'g')) = 6 as ok
         from (
           select con.conname, pg_get_constraintdef(con.oid) as d
             from pg_constraint con
@@ -326,12 +336,13 @@ begin
     end loop;
 
     alter table public.notifications add constraint notifications_type_check
-      check (type in ('like', 'comment', 'follow', 'message', 'added'));
+      check (type in ('like', 'comment', 'follow', 'message', 'added', 'mention'));
   end if;
 end $$;
 
 -- comment_id is optional on comment rows so entries written before that
--- column existed remain valid.
+-- column existed remain valid. A mention points at a post, plus the comment
+-- when the mention sits in a comment.
 alter table notifications drop constraint if exists notifications_target_check;
 alter table notifications add constraint notifications_target_check check (
   case type
@@ -340,6 +351,7 @@ alter table notifications add constraint notifications_target_check check (
     when 'follow'  then post_id is null and comment_id is null and conversation_id is null
     when 'message' then conversation_id is not null and post_id is null and comment_id is null
     when 'added'   then conversation_id is not null and post_id is null and comment_id is null
+    when 'mention' then post_id is not null and conversation_id is null
     else false
   end
 ) not valid;
@@ -373,6 +385,13 @@ create unique index if not exists idx_notifications_unread_message
   on notifications (user_id, conversation_id) where type = 'message' and is_read = false;
 create unique index if not exists idx_notifications_unique_added
   on notifications (user_id, conversation_id) where type = 'added';
+
+-- One mention entry per (recipient, post) for a mention in the post text,
+-- and per (recipient, comment) for a mention in a comment.
+create unique index if not exists idx_notifications_unique_mention_post
+  on notifications (user_id, post_id) where type = 'mention' and comment_id is null;
+create unique index if not exists idx_notifications_unique_mention_comment
+  on notifications (user_id, comment_id) where type = 'mention' and comment_id is not null;
 
 
 -- Indexes
@@ -464,6 +483,48 @@ create index if not exists idx_reports_target on reports (target_type, target_id
 create index if not exists idx_reports_open on reports (created_at desc) where resolved_at is null;
 
 
+-- Blocks. A block works both ways (is_blocked_pair, section 2): neither side
+-- sees the other's posts, comments or likes, can follow, or can message in
+-- a DM. Only the blocker can read the row (RLS), so the blocked person
+-- never learns of it from a select.
+create table if not exists blocks (
+  blocker_id uuid not null default auth.uid() references profiles(id) on delete cascade,
+  blocked_id uuid not null references profiles(id) on delete cascade,
+  created_at timestamp default timezone('utc', now()),
+  primary key (blocker_id, blocked_id),
+  constraint blocks_no_self_check check (blocker_id <> blocked_id)
+);
+
+-- The reverse lookup of is_blocked_pair (who blocked me).
+create index if not exists idx_blocks_blocked on blocks (blocked_id, blocker_id);
+
+
+-- Saved posts (bookmarks), private to the person who saved them.
+create table if not exists saved_posts (
+  user_id uuid not null default auth.uid() references profiles(id) on delete cascade,
+  post_id uuid not null references posts(id) on delete cascade,
+  created_at timestamp default timezone('utc', now()),
+  primary key (user_id, post_id)
+);
+
+create index if not exists idx_saved_posts_post on saved_posts (post_id);
+
+
+-- One reaction per person per message; changing it is an update of emoji.
+-- The emoji list is the source of truth for the picker in the app.
+create table if not exists message_reactions (
+  message_id uuid not null references messages(id) on delete cascade,
+  user_id uuid not null default auth.uid() references profiles(id) on delete cascade,
+  emoji text not null,
+  created_at timestamp default timezone('utc', now()),
+  primary key (message_id, user_id)
+);
+
+alter table message_reactions drop constraint if exists message_reactions_emoji_check;
+alter table message_reactions add constraint message_reactions_emoji_check
+  check (emoji in ('👍', '❤️', '😂', '😮', '😢', '🙏'));
+
+
 -- --------------------------------------------
 -- 2. HELPERS
 -- security definer so policies can call them without recursing into
@@ -513,6 +574,53 @@ as $$
   );
 $$;
 grant execute on function public.username_available(text) to anon, authenticated;
+
+
+-- True when either person has blocked the other. security definer because
+-- blocks is readable only by the blocker (RLS), yet the blocked side must be
+-- hidden too. Policies, RPCs and triggers all go through this one function.
+-- Authenticated only: Realtime evaluates the posts and messages policies
+-- as the subscriber, never as anon.
+create or replace function public.is_blocked_pair(a uuid, b uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public, pg_temp
+as $$
+  select exists (
+    select 1 from blocks
+    where (blocker_id = a and blocked_id = b)
+       or (blocker_id = b and blocked_id = a)
+  );
+$$;
+revoke all on function public.is_blocked_pair(uuid, uuid) from public, anon;
+grant execute on function public.is_blocked_pair(uuid, uuid) to authenticated;
+
+-- The usernames @mentioned in a text: lowercase, distinct, in order of first
+-- appearance, at most 10. The token must not touch a letter, digit or
+-- underscore on its left (so an e-mail address is not a mention) nor on its
+-- right (so a 31-character handle is not cut to 30). Internal use only.
+create or replace function public.extract_mentions(txt text)
+returns text[]
+language sql
+immutable
+set search_path = public, pg_temp
+as $$
+  select coalesce(array_agg(s.u order by s.first_pos), '{}'::text[])
+  from (
+    select lower(t.m[2]) as u, min(t.ord) as first_pos
+    from regexp_matches(
+           coalesce(txt, ''),
+           '(^|[^a-zA-Z0-9_])@([a-zA-Z0-9_]{3,30})(?![a-zA-Z0-9_])',
+           'g'
+         ) with ordinality as t(m, ord)
+    group by lower(t.m[2])
+    order by min(t.ord)
+    limit 10
+  ) s;
+$$;
+revoke all on function public.extract_mentions(text) from public, anon, authenticated;
 
 
 -- --------------------------------------------
@@ -662,6 +770,23 @@ before insert on reports
 for each row execute procedure public.enforce_rate_limit('reports', '600', '10', 'reports');
 
 
+drop trigger if exists trg_rate_limit_blocks on blocks;
+create trigger trg_rate_limit_blocks
+before insert on blocks
+for each row execute procedure public.enforce_rate_limit('blocks', '600', '30', 'blocks');
+
+drop trigger if exists trg_rate_limit_saved_posts on saved_posts;
+create trigger trg_rate_limit_saved_posts
+before insert on saved_posts
+for each row execute procedure public.enforce_rate_limit('saved_posts', '600', '60', 'saves');
+
+-- Insert and emoji change both count, so toggling cannot be used to flood.
+drop trigger if exists trg_rate_limit_message_reactions on message_reactions;
+create trigger trg_rate_limit_message_reactions
+before insert or update of emoji on message_reactions
+for each row execute procedure public.enforce_rate_limit('message_reactions', '600', '120', 'reactions');
+
+
 -- 3c. A reply must hang off a comment on the same post.
 create or replace function public.check_comment_parent()
 returns trigger
@@ -700,7 +825,8 @@ as $$
 declare owner uuid;
 begin
   select user_id into owner from posts where id = new.post_id;
-  if owner is not null and owner <> new.user_id then
+  if owner is not null and owner <> new.user_id
+     and not public.is_blocked_pair(owner, new.user_id) then
     insert into notifications (user_id, actor_id, type, post_id, created_at)
     values (owner, new.user_id, 'like', new.post_id, new.created_at)
     on conflict (user_id, actor_id, post_id) where type = 'like' do nothing;
@@ -735,7 +861,8 @@ declare owner uuid;
 begin
   if new.parent_id is null then
     select user_id into owner from posts where id = new.post_id;
-    if owner is not null and owner <> new.user_id then
+    if owner is not null and owner <> new.user_id
+       and not public.is_blocked_pair(owner, new.user_id) then
       insert into notifications (user_id, actor_id, type, post_id, comment_id, created_at)
       values (owner, new.user_id, 'comment', new.post_id, new.id, new.created_at);
     end if;
@@ -751,6 +878,9 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
+  if public.is_blocked_pair(new.following_id, new.follower_id) then
+    return null;
+  end if;
   insert into notifications (user_id, actor_id, type, created_at)
   values (new.following_id, new.follower_id, 'follow', new.created_at)
   on conflict (user_id, actor_id) where type = 'follow' do nothing;
@@ -803,6 +933,115 @@ after delete on follows
 for each row execute procedure public.unnotify_follow();
 
 
+-- Mentions. @username in a post or comment raises one [mention] bell entry
+-- for each mentioned person who is not the author, is not in a blocked pair
+-- with the author, and can see the post (public: everyone; followers-only:
+-- people who follow the author; private: nobody). Max 10 per item (see
+-- extract_mentions). Deleting the post or comment removes the entry (FKs).
+create or replace function public.notify_mentions_post()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  names text[];
+  old_names text[] := '{}';
+  widened boolean := false;
+begin
+  if new.visibility = 'private' then return null; end if;
+
+  names := public.extract_mentions(new.content);
+
+  -- On an edit only the newly added handles are announced. When the edit
+  -- also widens who can see the post, everything counts as new (the unique
+  -- indexes keep an earlier entry from doubling).
+  if tg_op = 'UPDATE' then
+    widened := (old.visibility = 'private')
+            or (old.visibility = 'followers' and new.visibility = 'public');
+    if not widened then
+      old_names := public.extract_mentions(old.content);
+    end if;
+    names := array(select n from unnest(names) n where n <> all (old_names));
+  end if;
+
+  if coalesce(array_length(names, 1), 0) = 0 then return null; end if;
+
+  insert into notifications (user_id, actor_id, type, post_id, created_at)
+  select pr.id, new.user_id, 'mention', new.id,
+         case when tg_op = 'INSERT' then new.created_at else timezone('utc', now()) end
+    from profiles pr
+   where pr.username = any (names)
+     and pr.id <> new.user_id
+     and not public.is_blocked_pair(pr.id, new.user_id)
+     and (
+       new.visibility = 'public'
+       or exists (
+         select 1 from follows f
+          where f.follower_id = pr.id and f.following_id = new.user_id
+       )
+     )
+  on conflict do nothing;
+
+  return null;
+end;
+$$;
+
+-- A comment's mention also needs the post to be visible to the mentioned
+-- person. The post owner is skipped on a top-level comment: the [comment]
+-- entry already tells them.
+create or replace function public.notify_mentions_comment()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  names text[] := public.extract_mentions(new.content);
+  owner uuid;
+  vis text;
+begin
+  if coalesce(array_length(names, 1), 0) = 0 then return null; end if;
+
+  select p.user_id, p.visibility into owner, vis from posts p where p.id = new.post_id;
+  if owner is null or vis = 'private' then return null; end if;
+
+  insert into notifications (user_id, actor_id, type, post_id, comment_id, created_at)
+  select pr.id, new.user_id, 'mention', new.post_id, new.id, new.created_at
+    from profiles pr
+   where pr.username = any (names)
+     and pr.id <> new.user_id
+     and not (new.parent_id is null and pr.id = owner)
+     and not public.is_blocked_pair(pr.id, new.user_id)
+     and not public.is_blocked_pair(pr.id, owner)
+     and (
+       pr.id = owner
+       or vis = 'public'
+       or exists (
+         select 1 from follows f
+          where f.follower_id = pr.id and f.following_id = owner
+       )
+     )
+  on conflict do nothing;
+
+  return null;
+end;
+$$;
+
+revoke all on function public.notify_mentions_post() from public, anon, authenticated;
+revoke all on function public.notify_mentions_comment() from public, anon, authenticated;
+
+drop trigger if exists trg_notify_mentions_post on posts;
+create trigger trg_notify_mentions_post
+after insert or update of content, visibility on posts
+for each row execute procedure public.notify_mentions_post();
+
+drop trigger if exists trg_notify_mentions_comment on comments;
+create trigger trg_notify_mentions_comment
+after insert on comments
+for each row execute procedure public.notify_mentions_comment();
+
+
 -- 3e. Chat.
 
 -- On new message: bump conversation ordering and mark the sender as having
@@ -835,7 +1074,8 @@ after insert on messages
 for each row execute procedure public.on_message_insert();
 
 -- Bell entry per recipient, collapsed while unread so a burst of messages
--- bumps one row instead of adding fifty.
+-- bumps one row instead of adding fifty. Nobody in a blocked pair with the
+-- sender gets one (a group can still hold both sides).
 create or replace function public.on_message_notify()
 returns trigger
 language plpgsql
@@ -848,6 +1088,7 @@ begin
     from conversation_members cm
     where cm.conversation_id = new.conversation_id
       and cm.user_id <> new.sender_id
+      and not public.is_blocked_pair(cm.user_id, new.sender_id)
   on conflict (user_id, conversation_id) where type = 'message' and is_read = false
   do update set actor_id = excluded.actor_id, created_at = excluded.created_at;
 
@@ -873,6 +1114,7 @@ as $$
 declare actor uuid := auth.uid();
 begin
   if actor is null or actor = new.user_id then return null; end if;
+  if public.is_blocked_pair(new.user_id, actor) then return null; end if;
   if not exists (select 1 from conversations c where c.id = new.conversation_id and c.is_group) then
     return null;
   end if;
@@ -1016,6 +1258,135 @@ before update on posts
 for each row execute procedure public.mark_post_edited();
 
 
+-- 3i. Blocks and chat rules.
+
+-- Blocking someone cuts what already exists between the two: follows in both
+-- directions, their bell entries about each other, and the DM disappears
+-- from the blocker's list (it returns on unblock + a new chat, or when
+-- create_conversation reopens it). Messages and posts are not deleted.
+create or replace function public.on_block_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  delete from follows
+   where (follower_id = new.blocker_id and following_id = new.blocked_id)
+      or (follower_id = new.blocked_id and following_id = new.blocker_id);
+
+  delete from notifications
+   where (user_id = new.blocker_id and actor_id = new.blocked_id)
+      or (user_id = new.blocked_id and actor_id = new.blocker_id);
+
+  update conversation_members cm
+     set hidden_at = timezone('utc', now())
+    from conversations c
+   where c.id = cm.conversation_id
+     and not c.is_group
+     and cm.user_id = new.blocker_id
+     and exists (
+       select 1 from conversation_members o
+        where o.conversation_id = c.id and o.user_id = new.blocked_id
+     );
+
+  return null;
+end;
+$$;
+
+revoke all on function public.on_block_insert() from public, anon, authenticated;
+
+drop trigger if exists trg_on_block_insert on blocks;
+create trigger trg_on_block_insert
+after insert on blocks
+for each row execute procedure public.on_block_insert();
+
+-- A DM with someone in a blocked pair is read-only: no new messages from
+-- either side. Groups are not affected (they hold other people too).
+-- P0001 with hint blocked: describeError shows the message as is.
+create or replace function public.check_message_blocked()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.sender_id is not null and exists (
+    select 1
+      from conversations c
+      join conversation_members cm on cm.conversation_id = c.id
+     where c.id = new.conversation_id
+       and not c.is_group
+       and cm.user_id <> new.sender_id
+       and public.is_blocked_pair(new.sender_id, cm.user_id)
+  ) then
+    raise exception 'You cannot message this person.'
+      using errcode = 'P0001', hint = 'blocked';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.check_message_blocked() from public, anon, authenticated;
+
+drop trigger if exists trg_check_message_blocked on messages;
+create trigger trg_check_message_blocked
+before insert on messages
+for each row execute procedure public.check_message_blocked();
+
+-- A reply must quote a message of the same conversation.
+create or replace function public.check_message_reply()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.reply_to_id is not null and not exists (
+    select 1 from messages m
+     where m.id = new.reply_to_id and m.conversation_id = new.conversation_id
+  ) then
+    raise exception 'You can only reply within the same chat.'
+      using errcode = 'P0001', hint = 'reply';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.check_message_reply() from public, anon, authenticated;
+
+drop trigger if exists trg_check_message_reply on messages;
+create trigger trg_check_message_reply
+before insert on messages
+for each row execute procedure public.check_message_reply();
+
+-- Friendly error for adding someone in a blocked pair to a group (the
+-- insert policy refuses it too; this one runs first and says why).
+create or replace function public.check_member_blocked()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is not null
+     and new.user_id <> auth.uid()
+     and public.is_blocked_pair(auth.uid(), new.user_id) then
+    raise exception 'You cannot add this person.'
+      using errcode = 'P0001', hint = 'blocked';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.check_member_blocked() from public, anon, authenticated;
+
+drop trigger if exists trg_check_member_blocked on conversation_members;
+create trigger trg_check_member_blocked
+before insert on conversation_members
+for each row execute procedure public.check_member_blocked();
+
+
 -- --------------------------------------------
 -- 4. RPCs
 -- --------------------------------------------
@@ -1060,6 +1431,12 @@ begin
   -- every member must be a real profile
   if exists (select 1 from unnest(others) o where not exists (select 1 from profiles where id = o)) then
     raise exception 'Unknown member';
+  end if;
+
+  -- nobody in a blocked pair with the caller, either way round
+  if exists (select 1 from unnest(others) o where public.is_blocked_pair(me, o)) then
+    raise exception 'You cannot message this person.'
+      using errcode = 'P0001', hint = 'blocked';
   end if;
 
   is_grp := array_length(others, 1) > 1 or clean_name is not null;
@@ -1251,13 +1628,16 @@ grant execute on function public.delete_my_account() to authenticated;
 
 
 -- fetch_posts(...)
--- One read for the feed, a profile, or a single post. Returns like and
--- comment counts plus whether the caller liked it, instead of every like
--- row, and the author and images as jsonb. security invoker: the posts
--- visibility policy decides what is returned.
+-- One read for the feed, a profile, a single post, or the caller's saved
+-- posts (p_mode = 'saved'). Returns like and comment counts plus whether the
+-- caller liked and saved it, instead of every like row, and the author and
+-- images as jsonb. security invoker: the posts policy (visibility and
+-- blocks) decides what is returned, and the likes and comments counts only
+-- count rows the caller may see.
 -- Keyset pagination on (created_at, id): pass the last row's values back
--- as p_before / p_before_id to get the next page.
--- Return columns changed (updated_at), which create or replace can not do
+-- as p_before / p_before_id to get the next page. The saved mode pages the
+-- same way, by the post's own created_at.
+-- Return columns changed (saved_by_me), which create or replace can not do
 -- (42P13), so the old signature goes first. The grants below recreate access.
 drop function if exists public.fetch_posts(text, uuid, uuid, timestamp, uuid, integer);
 create or replace function public.fetch_posts(
@@ -1279,6 +1659,7 @@ returns table (
   like_count integer,
   comment_count integer,
   liked_by_me boolean,
+  saved_by_me boolean,
   profiles jsonb,
   post_images jsonb
 )
@@ -1298,6 +1679,7 @@ as $$
     (select count(*) from likes l where l.post_id = p.id)::integer as like_count,
     (select count(*) from comments c where c.post_id = p.id)::integer as comment_count,
     exists (select 1 from likes l where l.post_id = p.id and l.user_id = auth.uid()) as liked_by_me,
+    exists (select 1 from saved_posts sp where sp.post_id = p.id and sp.user_id = auth.uid()) as saved_by_me,
     (
       select jsonb_build_object(
         'id', pr.id,
@@ -1322,6 +1704,10 @@ as $$
     and (
       p_mode <> 'following'
       or p.user_id in (select f.following_id from follows f where f.follower_id = auth.uid())
+    )
+    and (
+      p_mode <> 'saved'
+      or exists (select 1 from saved_posts sp where sp.post_id = p.id and sp.user_id = auth.uid())
     )
     and (p_before is null or (p.created_at, p.id) < (p_before, coalesce(p_before_id, p.id)))
   order by p.created_at desc, p.id desc
@@ -1358,6 +1744,7 @@ as $$
     (select count(*) from follows f where f.following_id = pr.id)::integer as follower_count
   from profiles pr
   where pr.id <> auth.uid()
+    and not public.is_blocked_pair(auth.uid(), pr.id)
     and not exists (
       select 1 from follows f where f.follower_id = auth.uid() and f.following_id = pr.id
     )
@@ -1394,6 +1781,7 @@ as $$
   from posts p
   join profiles pr on pr.id = p.user_id
   where p.created_at > timezone('utc', now()) - make_interval(days => least(greatest(coalesce(p_days, 7), 1), 30))
+    and not public.is_blocked_pair(auth.uid(), pr.id)
   group by pr.id, pr.username, pr.display_name, pr.avatar_url
   order by post_count desc, max(p.created_at) desc
   limit least(greatest(coalesce(p_limit, 5), 1), 20);
@@ -1401,6 +1789,47 @@ $$;
 
 revoke all on function public.active_posters(integer, integer) from public, anon;
 grant execute on function public.active_posters(integer, integer) to authenticated;
+
+
+-- search_profiles(q, p_after, p_limit)
+-- People whose username or display name contains q (case-insensitive,
+-- % and _ taken literally; the trigram indexes serve it), alphabetical by
+-- username, never anyone in a blocked pair with the caller. Pass the last
+-- username seen as p_after for the next page. Returns the same fields as
+-- the profile selects in the app.
+create or replace function public.search_profiles(
+  q text,
+  p_after text default null,
+  p_limit integer default 20
+)
+returns table (
+  id uuid,
+  username text,
+  display_name text,
+  bio text,
+  avatar_url text,
+  created_at timestamp
+)
+language sql
+security invoker
+stable
+set search_path = public
+as $$
+  select pr.id, pr.username, pr.display_name, pr.bio, pr.avatar_url, pr.created_at
+  from profiles pr
+  where length(trim(coalesce(q, ''))) > 0
+    and (
+      pr.username ilike '%' || replace(replace(replace(trim(q), '\', '\\'), '%', '\%'), '_', '\_') || '%'
+      or pr.display_name ilike '%' || replace(replace(replace(trim(q), '\', '\\'), '%', '\%'), '_', '\_') || '%'
+    )
+    and (p_after is null or pr.username > p_after)
+    and not public.is_blocked_pair(auth.uid(), pr.id)
+  order by pr.username asc
+  limit least(greatest(coalesce(p_limit, 20), 1), 50);
+$$;
+
+revoke all on function public.search_profiles(text, text, integer) from public, anon;
+grant execute on function public.search_profiles(text, text, integer) to authenticated;
 
 
 -- profile_stats(p_user)
@@ -1459,20 +1888,26 @@ grant update (username, display_name, bio, avatar_url) on profiles to authentica
 -- POSTS
 alter table posts enable row level security;
 
+-- Hidden when the author and the viewer are in a blocked pair, either way
+-- round (the author always sees their own posts: a pair never includes
+-- oneself). Every child table below inherits this through its posts subquery.
 drop policy if exists "Anyone can view public posts" on posts;
 create policy "Anyone can view public posts"
 on posts for select to authenticated
 using (
-  visibility = 'public'
-  or auth.uid() = user_id
-  or (
-    visibility = 'followers'
-    and exists (
-      select 1 from follows
-      where follower_id = auth.uid()
-      and following_id = posts.user_id
+  (
+    visibility = 'public'
+    or auth.uid() = user_id
+    or (
+      visibility = 'followers'
+      and exists (
+        select 1 from follows
+        where follower_id = auth.uid()
+        and following_id = posts.user_id
+      )
     )
   )
+  and not public.is_blocked_pair(auth.uid(), user_id)
 );
 
 drop policy if exists "Authenticated users can create posts" on posts;
@@ -1532,7 +1967,10 @@ alter table likes enable row level security;
 drop policy if exists "Anyone can view likes" on likes;
 create policy "Anyone can view likes"
 on likes for select to authenticated
-using (exists (select 1 from posts where id = post_id));
+using (
+  exists (select 1 from posts where id = post_id)
+  and not public.is_blocked_pair(auth.uid(), user_id)
+);
 
 drop policy if exists "Users can like posts" on likes;
 create policy "Users can like posts"
@@ -1550,10 +1988,16 @@ grant insert (user_id, post_id) on likes to authenticated;
 
 alter table comments enable row level security;
 
+-- Comments by someone in a blocked pair with the viewer are hidden (replies
+-- under a hidden comment stay, so the client drops comments whose parent_id
+-- is not in the list it received).
 drop policy if exists "Anyone can view comments" on comments;
 create policy "Anyone can view comments"
 on comments for select to authenticated
-using (exists (select 1 from posts where id = post_id));
+using (
+  exists (select 1 from posts where id = post_id)
+  and not public.is_blocked_pair(auth.uid(), user_id)
+);
 
 drop policy if exists "Users can add comments" on comments;
 create policy "Users can add comments"
@@ -1589,7 +2033,10 @@ alter table comment_likes enable row level security;
 drop policy if exists "Anyone can view comment likes" on comment_likes;
 create policy "Anyone can view comment likes"
 on comment_likes for select to authenticated
-using (exists (select 1 from comments where id = comment_id));
+using (
+  exists (select 1 from comments where id = comment_id)
+  and not public.is_blocked_pair(auth.uid(), user_id)
+);
 
 drop policy if exists "Users can like comments" on comment_likes;
 create policy "Users can like comments"
@@ -1616,7 +2063,10 @@ using (true);
 drop policy if exists "Users can follow others" on follows;
 create policy "Users can follow others"
 on follows for insert to authenticated
-with check (auth.uid() = follower_id);
+with check (
+  auth.uid() = follower_id
+  and not public.is_blocked_pair(follower_id, following_id)
+);
 
 drop policy if exists "Users can unfollow" on follows;
 create policy "Users can unfollow"
@@ -1682,7 +2132,8 @@ create policy "Members can view co-members"
 on conversation_members for select to authenticated
 using (is_conversation_member(conversation_id));
 
--- Existing members can add people to a group (not to a DM), up to 50.
+-- Existing members can add people to a group (not to a DM), up to 50, and
+-- nobody in a blocked pair with the person adding them.
 drop policy if exists "Members can add people to groups" on conversation_members;
 create policy "Members can add people to groups"
 on conversation_members for insert to authenticated
@@ -1693,6 +2144,7 @@ with check (
     where c.id = conversation_id and c.is_group = true
   )
   and conversation_member_count(conversation_id) < 50
+  and not public.is_blocked_pair(auth.uid(), user_id)
 );
 
 -- Users may update only their own row, and only last_read_at.
@@ -1753,7 +2205,7 @@ using (sender_id = auth.uid());
 
 -- No update: messages are immutable.
 revoke insert, update on messages from authenticated;
-grant insert (conversation_id, sender_id, content, image_url) on messages to authenticated;
+grant insert (conversation_id, sender_id, content, image_url, reply_to_id) on messages to authenticated;
 
 
 -- REPORTS: file a report, see your own; admins see all and mark them
@@ -1788,6 +2240,104 @@ revoke all on reports from anon, authenticated;
 grant select on reports to authenticated;
 grant insert (reporter_id, target_type, target_id, reason) on reports to authenticated;
 grant update (resolved_at, resolved_by) on reports to authenticated;
+
+
+-- BLOCKS: you see, add and remove only your own rows. A blocked person can
+-- not select the row, so they cannot tell they were blocked from the table.
+alter table blocks enable row level security;
+
+drop policy if exists "Users can view own blocks" on blocks;
+create policy "Users can view own blocks"
+on blocks for select to authenticated
+using (blocker_id = auth.uid());
+
+drop policy if exists "Users can block people" on blocks;
+create policy "Users can block people"
+on blocks for insert to authenticated
+with check (blocker_id = auth.uid());
+
+drop policy if exists "Users can unblock people" on blocks;
+create policy "Users can unblock people"
+on blocks for delete to authenticated
+using (blocker_id = auth.uid());
+
+revoke all on blocks from anon, authenticated;
+grant select, delete on blocks to authenticated;
+grant insert (blocker_id, blocked_id) on blocks to authenticated;
+
+
+-- SAVED POSTS: all private to the saver. Only posts they can see can be saved.
+alter table saved_posts enable row level security;
+
+drop policy if exists "Users can view own saved posts" on saved_posts;
+create policy "Users can view own saved posts"
+on saved_posts for select to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists "Users can save posts" on saved_posts;
+create policy "Users can save posts"
+on saved_posts for insert to authenticated
+with check (
+  user_id = auth.uid()
+  and exists (select 1 from posts where id = post_id)
+);
+
+drop policy if exists "Users can unsave posts" on saved_posts;
+create policy "Users can unsave posts"
+on saved_posts for delete to authenticated
+using (user_id = auth.uid());
+
+revoke all on saved_posts from anon, authenticated;
+grant select, delete on saved_posts to authenticated;
+grant insert (user_id, post_id) on saved_posts to authenticated;
+
+
+-- MESSAGE REACTIONS: members of the conversation see everyone's reactions;
+-- you add, change and remove only your own, and only while you are a member.
+alter table message_reactions enable row level security;
+
+drop policy if exists "Members can view reactions" on message_reactions;
+create policy "Members can view reactions"
+on message_reactions for select to authenticated
+using (
+  exists (
+    select 1 from messages m
+    where m.id = message_id and is_conversation_member(m.conversation_id)
+  )
+);
+
+drop policy if exists "Members can react" on message_reactions;
+create policy "Members can react"
+on message_reactions for insert to authenticated
+with check (
+  user_id = auth.uid()
+  and exists (
+    select 1 from messages m
+    where m.id = message_id and is_conversation_member(m.conversation_id)
+  )
+);
+
+drop policy if exists "Users can change own reaction" on message_reactions;
+create policy "Users can change own reaction"
+on message_reactions for update to authenticated
+using (user_id = auth.uid())
+with check (
+  user_id = auth.uid()
+  and exists (
+    select 1 from messages m
+    where m.id = message_id and is_conversation_member(m.conversation_id)
+  )
+);
+
+drop policy if exists "Users can remove own reaction" on message_reactions;
+create policy "Users can remove own reaction"
+on message_reactions for delete to authenticated
+using (user_id = auth.uid());
+
+revoke all on message_reactions from anon, authenticated;
+grant select, delete on message_reactions to authenticated;
+grant insert (message_id, user_id, emoji) on message_reactions to authenticated;
+grant update (emoji) on message_reactions to authenticated;
 
 
 -- ANON: the app is login-only. Logged-out visitors get the auth pages and
@@ -1944,11 +2494,12 @@ using (
 
 -- 7a. postgres_changes. RLS scopes INSERT/UPDATE events per subscriber.
 --     posts feeds the [new posts] banner; the rest drive chat and the bell.
+--     message_reactions drives live reactions in an open chat.
 do $$
 declare t text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    foreach t in array array['posts', 'notifications', 'messages', 'conversation_members', 'conversations'] loop
+    foreach t in array array['posts', 'notifications', 'messages', 'conversation_members', 'conversations', 'message_reactions'] loop
       if not exists (
         select 1 from pg_publication_tables
         where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
@@ -1965,6 +2516,9 @@ alter table posts replica identity default;
 alter table notifications replica identity default;
 alter table messages replica identity default;
 alter table conversation_members replica identity default;
+-- Reactions too: a DELETE event carries only the key (message_id, user_id),
+-- which is all the open chat needs to drop that reaction.
+alter table message_reactions replica identity default;
 
 -- 7b. Private broadcast channels for typing indicators: topic typing:{conversation_id}.
 --     Only members can join/send (Realtime Authorization via realtime.messages RLS).

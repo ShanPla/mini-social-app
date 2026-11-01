@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, MessageCircle, UserPlus, MessageSquare, Users } from 'lucide-react';
+import { Heart, MessageCircle, UserPlus, MessageSquare, Users, AtSign } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { useToast } from '../../context/ToastContext';
@@ -12,10 +12,12 @@ import './Notifications.css';
 
 type Notification = {
   id: string;
-  type: 'like' | 'comment' | 'follow' | 'message' | 'added';
+  type: 'like' | 'comment' | 'follow' | 'message' | 'added' | 'mention';
   is_read: boolean;
   created_at: string;
   post_id: string | null;
+  /* Set on a mention inside a comment; null for a mention in the post text */
+  comment_id: string | null;
   conversation_id: string | null;
   actor: { id: string; username: string; display_name: string | null; avatar_url: string | null; };
   conversation: { id: string; is_group: boolean; name: string | null } | null;
@@ -27,7 +29,7 @@ type NotificationsPageProps = {
 
 const PAGE_SIZE = 20;
 const SELECT =
-  'id, type, is_read, created_at, post_id, conversation_id, ' +
+  'id, type, is_read, created_at, post_id, comment_id, conversation_id, ' +
   'actor:actor_id(id, username, display_name, avatar_url), ' +
   'conversation:conversation_id(id, is_group, name)';
 
@@ -162,6 +164,7 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
         ? `messaged ${n.conversation.name || 'the group'}`
         : 'sent you a message';
       case 'added': return `added you to ${n.conversation?.name || 'a group'}`;
+      case 'mention': return n.comment_id ? 'mentioned you in a comment' : 'mentioned you in a post';
     }
   };
 
@@ -173,6 +176,7 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
       case 'follow': return <UserPlus size={13} />;
       case 'message': return <MessageSquare size={13} />;
       case 'added': return <Users size={13} />;
+      case 'mention': return <AtSign size={13} />;
     }
   };
 

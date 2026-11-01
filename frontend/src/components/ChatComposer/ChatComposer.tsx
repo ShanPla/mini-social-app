@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ImagePlus, Send, X } from 'lucide-react';
+import { describeError } from '../../lib/errors';
+import { replyPreview } from '../../lib/replies';
 import { supabase } from '../../lib/supabaseClient';
 import type { ChatMessage } from '../../lib/supabaseClient';
 import { useCooldown } from '../../lib/useCooldown';
@@ -23,6 +25,10 @@ type Props = {
   onSent: (message: ChatMessage) => void;
   /* Stable function: tells the other side we are (not) typing */
   sendTyping: (isTyping: boolean) => void;
+  /* The message being replied to (quote bar above the box), who sent it, and how to drop it */
+  replyTo: ChatMessage | null;
+  replyToName: string;
+  onClearReply: () => void;
 };
 
 /*
@@ -30,7 +36,7 @@ type Props = {
  * state, so typing re-renders only this small component and never the
  * message list above it.
  */
-export default function ChatComposer({ conversationId, userId, ready, autoFocus, onSent, sendTyping }: Props) {
+export default function ChatComposer({ conversationId, userId, ready, autoFocus, onSent, sendTyping, replyTo, replyToName, onClearReply }: Props) {
   const [text, setText] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -47,6 +53,12 @@ export default function ChatComposer({ conversationId, userId, ready, autoFocus,
   useEffect(() => {
     if (autoFocus && ready) textareaRef.current?.focus();
   }, [autoFocus, ready, conversationId]);
+
+  /* Pressing Reply on a message moves the cursor to the box */
+  const replyId = replyTo?.id;
+  useEffect(() => {
+    if (replyId) textareaRef.current?.focus();
+  }, [replyId]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
@@ -117,22 +129,29 @@ export default function ChatComposer({ conversationId, userId, ready, autoFocus,
 
     const { data, error: insertError } = await supabase
       .from('messages')
-      .insert({ conversation_id: conversationId, sender_id: userId, content: body || null, image_url })
-      .select()
+      .insert({ conversation_id: conversationId, sender_id: userId, content: body || null, image_url, reply_to_id: replyTo?.id ?? null })
+      .select('*, reply:reply_to_id(id, sender_id, content, image_url)')
       .single();
 
     if (insertError || !data) {
       /* Do not leave an orphaned upload behind */
       if (image_url) supabase.storage.from('chat-images').remove([image_url]);
       const tooLong = insertError?.code === '23514' || body.length > MESSAGE_MAX;
-      setError(tooLong
-        ? { message: `Message is too long (max ${MESSAGE_MAX} characters).`, canRetry: false }
-        : { message: 'Could not send.', canRetry: true });
+      /* P0001 carries our own wording (blocked, reply in another chat, rate limit) */
+      if (insertError?.code === 'P0001') {
+        setError({ message: describeError(insertError, 'Could not send.'), canRetry: false });
+        if (insertError.hint === 'reply') onClearReply();
+      } else {
+        setError(tooLong
+          ? { message: `Message is too long (max ${MESSAGE_MAX} characters).`, canRetry: false }
+          : { message: 'Could not send.', canRetry: true });
+      }
       setSending(false);
       return;
     }
 
     onSent(data as ChatMessage);
+    onClearReply();
     setText('');
     clearImage();
     sendTyping(false);
@@ -143,6 +162,11 @@ export default function ChatComposer({ conversationId, userId, ready, autoFocus,
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Escape' && replyTo) {
+      e.preventDefault();
+      onClearReply();
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -151,6 +175,18 @@ export default function ChatComposer({ conversationId, userId, ready, autoFocus,
 
   return (
     <div className="chat-composer">
+      {/* Quote bar: the message this one will reply to */}
+      {replyTo && (
+        <div className="chat-reply-bar">
+          <div className="chat-reply-text">
+            <span className="chat-reply-label">Replying to {replyToName}</span>
+            <span className="chat-reply-preview">{replyPreview(replyTo.content, replyTo.image_url)}</span>
+          </div>
+          <button type="button" className="chat-reply-close" onClick={onClearReply} title="Cancel reply" aria-label="Cancel reply">
+            <X size={14} />
+          </button>
+        </div>
+      )}
       {imagePreview && (
         <div className="chat-image-preview">
           <img src={imagePreview} alt="Preview" />

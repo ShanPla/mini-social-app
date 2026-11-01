@@ -41,6 +41,8 @@
   --chip-message-fg: #7048e8;
   --chip-added-bg: #e6fcf5;
   --chip-added-fg: #09815e;
+  --chip-mention-bg: #fbf0d3;
+  --chip-mention-fg: #8c6a12;
   /* Hover on controls sitting on an ink surface; soft glow around a focused field */
   --on-ink-hover: rgba(255, 255, 255, 0.15);
   --focus-halo: rgba(26, 20, 16, 0.06);
@@ -89,6 +91,8 @@
   --chip-message-fg: #b8a2ff;
   --chip-added-bg: rgba(56, 217, 169, 0.14);
   --chip-added-fg: #63e6be;
+  --chip-mention-bg: rgba(217, 179, 95, 0.16);
+  --chip-mention-fg: #d9b35f;
   --on-ink-hover: rgba(0, 0, 0, 0.12);
   --focus-halo: rgba(255, 255, 255, 0.06);
   color-scheme: dark;

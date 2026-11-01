@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useId } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
-import { supabase } from '../../lib/supabaseClient';
-import type { Profile } from '../../lib/supabaseClient';
-import { escapeLike } from '../../lib/search';
+import { searchProfiles } from '../../lib/searchProfiles';
+import type { FoundProfile } from '../../lib/searchProfiles';
 import { displayName } from '../../lib/names';
 import './SearchBar.css';
 
@@ -12,7 +11,7 @@ export default function SearchBar() {
   const [query, setQuery] = useState('');
   /* Results remember which query produced them, so a stale list is never
      shown for a newer query and loading needs no state of its own */
-  const [results, setResults] = useState<{ q: string; list: Profile[] }>({ q: '', list: [] });
+  const [results, setResults] = useState<{ q: string; list: FoundProfile[] }>({ q: '', list: [] });
   const [showDropdown, setShowDropdown] = useState(false);
   /* Highlighted suggestion for the arrow keys; focus itself stays in the input */
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -42,13 +41,9 @@ export default function SearchBar() {
 
     let cancelled = false;
     debounceRef.current = setTimeout(async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, bio, avatar_url')
-        .ilike('username', `%${escapeLike(q)}%`)
-        .limit(6);
+      const { rows } = await searchProfiles(q, null, 6);
       if (cancelled) return;
-      setResults({ q, list: (data as Profile[]) || [] });
+      setResults({ q, list: rows });
       setShowDropdown(true);
     }, 300);
 

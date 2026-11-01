@@ -24,6 +24,7 @@ function post(id: string, urls: string[], legacy: string | null = null): Post {
     like_count: 0,
     comment_count: 0,
     liked_by_me: false,
+    saved_by_me: false,
     post_images: urls.map((image_url, i) => ({ id: `${id}-${i}`, post_id: id, image_url, position: i })),
   };
 }

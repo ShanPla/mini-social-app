@@ -68,6 +68,8 @@ export function usePostList(query: PostsQuery, refreshKey = 0, enabled = true) {
      still being published, and the new post would otherwise show twice */
   const prepend = useCallback((post: Post) => setPosts((prev) => [post, ...prev.filter((p) => p.id !== post.id)]), []);
   const remove = useCallback((id: string) => setPosts((prev) => prev.filter((p) => p.id !== id)), []);
+  /* After a block: everything by that author leaves the list */
+  const removeByAuthor = useCallback((userId: string) => setPosts((prev) => prev.filter((p) => p.user_id !== userId)), []);
 
-  return { posts, loading, loadingMore, hasMore, error, moreError, loadMore, prepend, remove };
+  return { posts, loading, loadingMore, hasMore, error, moreError, loadMore, prepend, remove, removeByAuthor };
 }

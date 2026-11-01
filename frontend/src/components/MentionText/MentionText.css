@@ -1,0 +1,9 @@
+.mention-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mention-link:hover {
+  text-decoration: underline;
+}

@@ -12,6 +12,7 @@ import { revokePreview, useRevokeOnUnmount } from '../../lib/useObjectUrls';
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL, SUBMIT_SHORTCUT_ARIA } from '../../lib/submitShortcut';
 import { readDraft, writeDraft } from '../../lib/drafts';
 import CharCount from '../CharCount/CharCount';
+import MentionInput from '../MentionInput/MentionInput';
 import './ComposePost.css';
 
 type Visibility = 'public' | 'followers' | 'private';
@@ -76,7 +77,7 @@ export default function ComposePost({
     const { data: postData, error: postError } = await supabase
       .from('posts')
       .insert({ user_id: userId, content: content.trim(), visibility })
-      .select('*, profiles(id, username, display_name, avatar_url)')
+      .select('*, profiles!posts_user_id_fkey(id, username, display_name, avatar_url)')
       .single();
 
     if (postError || !postData) {
@@ -86,7 +87,7 @@ export default function ComposePost({
     }
 
     /* Same shape fetch_posts returns, so the card needs no special case */
-    const newPost: Post = { ...(postData as Post), updated_at: null, like_count: 0, comment_count: 0, liked_by_me: false, post_images: [] };
+    const newPost: Post = { ...(postData as Post), updated_at: null, like_count: 0, comment_count: 0, liked_by_me: false, saved_by_me: false, post_images: [] };
 
     if (imageFiles.length > 0) {
       const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
@@ -156,12 +157,13 @@ export default function ComposePost({
     <div className="compose-card">
       <h3 className="compose-label">{label}</h3>
       <form onSubmit={handlePost}>
-        <textarea
+        <MentionInput
+          multiline
           aria-label={label}
           value={content}
-          onChange={(e) => {
-            setContent(e.target.value);
-            writeDraft(draftKey, e.target.value);
+          onValueChange={(v) => {
+            setContent(v);
+            writeDraft(draftKey, v);
           }}
           placeholder={placeholder}
           maxLength={500}

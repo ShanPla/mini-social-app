@@ -106,6 +106,7 @@
 .bell-item-icon--comment { background: var(--chip-comment-bg); color: var(--chip-comment-fg); }
 .bell-item-icon--follow { background: var(--chip-follow-bg); color: var(--chip-follow-fg); }
 .bell-item-icon--message { background: var(--chip-message-bg); color: var(--chip-message-fg); }
+.bell-item-icon--mention { background: var(--chip-mention-bg); color: var(--chip-mention-fg); }
 .bell-item-icon--added { background: var(--chip-added-bg); color: var(--chip-added-fg); }
 
 .bell-item-avatar {

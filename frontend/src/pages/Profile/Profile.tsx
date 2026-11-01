@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useId } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ImagePlus, Link2, MessageCircle, Settings, Flag } from 'lucide-react';
+import { ImagePlus, Link2, MessageCircle, Settings, Flag, Ban } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import Lightbox from '../../components/Lightbox/Lightbox';
@@ -11,6 +11,8 @@ import PostCard from '../../components/PostCard/PostCard';
 import ComposePost from '../../components/ComposePost/ComposePost';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import ReportModal from '../../components/ReportModal/ReportModal';
+import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
+import { blockUser, unblockUser, haveBlocked } from '../../lib/blocks';
 import FollowersModal from '../../components/FollowersModal/FollowersModal';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { fetchProfileStats } from '../../lib/profileStats';
@@ -56,6 +58,11 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const [saveLoading, setSaveLoading] = useState(false);
   const [showAvatarLightbox, setShowAvatarLightbox] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showBlock, setShowBlock] = useState(false);
+  /* You blocked this person: their content is replaced by an Unblock prompt */
+  const [blocked, setBlocked] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
+  const [tab, setTab] = useState<'posts' | 'saved'>('posts');
   const [followModal, setFollowModal] = useState<'followers' | 'following' | null>(null);
 
   /* Avatar state */
@@ -69,7 +76,12 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
 
   const isOwnProfile = currentUserId === userId;
   /* Paged through fetch_posts; the stat below is a real count, not the page length */
-  const { posts, loading: postsLoading, loadingMore, hasMore, error: postsError, moreError, loadMore, prepend, remove } = usePostList({ author: userId }, version, !!userId);
+  const authored = usePostList({ author: userId }, version, !!userId && tab === 'posts');
+  /* Only your own profile has a Saved tab; fetch_posts returns just your saves */
+  const savedList = usePostList({ mode: 'saved' }, version, isOwnProfile && tab === 'saved');
+  const active = isOwnProfile && tab === 'saved' ? savedList : authored;
+  const { posts, loading: postsLoading, loadingMore, hasMore, error: postsError, moreError, loadMore } = active;
+  const { prepend, remove } = authored;
 
   usePageTitle(profile ? `@${profile.username}` : 'Profile');
 
@@ -153,6 +165,14 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
       }
     })();
 
+    (async () => {
+      if (currentUserId && currentUserId !== userId) {
+        const isBlocked = await haveBlocked(userId);
+        if (cancelled) return;
+        setBlocked(isBlocked);
+      }
+    })();
+
     return () => { cancelled = true; };
   }, [userId, currentUserId, version]);
 
@@ -172,7 +192,9 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     } else {
       const { error } = await supabase.from('follows').insert({ follower_id: currentUserId, following_id: userId });
       /* The bell notification is raised server-side by trg_notify_follow */
-      if (error) {
+      if (error?.code === '42501') {
+        toast.error('You cannot follow this person.');
+      } else if (error) {
         toast.error(describeError(error, 'Could not follow. Please try again.'));
       } else {
         setIsFollowing(true);
@@ -271,6 +293,37 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
       toast.success('Profile saved');
     }
     setSaveLoading(false);
+  };
+
+  const handleBlockConfirmed = async () => {
+    if (!userId || blockLoading) return;
+    setBlockLoading(true);
+    const error = await blockUser(userId);
+    setShowBlock(false);
+    if (error) {
+      toast.error(describeError(error, 'Could not block this person.'));
+    } else {
+      /* The database removed any follows between you */
+      setBlocked(true);
+      setIsFollowing(false);
+      toast.success('Blocked');
+    }
+    setBlockLoading(false);
+  };
+
+  const handleUnblock = async () => {
+    if (!userId || blockLoading) return;
+    setBlockLoading(true);
+    const error = await unblockUser(userId);
+    if (error) {
+      toast.error(describeError(error, 'Could not unblock this person.'));
+    } else {
+      setBlocked(false);
+      /* Their posts were hidden while blocked: load them again */
+      setVersion((v) => v + 1);
+      toast.success('Unblocked');
+    }
+    setBlockLoading(false);
   };
 
   const handleDelete = (postId: string) => {
@@ -488,7 +541,12 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                   <Link to="/settings" className="btn-ghost profile-settings-btn"><Settings size={14} /> Settings</Link>
                 </>
               )}
-              {!isOwnProfile && currentUserId && (
+              {!isOwnProfile && currentUserId && blocked && (
+                <button className="btn-ghost" onClick={handleUnblock} disabled={blockLoading}>
+                  {blockLoading ? '…' : 'Unblock'}
+                </button>
+              )}
+              {!isOwnProfile && currentUserId && !blocked && (
                 <button
                   className={isFollowing ? 'btn-ghost' : 'btn-primary'}
                   onClick={handleFollow}
@@ -498,7 +556,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                 </button>
               )}
               {/* Message button — other people's profiles only */}
-              {!isOwnProfile && currentUserId && (
+              {!isOwnProfile && currentUserId && !blocked && (
                 <button className="btn-ghost profile-message-btn" onClick={handleMessage} disabled={messageLoading}>
                   <MessageCircle size={14} /> {messageLoading ? 'Opening…' : 'Message'}
                 </button>
@@ -506,6 +564,11 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
               {!isOwnProfile && currentUserId && (
                 <button className="btn-ghost profile-report-btn" onClick={() => setShowReport(true)}>
                   <Flag size={14} /> Report user
+                </button>
+              )}
+              {!isOwnProfile && currentUserId && !blocked && (
+                <button className="btn-ghost profile-report-btn" onClick={() => setShowBlock(true)}>
+                  <Ban size={14} /> Block
                 </button>
               )}
             </div>
@@ -516,11 +579,25 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
 
         <section className="profile-posts">
           {/* Your own profile doubles as a place to publish from */}
-          {isOwnProfile && currentUserId && (
+          {isOwnProfile && currentUserId && tab === 'posts' && (
             <ComposePost userId={currentUserId} onPosted={(post) => { prepend(post); setPostCount((c) => (c === null ? c : c + 1)); }} />
           )}
-          <h2 className="profile-posts-title">Posts</h2>
-          {postsLoading ? (
+          {isOwnProfile ? (
+            <div className="profile-tabs" role="group" aria-label="Show">
+              <button type="button" className="profile-tab" aria-pressed={tab === 'posts'} onClick={() => setTab('posts')}>Posts</button>
+              <button type="button" className="profile-tab" aria-pressed={tab === 'saved'} onClick={() => setTab('saved')}>Saved</button>
+            </div>
+          ) : (
+            <h2 className="profile-posts-title">Posts</h2>
+          )}
+          {blocked ? (
+            <EmptyState
+              icon="alert"
+              title="You blocked this person"
+              subtitle="You cannot see each other's posts and they cannot message you. Unblock to see their posts again."
+              action={<button type="button" className="btn-ghost" onClick={handleUnblock} disabled={blockLoading}>Unblock</button>}
+            />
+          ) : postsLoading ? (
             <div className="skeleton-posts">
               {[1, 2].map((i) => (
                 <div key={i} className="skeleton-post-card">
@@ -538,16 +615,28 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
               action={<button type="button" className="btn-ghost" onClick={() => setVersion((v) => v + 1)}>Retry</button>}
             />
           ) : posts.length === 0 ? (
-            <EmptyState
-              icon="pen"
-              title="No posts yet"
-              subtitle={isOwnProfile ? "Share something with the world." : "This user hasn't posted anything yet."}
-            />
+            tab === 'saved' && isOwnProfile ? (
+              <EmptyState icon="pen" title="Nothing saved yet" subtitle="Tap the bookmark on a post to keep it here." />
+            ) : (
+              <EmptyState
+                icon="pen"
+                title="No posts yet"
+                subtitle={isOwnProfile ? "Share something with the world." : "This user hasn't posted anything yet."}
+              />
+            )
           ) : (
             <>
               <div className="posts-list">
                 {posts.map((post) => (
-                  <PostCard key={post.id} post={post} currentUserId={currentUserId} isAdmin={isAdmin} onDelete={handleDelete} />
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    currentUserId={currentUserId}
+                    isAdmin={isAdmin}
+                    onDelete={(id) => (tab === 'saved' ? savedList.remove(id) : handleDelete(id))}
+                    onBlocked={active.removeByAuthor}
+                    onSaveChange={(id, nowSaved) => { if (!nowSaved && tab === 'saved') savedList.remove(id); }}
+                  />
                 ))}
               </div>
               <LoadMore hasMore={hasMore} loading={loadingMore} onMore={loadMore} failed={!!moreError} endLabel="No more posts" />
@@ -556,6 +645,17 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
         </section>
         {showReport && userId && (
           <ReportModal targetType="user" targetId={userId} onClose={() => setShowReport(false)} />
+        )}
+        {showBlock && (
+          <ConfirmModal
+            title={`Block @${profile.username}?`}
+            message="They will not see your posts or be able to message you, and any follows between you are removed. You can unblock them anytime."
+            confirmLabel="Block"
+            cancelLabel="Cancel"
+            danger
+            onConfirm={handleBlockConfirmed}
+            onCancel={() => setShowBlock(false)}
+          />
         )}
         {followModal && userId && (
           <FollowersModal

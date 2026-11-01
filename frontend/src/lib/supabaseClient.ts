@@ -46,6 +46,8 @@ export type Post = {
   like_count: number;
   comment_count: number;
   liked_by_me: boolean;
+  /* From fetch_posts: whether the caller saved this post */
+  saved_by_me: boolean;
 };
 
 export type Comment = {
@@ -77,6 +79,9 @@ export type ChatMessage = {
   content: string | null;
   image_url: string | null;
   created_at: string;
+  /* Set when this message quotes another one; reply is the embedded original (null once it was deleted) */
+  reply_to_id?: string | null;
+  reply?: { id: string; sender_id: string | null; content: string | null; image_url: string | null } | null;
 };
 
 export type Conversation = {

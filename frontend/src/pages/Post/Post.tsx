@@ -55,7 +55,7 @@ export default function PostPage({ currentUserId, isAdmin }: PostPageProps) {
           <PostSkeletons count={1} />
         ) : post ? (
           /* Someone arriving from a comment notification wants the comments open */
-          <PostCard post={post} currentUserId={currentUserId} isAdmin={isAdmin} onDelete={handleDelete} defaultShowComments />
+          <PostCard post={post} currentUserId={currentUserId} isAdmin={isAdmin} onDelete={handleDelete} onBlocked={handleDelete} defaultShowComments />
         ) : failed ? (
           <EmptyState
             icon="alert"

@@ -52,7 +52,7 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
   const [followingIds, setFollowingIds] = useState<Set<string> | null>(null);
   /* Bumped by the [new posts] banner to reload the current tab in place */
   const [refreshKey, setRefreshKey] = useState(0);
-  const { posts, loading, loadingMore, hasMore, error, moreError, loadMore, prepend, remove } = usePostList({ mode: feedType }, refreshKey);
+  const { posts, loading, loadingMore, hasMore, error, moreError, loadMore, prepend, remove, removeByAuthor } = usePostList({ mode: feedType }, refreshKey);
   const restored = useRef(false);
 
   usePageTitle('Feed');
@@ -211,7 +211,7 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
               <>
                 <div className="posts-list">
                   {posts.map((post) => (
-                    <PostCard key={post.id} post={post} currentUserId={userId} isAdmin={isAdmin} onDelete={remove} />
+                    <PostCard key={post.id} post={post} currentUserId={userId} isAdmin={isAdmin} onDelete={remove} onBlocked={removeByAuthor} />
                   ))}
                 </div>
                 <LoadMore hasMore={hasMore} loading={loadingMore} onMore={loadMore} failed={!!moreError} />

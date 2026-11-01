@@ -1,9 +1,13 @@
-import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
+import { useState, useEffect, useRef, useCallback, useId, Fragment } from 'react';
 import { ChevronsDown } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabaseClient';
 import type { ChatMember, ChatMessage } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
+import { useToast } from '../../context/ToastContext';
+import { describeError } from '../../lib/errors';
+import { NO_REACTIONS, upsertReaction, removeReaction } from '../../lib/reactions';
+import type { Reaction } from '../../lib/reactions';
 import { displayName } from '../../lib/names';
 import { parseDbDate } from '../../lib/timeAgo';
 import {
@@ -39,6 +43,16 @@ function mergeMessages(a: ChatMessage[], b: ChatMessage[]): ChatMessage[] {
   for (const m of b) byId.set(m.id, m);
   return [...byId.values()].sort((x, y) =>
     parseDbDate(x.created_at).getTime() - parseDbDate(y.created_at).getTime() || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+}
+
+/* Every message read: the quoted original comes along as [reply] */
+const MESSAGE_SELECT = '*, reply:reply_to_id(id, sender_id, content, image_url)';
+
+/* A live message has no [reply] embed: borrow the original from the list when it is loaded */
+function withLocalReply(m: ChatMessage, loaded: ChatMessage[]): ChatMessage {
+  if (!m.reply_to_id || m.reply !== undefined) return m;
+  const orig = loaded.find((x) => x.id === m.reply_to_id);
+  return orig ? { ...m, reply: { id: orig.id, sender_id: orig.sender_id, content: orig.content, image_url: orig.image_url } } : m;
 }
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -86,6 +100,12 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
   const [signTick, setSignTick] = useState(0);
   /* senders who are no longer members (left the group / deleted) */
   const [extraSenders, setExtraSenders] = useState<SenderMap>({});
+  /* message id -> reactions (an unchanged message keeps the same array, so its bubble stays memoised) */
+  const [reactions, setReactions] = useState<Record<string, Reaction[]>>({});
+  const [reactionVersion, setReactionVersion] = useState(0);
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  /* People I blocked: their group messages are collapsed */
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(() => new Set());
 
   const listRef = useRef<HTMLDivElement>(null);
   /* Ids unsent while a fetch was in flight, so the fetched copy does not bring them back */
@@ -98,11 +118,41 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
   const hasMoreRef = useRef(false);
   const loadingOlderRef = useRef(false);
   const mountedRef = useRef(true);
+  const toast = useToast();
+  const toastRef = useRef(toast);
+  const instanceId = useId();
+  const reactionsRef = useRef<Record<string, Reaction[]>>({});
+  const messagesRef = useRef<ChatMessage[]>([]);
+  const membersRef = useRef<ChatMember[]>([]);
+  const extraSendersRef = useRef<SenderMap>({});
+  /* Messages whose reactions are loaded (or that are new and have none) */
+  const reactionsLoadedRef = useRef(new Set<string>());
 
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  /* A live reply whose original is not on screen: fetch the original once */
+  const fetchReplyFor = useCallback(async (messageId: string, originalId: string) => {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('id, sender_id, content, image_url')
+      .eq('id', originalId)
+      .maybeSingle();
+    if (!mountedRef.current || error) return;
+    const reply = (data as ChatMessage['reply']) ?? null;
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, reply } : m)));
+  }, []);
+
+  /* Latest values for the stable callbacks below */
+  useEffect(() => {
+    toastRef.current = toast;
+    reactionsRef.current = reactions;
+    messagesRef.current = messages;
+    membersRef.current = conv?.members || [];
+    extraSendersRef.current = extraSenders;
+  });
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const el = listRef.current;
@@ -117,7 +167,7 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     (async () => {
       const { data, error: fetchError } = await supabase
         .from('messages')
-        .select('*')
+        .select(MESSAGE_SELECT)
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
@@ -161,7 +211,11 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
   useEffect(() => {
     return onMessage(conversationId, (e) => {
       if (e.type === 'INSERT') {
-        setMessages((prev) => (prev.some((m) => m.id === e.message.id) ? prev : [...prev, e.message]));
+        const incoming = withLocalReply(e.message, messagesRef.current);
+        /* A new message has no reactions yet: nothing to fetch for it */
+        reactionsLoadedRef.current.add(incoming.id);
+        setMessages((prev) => (prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]));
+        if (incoming.reply_to_id && incoming.reply === undefined) void fetchReplyFor(incoming.id, incoming.reply_to_id);
         const senderId = e.message.sender_id;
         setTyping((prev) => {
           if (!senderId || !prev[senderId]) return prev;
@@ -176,10 +230,88 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
         if (senderId !== userId && !stickToBottomRef.current) setNewCount((c) => c + 1);
       } else {
         deletedIdsRef.current.add(e.id);
-        setMessages((prev) => prev.filter((m) => m.id !== e.id));
+        /* Replies to it keep their place and say the original is gone */
+        setMessages((prev) => prev
+          .filter((m) => m.id !== e.id)
+          .map((m) => (m.reply_to_id === e.id && m.reply ? { ...m, reply: null } : m)));
       }
     });
-  }, [conversationId, onMessage, userId, markRead]);
+  }, [conversationId, onMessage, userId, markRead, fetchReplyFor]);
+
+  /* ── Reactions: one query for the messages not loaded yet, then realtime ── */
+  useEffect(() => {
+    const ids = messages.map((m) => m.id).filter((id) => !reactionsLoadedRef.current.has(id));
+    if (ids.length === 0) return;
+    ids.forEach((id) => reactionsLoadedRef.current.add(id));
+    (async () => {
+      const { data, error } = await supabase
+        .from('message_reactions')
+        .select('message_id, user_id, emoji')
+        .in('message_id', ids);
+      if (!mountedRef.current) return;
+      if (error) {
+        /* Not marked loaded: the next page or a reconnect tries again */
+        ids.forEach((id) => reactionsLoadedRef.current.delete(id));
+        return;
+      }
+      const byMessage = new Map<string, Reaction[]>();
+      for (const r of (data || []) as Reaction[]) {
+        const list = byMessage.get(r.message_id);
+        if (list) list.push(r); else byMessage.set(r.message_id, [r]);
+      }
+      setReactions((prev) => {
+        let next = prev;
+        for (const id of ids) {
+          const rows = byMessage.get(id);
+          if (rows) next = { ...next, [id]: rows };
+          else if (next[id] && next[id].length > 0) next = { ...next, [id]: NO_REACTIONS };
+        }
+        return next;
+      });
+    })();
+  }, [messages, reactionVersion]);
+
+  useEffect(() => {
+    if (!userId) return;
+    let subscribedOnce = false;
+    const channel = supabase
+      .channel(`reactions:${conversationId}:${instanceId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions' }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          /* Only the key comes with a delete */
+          const old = payload.old as Partial<Reaction>;
+          if (!old.message_id || !old.user_id || !reactionsLoadedRef.current.has(old.message_id)) return;
+          const { message_id, user_id } = old;
+          setReactions((prev) => removeReaction(prev, message_id, user_id));
+        } else {
+          const row = payload.new as Reaction;
+          if (!row.message_id || !reactionsLoadedRef.current.has(row.message_id)) return;
+          setReactions((prev) => upsertReaction(prev, row));
+        }
+      })
+      .subscribe((status) => {
+        /* Events are at-most-once: after a reconnect, read everything again */
+        if (status === 'SUBSCRIBED' && subscribedOnce) {
+          reactionsLoadedRef.current.clear();
+          setReactionVersion((v) => v + 1);
+        }
+        if (status === 'SUBSCRIBED') subscribedOnce = true;
+      });
+    return () => { supabase.removeChannel(channel); };
+  }, [conversationId, userId, instanceId]);
+
+  /* ── People I blocked (RLS returns only my own rows); only group chats collapse their messages ── */
+  const isGroup = !!conv?.is_group;
+  useEffect(() => {
+    if (!isGroup) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from('blocks').select('blocked_id');
+      if (cancelled || !data) return;
+      setBlockedIds(new Set((data as { blocked_id: string }[]).map((b) => b.blocked_id)));
+    })();
+    return () => { cancelled = true; };
+  }, [isGroup]);
 
   /* ── Signed URLs for image messages (private bucket) ──
      A link lives an hour. Popups outlive that, so anything within five
@@ -321,7 +453,7 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
        skipped. The ones already on screen are dropped by id below. */
     const { data, error: olderError } = await supabase
       .from('messages')
-      .select('*')
+      .select(MESSAGE_SELECT)
       .eq('conversation_id', conversationId)
       .lte('created_at', first.created_at)
       .order('created_at', { ascending: false })
@@ -364,9 +496,62 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
 
   /* ── Composer hand-offs (stable, so typing never touches the message list) ── */
   const handleSent = useCallback((sent: ChatMessage) => {
+    reactionsLoadedRef.current.add(sent.id);
     setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]));
     stickToBottomRef.current = true;
     setNewCount(0);
+  }, []);
+
+  const clearReply = useCallback(() => setReplyTo(null), []);
+
+  /* ── Reactions and replies (stable functions, so the bubbles stay memoised) ── */
+  const nameOf = useCallback((id: string | null): string => {
+    if (!id) return 'Deleted user';
+    if (id === userId) return 'You';
+    const member = membersRef.current.find((x) => x.user_id === id) || extraSendersRef.current[id];
+    return member ? displayName(member) : 'Someone';
+  }, [userId]);
+
+  const handleReact = useCallback(async (message: ChatMessage, emoji: string) => {
+    if (!userId) return;
+    const id = message.id;
+    const before = reactionsRef.current[id] ?? NO_REACTIONS;
+    const mine = before.find((r) => r.user_id === userId);
+    const rollback = (error: Parameters<typeof describeError>[0], fallback: string) => {
+      setReactions((prev) => ({ ...prev, [id]: before }));
+      toastRef.current.error(describeError(error, fallback));
+    };
+    if (mine?.emoji === emoji) {
+      /* Tapping my own emoji again takes it back */
+      setReactions((prev) => removeReaction(prev, id, userId));
+      const { error } = await supabase.from('message_reactions').delete().eq('message_id', id).eq('user_id', userId);
+      if (error) rollback(error, 'Could not remove your reaction.');
+    } else if (mine) {
+      setReactions((prev) => upsertReaction(prev, { message_id: id, user_id: userId, emoji }));
+      const { error } = await supabase.from('message_reactions').update({ emoji }).eq('message_id', id).eq('user_id', userId);
+      if (error) rollback(error, 'Could not change your reaction.');
+    } else {
+      setReactions((prev) => upsertReaction(prev, { message_id: id, user_id: userId, emoji }));
+      const { error } = await supabase.from('message_reactions').insert({ message_id: id, emoji });
+      if (error) rollback(error, 'Could not save your reaction.');
+    }
+  }, [userId]);
+
+  const handleReply = useCallback((message: ChatMessage) => setReplyTo(message), []);
+
+  /* Scroll to the quoted original and flash it; if it is not loaded, say where it is */
+  const handleJumpTo = useCallback((messageId: string) => {
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-msg-id="${messageId}"]`);
+    if (!el) {
+      toastRef.current.info('That message is further up. Scroll up to load older messages.');
+      return;
+    }
+    stickToBottomRef.current = false;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.classList.remove('msg-row--flash');
+    el.getBoundingClientRect();
+    el.classList.add('msg-row--flash');
+    setTimeout(() => el.classList.remove('msg-row--flash'), 1800);
   }, []);
 
   const jumpToLatest = () => {
@@ -501,8 +686,15 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
                     showAvatar={!isOwn && !nextGrouped}
                     grouped={grouped}
                     seenLabel={seenLabel}
+                    blockedSender={isGroup && !isOwn && !!m.sender_id && blockedIds.has(m.sender_id)}
+                    reactions={reactions[m.id] ?? NO_REACTIONS}
+                    myId={userId}
+                    nameOf={nameOf}
                     onDelete={isOwn ? setDeleteTarget : undefined}
                     onImageClick={setLightboxUrl}
+                    onReact={handleReact}
+                    onReply={handleReply}
+                    onJumpTo={handleJumpTo}
                   />
                 </Fragment>
               );
@@ -545,6 +737,9 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
         autoFocus={autoFocus}
         onSent={handleSent}
         sendTyping={sendTyping}
+        replyTo={replyTo}
+        replyToName={replyTo ? (replyTo.sender_id === userId ? 'yourself' : (senderFor(replyTo.sender_id) ? displayName(senderFor(replyTo.sender_id)!) : 'Someone')) : ''}
+        onClearReply={clearReply}
       />
 
       {/* Unsend confirmation */}

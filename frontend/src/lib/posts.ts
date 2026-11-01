@@ -5,8 +5,8 @@ import { withSignedImages } from './postImages';
 export const POSTS_PAGE_SIZE = 20;
 
 export type PostsQuery = {
-  /* all posts the caller can see, or only from people they follow */
-  mode?: 'all' | 'following';
+  /* all posts the caller can see, only from people they follow, or the ones they saved */
+  mode?: 'all' | 'following' | 'saved';
   /* only this author's posts */
   author?: string;
   /* exactly this post */

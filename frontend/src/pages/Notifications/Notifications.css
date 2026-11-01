@@ -109,6 +109,7 @@
 .notif-icon--comment { background: var(--chip-comment-bg); color: var(--chip-comment-fg); }
 .notif-icon--follow { background: var(--chip-follow-bg); color: var(--chip-follow-fg); }
 .notif-icon--message { background: var(--chip-message-bg); color: var(--chip-message-fg); }
+.notif-icon--mention { background: var(--chip-mention-bg); color: var(--chip-mention-fg); }
 .notif-icon--added { background: var(--chip-added-bg); color: var(--chip-added-fg); }
 
 .notif-avatar {

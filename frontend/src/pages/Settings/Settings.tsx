@@ -1,6 +1,6 @@
 import { useState, useEffect, useId } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, KeyRound, Trash2, SunMoon, Monitor, Sun, Moon, LogOut, FileText, Shield } from 'lucide-react';
+import { Mail, KeyRound, Trash2, SunMoon, Monitor, Sun, Moon, LogOut, FileText, Shield, Ban } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
@@ -16,6 +16,7 @@ import type { ThemePreference } from '../../lib/theme';
 import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import PasswordInput from '../../components/PasswordInput/PasswordInput';
 import PasswordForm from '../../components/PasswordForm/PasswordForm';
+import BlockedList from '../../components/BlockedList/BlockedList';
 import '../Login/Login.css';
 import './Settings.css';
 
@@ -202,6 +203,13 @@ export default function SettingsPage({ userId, isAdmin = false }: Props) {
         <section className="settings-card">
           <h2><KeyRound size={16} /> Password</h2>
           <PasswordForm submitLabel="Change password" onDone={() => toast.success('Password updated')} />
+        </section>
+
+        {/* People you blocked */}
+        <section className="settings-card">
+          <h2><Ban size={16} /> Blocked people</h2>
+          <p>Blocked people cannot see your posts or message you, and you do not see theirs.</p>
+          <BlockedList />
         </section>
 
         {/* Delete */}

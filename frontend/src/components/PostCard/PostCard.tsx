@@ -1,7 +1,7 @@
 import { memo, useState, useRef, useEffect, useId } from 'react';
 import { moveFocus } from '../../lib/menuKeys';
 import { Link } from 'react-router-dom';
-import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Users, Lock, Link2, Flag } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Users, Lock, Link2, Flag, Bookmark, BookmarkCheck, Ban } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import { useTimeAgo, parseDbDate, fullDate } from '../../lib/timeAgo';
@@ -10,6 +10,8 @@ import ImageCollage from '../ImageCollage/ImageCollage';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import EditPostModal from '../EditPostModal/EditPostModal';
 import ReportModal from '../ReportModal/ReportModal';
+import MentionText from '../MentionText/MentionText';
+import { blockUser, savePost, unsavePost } from '../../lib/blocks';
 import { postImageUrls } from '../../lib/postImages';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
@@ -25,6 +27,10 @@ type PostCardProps = {
   onDelete?: (postId: string) => void;
   /* /post/:id opens with the thread visible */
   defaultShowComments?: boolean;
+  /* After the viewer blocks this author, so the list can drop all their posts */
+  onBlocked?: (userId: string) => void;
+  /* After saving or unsaving (the Saved tab drops an unsaved card) */
+  onSaveChange?: (postId: string, saved: boolean) => void;
 };
 
 const CHAR_LIMIT = 200;
@@ -42,7 +48,7 @@ const VisibilityBadge = ({ visibility }: { visibility?: string }) => {
   );
 };
 
-function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowComments = false }: PostCardProps) {
+function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowComments = false, onBlocked, onSaveChange }: PostCardProps) {
   const [currentPost, setCurrentPost] = useState(post);
   const [liked, setLiked] = useState(post.liked_by_me);
   const [likeCount, setLikeCount] = useState(post.like_count);
@@ -54,6 +60,9 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showBlock, setShowBlock] = useState(false);
+  const [saved, setSaved] = useState(post.saved_by_me);
+  const [saving, setSaving] = useState(false);
   const [likeAnim, setLikeAnim] = useState<'pop' | 'unpop' | null>(null);
   const [showActions, setShowActions] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -145,6 +154,33 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
     }
     setTimeout(() => setLikeAnim(null), 400);
     setLoading(false);
+  };
+
+  /* Optimistic like the heart: flip now, roll back with a toast if the write fails */
+  const handleSave = async () => {
+    if (!currentUserId || saving) return;
+    setSaving(true);
+    const wasSaved = saved;
+    setSaved(!wasSaved);
+    const error = wasSaved ? await unsavePost(currentPost.id) : await savePost(currentPost.id);
+    if (error) {
+      setSaved(wasSaved);
+      toast.error(describeError(error, wasSaved ? 'Could not remove it from your saved posts.' : 'Could not save this post.'));
+    } else {
+      onSaveChange?.(currentPost.id, !wasSaved);
+    }
+    setSaving(false);
+  };
+
+  const handleBlockConfirmed = async () => {
+    const error = await blockUser(currentPost.user_id);
+    setShowBlock(false);
+    if (error) {
+      toast.error(describeError(error, 'Could not block this person.'));
+      return;
+    }
+    toast.success(`Blocked @${currentPost.profiles?.username || 'user'}`);
+    onBlocked?.(currentPost.user_id);
   };
 
   const handleDeleteConfirmed = async () => {
@@ -256,6 +292,17 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
                     <Flag size={14} /> Report post
                   </button>
                 )}
+                {/* Block — other people's posts */}
+                {currentUserId && !isOwner && (
+                  <button
+                    className="post-action-item"
+                    role="menuitem"
+                    tabIndex={-1}
+                    onClick={() => chooseAction(() => setShowBlock(true))}
+                  >
+                    <Ban size={14} /> Block @{currentPost.profiles?.username || 'user'}
+                  </button>
+                )}
                 {/* Delete — owner or admin */}
                 {canDelete && (
                   <button
@@ -281,7 +328,7 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
         {/* Content */}
         {currentPost.content && (
           <p className="post-content">
-            {displayText}
+            <MentionText text={displayText} />
             {/* See more / see less */}
             {isTruncated && !expanded && (
               <>{'… '}<button className="see-more-btn" onClick={() => setExpanded(true)}>see more</button></>
@@ -313,6 +360,19 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
             <MessageCircle size={15} />
             <span>{commentCount} {commentCount === 1 ? 'comment' : 'comments'}</span>
           </button>
+
+          {/* Save — pushed to the right; the bookmark fills once saved */}
+          {currentUserId && (
+            <button
+              className={`post-action save-btn ${saved ? 'saved' : ''}`}
+              onClick={handleSave}
+              aria-pressed={saved}
+              aria-label={saved ? 'Remove from saved' : 'Save post'}
+              title={saved ? 'Remove from saved' : 'Save post'}
+            >
+              {saved ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
+            </button>
+          )}
         </footer>
 
         {/* Comments */}
@@ -333,6 +393,18 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
           post={currentPost}
           onClose={() => setShowEditModal(false)}
           onSave={handleEditSave}
+        />
+      )}
+
+      {showBlock && (
+        <ConfirmModal
+          title={`Block @${currentPost.profiles?.username || 'this person'}?`}
+          message="They will not see your posts or be able to message you, and any follows between you are removed. You can unblock them anytime in Settings."
+          confirmLabel="Block"
+          cancelLabel="Cancel"
+          danger
+          onConfirm={handleBlockConfirmed}
+          onCancel={() => setShowBlock(false)}
         />
       )}
 

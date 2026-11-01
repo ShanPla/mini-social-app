@@ -7,6 +7,8 @@ import { useCooldown } from '../../lib/useCooldown';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import CharCount from '../CharCount/CharCount';
 import ReportModal from '../ReportModal/ReportModal';
+import MentionInput from '../MentionInput/MentionInput';
+import MentionText from '../MentionText/MentionText';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import { displayName } from '../../lib/names';
@@ -46,8 +48,9 @@ function findInTree(list: CommentData[], id: string): CommentData | undefined {
   return undefined;
 }
 
+/* A new reply goes under its parent only; a new top-level comment goes last. A reply whose parent is gone is not shown. */
 function insertInTree(list: CommentData[], node: CommentData): CommentData[] {
-  if (!node.parent_id || !findInTree(list, node.parent_id)) return [...list, node];
+  if (!node.parent_id) return [...list, node];
   return list.map((c) => c.id === node.parent_id
     ? { ...c, replies: [...(c.replies || []), node] }
     : { ...c, replies: insertInTree(c.replies || [], node) });
@@ -112,13 +115,14 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
       data.forEach((c) => {
         if (c.parent_id && map.has(c.parent_id)) {
           map.get(c.parent_id)!.replies!.push(map.get(c.id)!);
-        } else {
+        } else if (!c.parent_id) {
           roots.push(map.get(c.id)!);
         }
+        /* A reply whose parent is missing was hidden by a block: drop it too */
       });
 
       setComments(roots);
-      setTotal(data.length);
+      setTotal(countTree(roots));
     })();
     return () => { cancelled = true; };
   }, [postId, version]);
@@ -234,10 +238,9 @@ function TopLevelForm({ onSubmit, loading, isOnCooldown }: {
       onSubmit={(e) => onSubmit(e, null, value, () => setValue(''))}
       className="comment-form"
     >
-      <input
-        type="text"
+      <MentionInput
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onValueChange={setValue}
         placeholder="Add a comment..."
         aria-label="Add a comment"
         maxLength={COMMENT_MAX}
@@ -301,7 +304,7 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
             <Link to={`/profile/${comment.user_id}`} className="comment-author">
               {comment.profiles ? displayName(comment.profiles) : 'Unknown'}
             </Link>
-            <span className="comment-content">{comment.content}</span>
+            <span className="comment-content"><MentionText text={comment.content} /></span>
           </div>
 
           {/* Delete — opens confirmation modal */}
@@ -379,10 +382,9 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
               setShowReplies(true);
             })}
           >
-            <input
-              type="text"
+            <MentionInput
               value={replyValue}
-              onChange={(e) => setReplyValue(e.target.value)}
+              onValueChange={setReplyValue}
               placeholder={`Reply to @${comment.profiles?.username}…`}
               aria-label={`Reply to ${comment.profiles ? displayName(comment.profiles) : 'this comment'}`}
               maxLength={COMMENT_MAX}

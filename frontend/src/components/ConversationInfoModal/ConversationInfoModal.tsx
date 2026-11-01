@@ -76,7 +76,7 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
       .from('conversation_members')
       .insert(toAdd.map((u) => ({ conversation_id: conversationId, user_id: u.id })));
     setSaving(false);
-    if (insErr) { setError(describeError(insErr, 'Could not add people.')); return; }
+    if (insErr) { setError(insErr.code === '42501' ? 'You cannot add this person.' : describeError(insErr, 'Could not add people.')); return; }
     setToAdd([]);
     setAdding(false);
     refreshConversations();
