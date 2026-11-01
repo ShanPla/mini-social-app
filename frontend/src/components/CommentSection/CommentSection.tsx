@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, Reply, Trash2, Shield, ChevronDown, ChevronUp } from 'lucide-react';
+import { Heart, Reply, Trash2, Shield, ChevronDown, ChevronUp, Flag } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useTimeAgo, parseDbDate, fullDate } from '../../lib/timeAgo';
 import { useCooldown } from '../../lib/useCooldown';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import CharCount from '../CharCount/CharCount';
+import ReportModal from '../ReportModal/ReportModal';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import { displayName } from '../../lib/names';
@@ -68,11 +69,13 @@ type Props = {
   postId: string;
   currentUserId: string | null;
   isAdmin?: boolean;
+  /* The post's author may delete any comment on their post */
+  postOwnerId?: string;
   /* Total comments including replies, so the card's counter stays honest */
   onCountChange?: (count: number) => void;
 };
 
-export default function CommentSection({ postId, currentUserId, isAdmin = false, onCountChange }: Props) {
+export default function CommentSection({ postId, currentUserId, isAdmin = false, postOwnerId, onCountChange }: Props) {
   const [comments, setComments] = useState<CommentData[]>([]);
   /* Total including replies; null until the first load */
   const [total, setTotal] = useState<number | null>(null);
@@ -199,6 +202,7 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
             comment={comment}
             currentUserId={currentUserId}
             isAdmin={isAdmin}
+            postOwnerId={postOwnerId}
             postId={postId}
             onDelete={handleDelete}
             onLike={handleLikeComment}
@@ -251,6 +255,7 @@ type CommentItemProps = {
   comment: CommentData;
   currentUserId: string | null;
   isAdmin: boolean;
+  postOwnerId?: string;
   postId: string;
   onDelete: (id: string) => void;
   onLike: (id: string, isLiked: boolean) => void;
@@ -260,16 +265,20 @@ type CommentItemProps = {
   depth: number;
 };
 
-function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onReply, loading, isOnCooldown, depth }: CommentItemProps) {
+function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, onLike, onReply, loading, isOnCooldown, depth }: CommentItemProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showReplies, setShowReplies] = useState(depth < 1);
   const [replyValue, setReplyValue] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const commentTime = useTimeAgo(comment.created_at);
   const replyBtnRef = useRef<HTMLButtonElement>(null);
 
   const isOwner = currentUserId === comment.user_id;
-  const canDelete = isOwner || isAdmin;
+  const isPostOwner = !!currentUserId && currentUserId === postOwnerId;
+  /* Shield = deleting someone else's comment with admin power only */
+  const asAdmin = isAdmin && !isOwner && !isPostOwner;
+  const canDelete = isOwner || isPostOwner || isAdmin;
   const isLiked = comment.comment_likes?.some((l) => l.user_id === currentUserId) ?? false;
   const likeCount = comment.comment_likes?.length ?? 0;
   const replyCount = comment.replies?.length ?? 0;
@@ -299,11 +308,11 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
           {canDelete && (
             <button
               onClick={() => setShowDeleteModal(true)}
-              className={`comment-delete ${isAdmin && !isOwner ? 'comment-delete--admin' : ''}`}
-              title={isAdmin && !isOwner ? 'Delete as admin' : 'Delete comment'}
-              aria-label={isAdmin && !isOwner ? 'Delete comment as admin' : 'Delete comment'}
+              className={`comment-delete ${asAdmin ? 'comment-delete--admin' : ''}`}
+              title={asAdmin ? 'Delete as admin' : 'Delete comment'}
+              aria-label={asAdmin ? 'Delete comment as admin' : 'Delete comment'}
             >
-              {isAdmin && !isOwner ? <Shield size={11} /> : <Trash2 size={11} />}
+              {asAdmin ? <Shield size={11} /> : <Trash2 size={11} />}
             </button>
           )}
         </div>
@@ -337,6 +346,14 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
             >
               <Reply size={11} />
               <span>Reply</span>
+            </button>
+          )}
+
+          {/* Report — other people's comments */}
+          {currentUserId && !isOwner && (
+            <button className="comment-action-btn" onClick={() => setShowReport(true)}>
+              <Flag size={11} />
+              <span>Report</span>
             </button>
           )}
 
@@ -397,6 +414,7 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
                 comment={reply}
                 currentUserId={currentUserId}
                 isAdmin={isAdmin}
+                postOwnerId={postOwnerId}
                 postId={comment.post_id}
                 onDelete={onDelete}
                 onLike={onLike}
@@ -410,12 +428,14 @@ function CommentItem({ comment, currentUserId, isAdmin, onDelete, onLike, onRepl
         )}
       </div>
 
+      {showReport && <ReportModal targetType="comment" targetId={comment.id} onClose={() => setShowReport(false)} />}
+
       {/* Delete confirmation modal */}
       {showDeleteModal && (
         <ConfirmModal
           title="Delete comment?"
           message={
-            isAdmin && !isOwner
+            asAdmin
               ? `You are deleting @${comment.profiles?.username || 'this user'}'s comment as an admin. This cannot be undone.`
               : "This can't be undone. The comment and all its replies will be removed."
           }

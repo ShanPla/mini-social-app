@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { Post } from './supabaseClient';
+import { withSignedImages } from './postImages';
 
 export const POSTS_PAGE_SIZE = 20;
 
@@ -34,6 +35,8 @@ export async function fetchPosts(q: PostsQuery, before?: Post | null, limit = PO
     p_limit: limit,
   });
   if (error) return { posts: [], hasMore: false, error: error.message };
-  const posts = (data as Post[]) || [];
-  return { posts, hasMore: posts.length === limit, error: null };
+  const raw = (data as Post[]) || [];
+  /* Photos get signed display links; the stored public URLs stay as they are */
+  const posts = await withSignedImages(raw);
+  return { posts, hasMore: raw.length === limit, error: null };
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useId } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, KeyRound, Trash2, SunMoon, Monitor, Sun, Moon, LogOut, FileText } from 'lucide-react';
+import { Mail, KeyRound, Trash2, SunMoon, Monitor, Sun, Moon, LogOut, FileText, Shield } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
@@ -14,12 +14,14 @@ import { useTheme } from '../../lib/theme';
 import { clearAllDrafts } from '../../lib/drafts';
 import type { ThemePreference } from '../../lib/theme';
 import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
+import PasswordInput from '../../components/PasswordInput/PasswordInput';
 import PasswordForm from '../../components/PasswordForm/PasswordForm';
 import '../Login/Login.css';
 import './Settings.css';
 
 type Props = {
   userId: string;
+  isAdmin?: boolean;
 };
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; Icon: LucideIcon }[] = [
@@ -29,7 +31,7 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; Icon: LucideIcon }
 ];
 
 /* /settings: the account basics. Profile details (name, bio, photo) live on the profile page. */
-export default function SettingsPage({ userId }: Props) {
+export default function SettingsPage({ userId, isAdmin = false }: Props) {
   const navigate = useNavigate();
   const toast = useToast();
   const [email, setEmail] = useState<string | null>(null);
@@ -46,6 +48,9 @@ export default function SettingsPage({ userId }: Props) {
   const [emailError, setEmailError] = useState('');
   const [emailNotice, setEmailNotice] = useState('');
   const [confirmText, setConfirmText] = useState('');
+  /* Deleting needs the current password again, checked just before the account goes */
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
   /* The last step before the account goes: a plain yes/no after the typed handle */
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -91,12 +96,24 @@ export default function SettingsPage({ userId }: Props) {
     toast.success('Email updated');
   };
 
-  const canDelete = !loading && username.length > 0 && confirmText.trim().toLowerCase() === username;
+  const canDelete = !loading && !!email && username.length > 0 && confirmText.trim().toLowerCase() === username && deletePassword.length > 0;
 
   const handleDelete = async () => {
     setConfirmingDelete(false);
-    if (!canDelete || deleting) return;
+    if (!canDelete || deleting || !email) return;
     setDeleting(true);
+    setDeleteError('');
+    /* Re-auth: a stolen open session alone cannot delete the account */
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password: deletePassword });
+    if (authError) {
+      setDeleteError(
+        authError.message.toLowerCase().includes('invalid login')
+          ? 'That password is not correct.'
+          : friendlyAuthError(authError.message)
+      );
+      setDeleting(false);
+      return;
+    }
     /* Files first: once the row is gone the storage policies no longer know us */
     await Promise.all([pruneFolder('avatars', userId), removeUserPostImages(userId)]);
     const { error } = await supabase.rpc('delete_my_account');
@@ -206,6 +223,19 @@ export default function SettingsPage({ userId }: Props) {
               disabled={loading}
             />
           </div>
+          <div className="form-group">
+            <label htmlFor={`${id}-delete-password`}>Your current password</label>
+            <PasswordInput
+              id={`${id}-delete-password`}
+              value={deletePassword}
+              onChange={(e) => { setDeletePassword(e.target.value); setDeleteError(''); }}
+              autoComplete="current-password"
+              aria-invalid={!!deleteError}
+              aria-describedby={deleteError ? `${id}-delete-error` : undefined}
+              disabled={loading}
+            />
+          </div>
+          {deleteError && <p className="error-msg" id={`${id}-delete-error`} role="alert">{deleteError}</p>}
           <button type="button" className="settings-delete-btn" onClick={() => setConfirmingDelete(true)} disabled={!canDelete || deleting}>
             {deleting ? 'Deleting…' : 'Delete my account'}
           </button>
@@ -216,6 +246,13 @@ export default function SettingsPage({ userId }: Props) {
           <h2><LogOut size={16} /> Session</h2>
           <button type="button" className="btn-ghost settings-logout" onClick={handleLogout}>Log out</button>
         </section>
+
+        {isAdmin && (
+          <section className="settings-card">
+            <h2><Shield size={16} /> Moderation</h2>
+            <p className="settings-legal"><Link to="/admin/reports">Review reports</Link></p>
+          </section>
+        )}
 
         <section className="settings-card">
           <h2><FileText size={16} /> About</h2>

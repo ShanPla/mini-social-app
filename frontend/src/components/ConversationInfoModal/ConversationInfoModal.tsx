@@ -10,6 +10,7 @@ import UserPicker from '../UserPicker/UserPicker';
 import CharCount from '../CharCount/CharCount';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import { displayName } from '../../lib/names';
+import { describeError } from '../../lib/errors';
 import { useScrollLock } from '../../lib/useScrollLock';
 import { useDialog } from '../../lib/useDialog';
 import './ConversationInfoModal.css';
@@ -75,7 +76,7 @@ export default function ConversationInfoModal({ conversationId, onClose, onLeft 
       .from('conversation_members')
       .insert(toAdd.map((u) => ({ conversation_id: conversationId, user_id: u.id })));
     setSaving(false);
-    if (insErr) { setError('Could not add people.'); return; }
+    if (insErr) { setError(describeError(insErr, 'Could not add people.')); return; }
     setToAdd([]);
     setAdding(false);
     refreshConversations();

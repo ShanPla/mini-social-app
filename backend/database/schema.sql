@@ -52,6 +52,20 @@ alter table profiles drop constraint if exists profiles_display_name_check;
 alter table profiles add constraint profiles_display_name_check
   check (display_name is null or (display_name ~ '\S' and length(display_name) <= 40));
 
+-- Names that look official or collide with app routes. ONE list, used by
+-- the CHECK below, username_available and handle_new_user.
+create or replace function public.is_reserved_username(name text)
+returns boolean
+language sql
+immutable
+set search_path = public, pg_temp
+as $$
+  select lower(trim(coalesce(name, ''))) in (
+    'admin', 'administrator', 'support', 'help', 'root', 'system', 'moderator', 'mod', 'staff', 'official', 'chronicle', 'thechronicle', 'null', 'undefined', 'me', 'settings', 'feed', 'messages', 'notifications', 'profile', 'search', 'login', 'register'
+  );
+$$;
+grant execute on function public.is_reserved_username(text) to anon, authenticated;
+
 alter table profiles drop constraint if exists profiles_username_check;
 alter table profiles add constraint profiles_username_check
   check (username ~ '^[a-z0-9_]{3,30}$') not valid;
@@ -59,6 +73,16 @@ alter table profiles add constraint profiles_username_check
 alter table profiles drop constraint if exists profiles_bio_check;
 alter table profiles add constraint profiles_bio_check
   check (bio is null or length(bio) <= 200) not valid;
+
+-- Enforced for new writes only (NOT VALID). A profile that already holds a
+-- reserved name or a non-https avatar can not be updated until it is fixed.
+alter table profiles drop constraint if exists profiles_username_reserved_check;
+alter table profiles add constraint profiles_username_reserved_check
+  check (not public.is_reserved_username(username)) not valid;
+
+alter table profiles drop constraint if exists profiles_avatar_url_check;
+alter table profiles add constraint profiles_avatar_url_check
+  check (avatar_url is null or avatar_url like 'https://%') not valid;
 
 
 create table if not exists posts (
@@ -76,6 +100,10 @@ alter table posts drop constraint if exists posts_content_check;
 alter table posts add constraint posts_content_check
   check (length(content) <= 500) not valid;
 
+-- Edited marker: null = never edited. Set by trg_mark_post_edited (3h) only
+-- when the text or the visibility changes.
+alter table posts add column if not exists updated_at timestamp;
+
 
 create table if not exists post_images (
   id uuid primary key default gen_random_uuid(),
@@ -84,6 +112,10 @@ create table if not exists post_images (
   position integer not null default 0,
   created_at timestamp default now()
 );
+
+alter table post_images drop constraint if exists post_images_url_check;
+alter table post_images add constraint post_images_url_check
+  check (image_url like 'https://%') not valid;
 
 
 create table if not exists likes (
@@ -184,30 +216,50 @@ create table if not exists messages (
 
 
 -- Upgrade path: the original sender_id was NOT NULL with ON DELETE CASCADE.
--- Drop whatever FK sits on that column, whatever it is called, and re-add.
-do $$
-declare c record;
-begin
-  for c in
-    select con.conname
-      from pg_constraint con
-      join pg_class rel on rel.oid = con.conrelid
-      join pg_namespace nsp on nsp.oid = rel.relnamespace
-     where nsp.nspname = 'public'
-       and rel.relname = 'messages'
-       and con.contype = 'f'
-       and con.conkey = array[
-             (select attnum from pg_attribute
-               where attrelid = rel.oid and attname = 'sender_id' and not attisdropped)
-           ]
-  loop
-    execute format('alter table public.messages drop constraint %I', c.conname);
-  end loop;
-end $$;
-
+-- Only touch the FK when it is missing or has the wrong rule: the rewrite
+-- re-validates every message and locks the table, so a plain re-run of this
+-- file must leave a correct constraint alone.
 alter table messages alter column sender_id drop not null;
-alter table messages add constraint messages_sender_id_fkey
-  foreign key (sender_id) references profiles(id) on delete set null;
+
+do $$
+declare
+  c record;
+  total integer;
+  good integer;
+begin
+  select count(*),
+         count(*) filter (
+           where con.conname = 'messages_sender_id_fkey'
+             and con.confdeltype = 'n'
+             and con.confrelid = 'public.profiles'::regclass
+         )
+    into total, good
+    from pg_constraint con
+   where con.conrelid = 'public.messages'::regclass
+     and con.contype = 'f'
+     and con.conkey = array[
+           (select a.attnum from pg_attribute a
+             where a.attrelid = con.conrelid and a.attname = 'sender_id' and not a.attisdropped)
+         ];
+
+  if not (total = 1 and good = 1) then
+    for c in
+      select con.conname
+        from pg_constraint con
+       where con.conrelid = 'public.messages'::regclass
+         and con.contype = 'f'
+         and con.conkey = array[
+               (select a.attnum from pg_attribute a
+                 where a.attrelid = con.conrelid and a.attname = 'sender_id' and not a.attisdropped)
+             ]
+    loop
+      execute format('alter table public.messages drop constraint %I', c.conname);
+    end loop;
+
+    alter table public.messages add constraint messages_sender_id_fkey
+      foreign key (sender_id) references public.profiles(id) on delete set null;
+  end if;
+end $$;
 
 
 -- Notifications are written ONLY by the triggers in section 3. Each type
@@ -231,30 +283,52 @@ alter table notifications
 alter table notifications
   add column if not exists comment_id uuid references comments(id) on delete cascade;
 
--- The original type CHECK was created inline, so its name is not guaranteed:
--- drop every single-column CHECK on `type`, whatever it is called.
+-- The original type CHECK was created inline, so its name is not guaranteed.
+-- Replace the single-column CHECK(s) on `type` only when there is not
+-- exactly one, correctly named, listing exactly the five types below.
 do $$
-declare c record;
+declare
+  c record;
+  total integer;
+  good integer;
 begin
-  for c in
-    select con.conname
-      from pg_constraint con
-      join pg_class rel on rel.oid = con.conrelid
-      join pg_namespace nsp on nsp.oid = rel.relnamespace
-     where nsp.nspname = 'public'
-       and rel.relname = 'notifications'
-       and con.contype = 'c'
-       and con.conkey = array[
-             (select attnum from pg_attribute
-               where attrelid = rel.oid and attname = 'type' and not attisdropped)
-           ]
-  loop
-    execute format('alter table public.notifications drop constraint %I', c.conname);
-  end loop;
-end $$;
+  select count(*), count(*) filter (where t.ok)
+    into total, good
+    from (
+      select con.conname = 'notifications_type_check'
+             and d ~ '''like''::text' and d ~ '''comment''::text' and d ~ '''follow''::text'
+             and d ~ '''message''::text' and d ~ '''added''::text'
+             and (select count(*) from regexp_matches(d, '''[^'']*''::text', 'g')) = 5 as ok
+        from (
+          select con.conname, pg_get_constraintdef(con.oid) as d
+            from pg_constraint con
+           where con.conrelid = 'public.notifications'::regclass
+             and con.contype = 'c'
+             and con.conkey = array[
+                   (select a.attnum from pg_attribute a
+                     where a.attrelid = con.conrelid and a.attname = 'type' and not a.attisdropped)
+                 ]
+        ) con
+    ) t;
 
-alter table notifications add constraint notifications_type_check
-  check (type in ('like', 'comment', 'follow', 'message', 'added'));
+  if not (total = 1 and good = 1) then
+    for c in
+      select con.conname
+        from pg_constraint con
+       where con.conrelid = 'public.notifications'::regclass
+         and con.contype = 'c'
+         and con.conkey = array[
+               (select a.attnum from pg_attribute a
+                 where a.attrelid = con.conrelid and a.attname = 'type' and not a.attisdropped)
+             ]
+    loop
+      execute format('alter table public.notifications drop constraint %I', c.conname);
+    end loop;
+
+    alter table public.notifications add constraint notifications_type_check
+      check (type in ('like', 'comment', 'follow', 'message', 'added'));
+  end if;
+end $$;
 
 -- comment_id is optional on comment rows so entries written before that
 -- column existed remain valid.
@@ -302,25 +376,92 @@ create unique index if not exists idx_notifications_unique_added
 
 
 -- Indexes
-create index if not exists idx_posts_user_id on posts(user_id);
-create index if not exists idx_posts_created on posts(created_at desc);
 -- Keyset pages for the feed and for one author (fetch_posts)
 create index if not exists idx_posts_created_id on posts(created_at desc, id desc);
 create index if not exists idx_posts_user_created on posts(user_id, created_at desc, id desc);
 create index if not exists idx_post_images_post_id on post_images(post_id);
 create index if not exists idx_likes_post_id on likes(post_id);
-create index if not exists idx_comments_post_id on comments(post_id);
+create index if not exists idx_comments_post_created on comments(post_id, created_at);
+create index if not exists idx_comments_user_created on comments(user_id, created_at);
 create index if not exists idx_comments_parent_id on comments(parent_id) where parent_id is not null;
 create index if not exists idx_comment_likes_comment_id on comment_likes(comment_id);
-create index if not exists idx_follows_follower on follows(follower_id);
 create index if not exists idx_follows_following on follows(following_id);
-create index if not exists idx_notifications_user_id on notifications(user_id);
 create index if not exists idx_notifications_user_created on notifications(user_id, created_at desc);
+create index if not exists idx_notifications_user_unread on notifications(user_id) where is_read = false;
+create index if not exists idx_notifications_post on notifications(post_id) where post_id is not null;
+create index if not exists idx_notifications_actor_post on notifications(actor_id, post_id);
 create index if not exists idx_notifications_conversation on notifications(conversation_id) where conversation_id is not null;
 create index if not exists idx_notifications_comment on notifications(comment_id) where comment_id is not null;
 create index if not exists idx_conversation_members_user on conversation_members(user_id);
 create index if not exists idx_messages_conversation_created on messages(conversation_id, created_at desc, id desc);
+create index if not exists idx_messages_sender_created on messages(sender_id, created_at);
 create index if not exists idx_conversations_last_message on conversations(last_message_at desc);
+create index if not exists idx_conversations_created_by on conversations(created_by) where created_by is not null;
+
+-- Covered by another index, so they only cost writes:
+--   idx_posts_created         by idx_posts_created_id
+--   idx_posts_user_id         by idx_posts_user_created
+--   idx_follows_follower      by the unique (follower_id, following_id)
+--   idx_notifications_user_id by idx_notifications_user_created
+--   idx_comments_post_id      by idx_comments_post_created
+drop index if exists idx_posts_created;
+drop index if exists idx_posts_user_id;
+drop index if exists idx_follows_follower;
+drop index if exists idx_notifications_user_id;
+drop index if exists idx_comments_post_id;
+
+-- Search: trigram indexes make ilike '%text%' on names fast. The opclass
+-- lives in whichever schema pg_trgm was installed into (extensions on
+-- Supabase).
+create extension if not exists pg_trgm with schema extensions;
+
+do $$
+declare ns text;
+begin
+  select n.nspname into ns
+    from pg_extension e join pg_namespace n on n.oid = e.extnamespace
+   where e.extname = 'pg_trgm';
+  execute format('create index if not exists idx_profiles_username_trgm on public.profiles using gin (username %I.gin_trgm_ops)', ns);
+  execute format('create index if not exists idx_profiles_display_name_trgm on public.profiles using gin (display_name %I.gin_trgm_ops)', ns);
+end $$;
+
+-- Rate limit log. enforce_rate_limit (3b) counts these rows instead of the
+-- target table, so deleting a post/comment/message/like does not reset the
+-- budget. Written only by the trigger (security definer), pruned after a
+-- day. No client access at all.
+create table if not exists rate_events (
+  id bigint generated always as identity primary key,
+  user_id uuid not null,
+  kind text not null,
+  created_at timestamp not null default timezone('utc', now())
+);
+
+create index if not exists idx_rate_events_lookup on rate_events (user_id, kind, created_at desc);
+create index if not exists idx_rate_events_created on rate_events (created_at);
+
+alter table rate_events enable row level security;
+revoke all on rate_events from anon, authenticated;
+
+
+-- User reports. target_id is polymorphic (post, comment, user or message),
+-- so it has no foreign key; a report outlives its target on purpose.
+create table if not exists reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid default auth.uid() references profiles(id) on delete set null,
+  target_type text not null,
+  target_id uuid not null,
+  reason text not null,
+  created_at timestamp default timezone('utc', now()),
+  resolved_at timestamp,
+  resolved_by uuid references profiles(id) on delete set null,
+  constraint reports_target_type_check check (target_type in ('post', 'comment', 'user', 'message')),
+  constraint reports_reason_check check (reason ~ '\S' and length(reason) <= 500),
+  -- one report per reporter per target (also stops repeat spam)
+  constraint reports_unique_target unique (reporter_id, target_type, target_id)
+);
+
+create index if not exists idx_reports_target on reports (target_type, target_id);
+create index if not exists idx_reports_open on reports (created_at desc) where resolved_at is null;
 
 
 -- --------------------------------------------
@@ -334,7 +475,7 @@ returns boolean
 language sql
 security definer
 stable
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select exists (
     select 1 from conversation_members
@@ -352,7 +493,7 @@ returns bigint
 language sql
 security definer
 stable
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select count(*) from conversation_members where conversation_id = conv_id;
 $$;
@@ -365,9 +506,9 @@ returns boolean
 language sql
 security definer
 stable
-set search_path = public
+set search_path = public, pg_temp
 as $$
-  select not exists (
+  select not public.is_reserved_username(name) and not exists (
     select 1 from profiles where username = lower(trim(coalesce(name, '')))
   );
 $$;
@@ -385,13 +526,15 @@ create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   wanted text := lower(trim(coalesce(new.raw_user_meta_data->>'username', '')));
   fallback text := 'user_' || substr(new.id::text, 1, 8);
 begin
-  if wanted !~ '^[a-z0-9_]{3,30}$' or exists (select 1 from profiles where username = wanted) then
+  if wanted !~ '^[a-z0-9_]{3,30}$'
+     or public.is_reserved_username(wanted)
+     or exists (select 1 from profiles where username = wanted) then
     wanted := fallback;
   end if;
 
@@ -412,27 +555,50 @@ for each row execute procedure public.handle_new_user();
 
 
 -- 3b. Server-side rate limit. Client cooldowns are a courtesy; this is
---     the wall. Arguments: user column, window in seconds, max rows.
+--     the wall. Arguments: kind (the bucket name), window in seconds, max
+--     events in that window, label used in the error message.
+--     Every allowed insert is logged in rate_events, so the count survives
+--     deletes (delete-then-repost no longer resets it). The advisory lock
+--     serialises one user+kind, so parallel requests cannot all slip under
+--     the limit. Calls without a user (SQL editor, service role) are not
+--     limited. The error keeps P0001 + hint rate_limit (lib/errors.ts).
 create or replace function public.enforce_rate_limit()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
-  user_col text := TG_ARGV[0];
+  uid uuid := auth.uid();
+  v_kind text := TG_ARGV[0];
   window_s integer := TG_ARGV[1]::integer;
-  max_rows integer := TG_ARGV[2]::integer;
+  max_events integer := TG_ARGV[2]::integer;
+  v_label text := coalesce(TG_ARGV[3], TG_ARGV[0]);
+  now_utc timestamp := timezone('utc', now());
   recent integer;
 begin
-  execute format(
-    'select count(*) from %I where %I = $1 and created_at > timezone(''utc'', now()) - make_interval(secs => $2)',
-    TG_TABLE_NAME, user_col
-  ) into recent using auth.uid(), window_s;
+  if uid is null then
+    return new;
+  end if;
 
-  if recent >= max_rows then
-    raise exception 'Too many % in a short time. Please slow down.', TG_TABLE_NAME
+  perform pg_advisory_xact_lock(hashtext(v_kind || ':' || uid::text));
+
+  select count(*) into recent
+    from rate_events re
+   where re.user_id = uid
+     and re.kind = v_kind
+     and re.created_at > now_utc - make_interval(secs => window_s);
+
+  if recent >= max_events then
+    raise exception 'Too many % in a short time. Please slow down.', v_label
       using errcode = 'P0001', hint = 'rate_limit';
+  end if;
+
+  insert into rate_events (user_id, kind, created_at) values (uid, v_kind, now_utc);
+
+  -- housekeeping: now and then drop events older than a day
+  if random() < 0.02 then
+    delete from rate_events where created_at < now_utc - interval '1 day';
   end if;
 
   return new;
@@ -444,17 +610,56 @@ revoke all on function public.enforce_rate_limit() from public, anon, authentica
 drop trigger if exists trg_rate_limit_posts on posts;
 create trigger trg_rate_limit_posts
 before insert on posts
-for each row execute procedure public.enforce_rate_limit('user_id', '60', '5');
+for each row execute procedure public.enforce_rate_limit('posts', '60', '5', 'posts');
 
 drop trigger if exists trg_rate_limit_comments on comments;
 create trigger trg_rate_limit_comments
 before insert on comments
-for each row execute procedure public.enforce_rate_limit('user_id', '60', '20');
+for each row execute procedure public.enforce_rate_limit('comments', '60', '20', 'comments');
 
 drop trigger if exists trg_rate_limit_messages on messages;
 create trigger trg_rate_limit_messages
 before insert on messages
-for each row execute procedure public.enforce_rate_limit('sender_id', '10', '15');
+for each row execute procedure public.enforce_rate_limit('messages', '10', '15', 'messages');
+
+drop trigger if exists trg_rate_limit_likes on likes;
+create trigger trg_rate_limit_likes
+before insert on likes
+for each row execute procedure public.enforce_rate_limit('likes', '600', '60', 'likes');
+
+drop trigger if exists trg_rate_limit_comment_likes on comment_likes;
+create trigger trg_rate_limit_comment_likes
+before insert on comment_likes
+for each row execute procedure public.enforce_rate_limit('comment_likes', '600', '60', 'comment likes');
+
+drop trigger if exists trg_rate_limit_follows on follows;
+create trigger trg_rate_limit_follows
+before insert on follows
+for each row execute procedure public.enforce_rate_limit('follows', '600', '30', 'follows');
+
+drop trigger if exists trg_rate_limit_post_images on post_images;
+create trigger trg_rate_limit_post_images
+before insert on post_images
+for each row execute procedure public.enforce_rate_limit('post_images', '600', '40', 'photos');
+
+drop trigger if exists trg_rate_limit_conversations on conversations;
+create trigger trg_rate_limit_conversations
+before insert on conversations
+for each row execute procedure public.enforce_rate_limit('conversations', '600', '10', 'conversations');
+
+-- Invites: adding people to an existing group. create_conversation sets
+-- app.skip_invite_limit for its own member inserts (those are not invites).
+drop trigger if exists trg_rate_limit_invites on conversation_members;
+create trigger trg_rate_limit_invites
+before insert on conversation_members
+for each row
+when (current_setting('app.skip_invite_limit', true) is distinct from '1')
+execute procedure public.enforce_rate_limit('invites', '600', '50', 'group invites');
+
+drop trigger if exists trg_rate_limit_reports on reports;
+create trigger trg_rate_limit_reports
+before insert on reports
+for each row execute procedure public.enforce_rate_limit('reports', '600', '10', 'reports');
 
 
 -- 3c. A reply must hang off a comment on the same post.
@@ -462,7 +667,7 @@ create or replace function public.check_comment_parent()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   if new.parent_id is not null and not exists (
@@ -490,7 +695,7 @@ create or replace function public.notify_like()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare owner uuid;
 begin
@@ -509,7 +714,7 @@ create or replace function public.unnotify_like()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   delete from notifications
@@ -524,7 +729,7 @@ create or replace function public.notify_comment()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare owner uuid;
 begin
@@ -543,7 +748,7 @@ create or replace function public.notify_follow()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   insert into notifications (user_id, actor_id, type, created_at)
@@ -557,7 +762,7 @@ create or replace function public.unnotify_follow()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   delete from notifications
@@ -606,7 +811,7 @@ create or replace function public.on_message_insert()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   update conversations
@@ -635,7 +840,7 @@ create or replace function public.on_message_notify()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   insert into notifications (user_id, actor_id, type, conversation_id, created_at)
@@ -663,7 +868,7 @@ create or replace function public.notify_member_added()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare actor uuid := auth.uid();
 begin
@@ -695,7 +900,7 @@ create or replace function public.on_member_delete()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   delete from conversations
@@ -727,6 +932,90 @@ after delete on conversation_members
 for each row execute procedure public.on_member_delete();
 
 
+-- 3f. Read and hide times can never be in the future (a client could
+--     otherwise set last_read_at far ahead and hide every new message from
+--     its own unread count, or fake a Seen receipt ahead of time).
+create or replace function public.clamp_member_times()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+declare now_utc timestamp := timezone('utc', now());
+begin
+  if new.last_read_at is not null and new.last_read_at > now_utc then
+    new.last_read_at := now_utc;
+  end if;
+  if new.hidden_at is not null and new.hidden_at > now_utc then
+    new.hidden_at := now_utc;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.clamp_member_times() from public, anon, authenticated;
+
+drop trigger if exists trg_clamp_member_times on conversation_members;
+create trigger trg_clamp_member_times
+before update of last_read_at, hidden_at on conversation_members
+for each row execute procedure public.clamp_member_times();
+
+
+-- 3g. At most 10 photos per post. The lock keeps two parallel inserts from
+--     both seeing 9. P0001 without rate_limit hint: describeError shows
+--     the message as is.
+create or replace function public.limit_post_images()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  perform pg_advisory_xact_lock(hashtext('post_images:' || new.post_id::text));
+
+  if (select count(*) from post_images where post_id = new.post_id) >= 10 then
+    raise exception 'A post can have at most 10 photos.'
+      using errcode = 'P0001', hint = 'limit';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.limit_post_images() from public, anon, authenticated;
+
+drop trigger if exists trg_limit_post_images on post_images;
+create trigger trg_limit_post_images
+before insert on post_images
+for each row execute procedure public.limit_post_images();
+
+
+-- 3h. Edited marker. updated_at moves only when the text or the visibility
+--     changes (not for image edits, not for no-op saves); the client can
+--     not write the column at all (column grants, section 5).
+create or replace function public.mark_post_edited()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if new.content is distinct from old.content
+     or new.visibility is distinct from old.visibility then
+    new.updated_at := timezone('utc', now());
+  else
+    new.updated_at := old.updated_at;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.mark_post_edited() from public, anon, authenticated;
+
+drop trigger if exists trg_mark_post_edited on posts;
+create trigger trg_mark_post_edited
+before update on posts
+for each row execute procedure public.mark_post_edited();
+
+
 -- --------------------------------------------
 -- 4. RPCs
 -- --------------------------------------------
@@ -738,7 +1027,7 @@ create or replace function public.create_conversation(member_ids uuid[], group_n
 returns uuid
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   me uuid := auth.uid();
@@ -802,8 +1091,13 @@ begin
   values (is_grp, clean_name, me)
   returning id into conv_id;
 
+  -- The creator's own member inserts are not invites (see trg_rate_limit_invites).
+  perform set_config('app.skip_invite_limit', '1', true);
+
   insert into conversation_members (conversation_id, user_id)
   select conv_id, m from unnest(others || me) as m;
+
+  perform set_config('app.skip_invite_limit', '', true);
 
   return conv_id;
 end;
@@ -940,7 +1234,7 @@ create or replace function public.delete_my_account()
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare me uuid := auth.uid();
 begin
@@ -963,6 +1257,9 @@ grant execute on function public.delete_my_account() to authenticated;
 -- visibility policy decides what is returned.
 -- Keyset pagination on (created_at, id): pass the last row's values back
 -- as p_before / p_before_id to get the next page.
+-- Return columns changed (updated_at), which create or replace can not do
+-- (42P13), so the old signature goes first. The grants below recreate access.
+drop function if exists public.fetch_posts(text, uuid, uuid, timestamp, uuid, integer);
 create or replace function public.fetch_posts(
   p_mode text default 'all',
   p_author uuid default null,
@@ -978,6 +1275,7 @@ returns table (
   image_url text,
   visibility text,
   created_at timestamp,
+  updated_at timestamp,
   like_count integer,
   comment_count integer,
   liked_by_me boolean,
@@ -996,6 +1294,7 @@ as $$
     p.image_url,
     p.visibility,
     p.created_at,
+    p.updated_at,
     (select count(*) from likes l where l.post_id = p.id)::integer as like_count,
     (select count(*) from comments c where c.post_id = p.id)::integer as comment_count,
     exists (select 1 from likes l where l.post_id = p.id and l.user_id = auth.uid()) as liked_by_me,
@@ -1094,7 +1393,7 @@ as $$
     count(*)::integer as post_count
   from posts p
   join profiles pr on pr.id = p.user_id
-  where p.created_at > timezone('utc', now()) - make_interval(days => coalesce(p_days, 7))
+  where p.created_at > timezone('utc', now()) - make_interval(days => least(greatest(coalesce(p_days, 7), 1), 30))
   group by pr.id, pr.username, pr.display_name, pr.avatar_url
   order by post_count desc, max(p.created_at) desc
   limit least(greatest(coalesce(p_limit, 5), 1), 20);
@@ -1102,6 +1401,31 @@ $$;
 
 revoke all on function public.active_posters(integer, integer) from public, anon;
 grant execute on function public.active_posters(integer, integer) to authenticated;
+
+
+-- profile_stats(p_user)
+-- The three numbers on a profile header in one call. security invoker, so
+-- posts_count only counts posts the caller is allowed to see (followers-only
+-- and private posts of others stay out of the number).
+create or replace function public.profile_stats(p_user uuid)
+returns table (
+  posts_count integer,
+  followers_count integer,
+  following_count integer
+)
+language sql
+security invoker
+stable
+set search_path = public, pg_temp
+as $$
+  select
+    (select count(*) from posts p where p.user_id = p_user)::integer,
+    (select count(*) from follows f where f.following_id = p_user)::integer,
+    (select count(*) from follows f where f.follower_id = p_user)::integer;
+$$;
+
+revoke all on function public.profile_stats(uuid) from public, anon;
+grant execute on function public.profile_stats(uuid) to authenticated;
 
 
 -- --------------------------------------------
@@ -1245,6 +1569,16 @@ drop policy if exists "Admins can delete any comment" on comments;
 create policy "Admins can delete any comment"
 on comments for delete to authenticated
 using (exists (select 1 from profiles where id = auth.uid() and is_admin = true));
+
+-- A post's owner can clear comments off their own post. Deleting cascades
+-- to replies, comment likes and the comment's bell entry (FKs); the
+-- retract triggers are security definer, so RLS is not involved.
+drop policy if exists "Post owners can delete comments on their posts" on comments;
+create policy "Post owners can delete comments on their posts"
+on comments for delete to authenticated
+using (exists (
+  select 1 from posts p where p.id = comments.post_id and p.user_id = auth.uid()
+));
 
 revoke insert, update on comments from authenticated;
 grant insert (user_id, post_id, parent_id, content) on comments to authenticated;
@@ -1422,6 +1756,40 @@ revoke insert, update on messages from authenticated;
 grant insert (conversation_id, sender_id, content, image_url) on messages to authenticated;
 
 
+-- REPORTS: file a report, see your own; admins see all and mark them
+-- resolved. Nobody deletes, and the content itself is never touched here.
+alter table reports enable row level security;
+
+drop policy if exists "Users can file reports" on reports;
+create policy "Users can file reports"
+on reports for insert to authenticated
+with check (reporter_id = auth.uid());
+
+drop policy if exists "Reporters can view own reports" on reports;
+create policy "Reporters can view own reports"
+on reports for select to authenticated
+using (reporter_id = auth.uid());
+
+drop policy if exists "Admins can view all reports" on reports;
+create policy "Admins can view all reports"
+on reports for select to authenticated
+using (exists (select 1 from profiles where id = auth.uid() and is_admin = true));
+
+drop policy if exists "Admins can resolve reports" on reports;
+create policy "Admins can resolve reports"
+on reports for update to authenticated
+using (exists (select 1 from profiles where id = auth.uid() and is_admin = true))
+with check (
+  exists (select 1 from profiles where id = auth.uid() and is_admin = true)
+  and (resolved_by is null or resolved_by = auth.uid())
+);
+
+revoke all on reports from anon, authenticated;
+grant select on reports to authenticated;
+grant insert (reporter_id, target_type, target_id, reason) on reports to authenticated;
+grant update (resolved_at, resolved_by) on reports to authenticated;
+
+
 -- ANON: the app is login-only. Logged-out visitors get the auth pages and
 -- the username_available RPC, nothing else.
 revoke all on all tables in schema public from anon;
@@ -1431,18 +1799,23 @@ revoke all on all tables in schema public from anon;
 -- 6. STORAGE
 -- --------------------------------------------
 
--- avatars and post-images are public buckets (served by URL). Uploads
+-- avatars and post-images are public buckets (served by URL; post-images
+-- goes private in 6b once the app signs its URLs). Uploads
 -- are limited to images, 5 MB, and to the uploader's own folder.
 --   avatars:     {user_id}/avatar.{ext}
 --   post-images: {user_id}/{post_id}/{n}.{ext}
+-- The values below are the source of truth: a re-run puts the bucket settings
+-- back to these, and writes nothing when they already match.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('avatars', 'avatars', true, 5242880, array['image/jpeg', 'image/png', 'image/gif', 'image/webp']),
   ('post-images', 'post-images', true, 5242880, array['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
 on conflict (id) do update
-  set public = true,
-      file_size_limit = 5242880,
-      allowed_mime_types = array['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types
+  where (buckets.public, buckets.file_size_limit, buckets.allowed_mime_types)
+        is distinct from (excluded.public, excluded.file_size_limit, excluded.allowed_mime_types);
 
 drop policy if exists "Anyone can view avatars" on storage.objects;
 create policy "Anyone can view avatars"
@@ -1503,14 +1876,14 @@ using (
 -- Only conversation members can read (via signed URLs); uploads go into
 -- the uploader's own folder inside a conversation they belong to.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values (
-  'chat-images', 'chat-images', false, 5242880,
-  array['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-)
+values
+  ('chat-images', 'chat-images', false, 5242880, array['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
 on conflict (id) do update
-  set public = false,
-      file_size_limit = 5242880,
-      allowed_mime_types = array['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types
+  where (buckets.public, buckets.file_size_limit, buckets.allowed_mime_types)
+        is distinct from (excluded.public, excluded.file_size_limit, excluded.allowed_mime_types);
 
 drop policy if exists "Anyone can view chat images" on storage.objects;
 drop policy if exists "Users can upload chat images to own folder" on storage.objects;
@@ -1541,6 +1914,48 @@ using (
   bucket_id = 'chat-images'
   and (storage.foldername(name))[2] = auth.uid()::text
 );
+
+
+-- --------------------------------------------
+-- 6b. POST IMAGES PRIVATE + SIGNED READS  (NOT ACTIVE)
+--
+-- Enable after the app signs post image URLs (createSignedUrls on every
+-- read of post_images.image_url / fetch_posts / the lightbox). Until then
+-- the bucket stays public above, because every <img> in the app uses the
+-- plain public URL and would break the moment the bucket goes private.
+--
+-- To enable: also set 'post-images' to false in the bucket upsert in
+-- section 6 (otherwise it flips back on each run), then uncomment below.
+-- post_images_url_check keeps requiring https:// ; if the app starts storing
+-- bare paths instead of URLs, relax that check first.
+-- Avatars stay public.
+-- --------------------------------------------
+
+-- -- bucket: private
+-- update storage.buckets set public = false where id = 'post-images';
+--
+-- -- Readable by: the uploader (own folder), or anyone who can see the post the
+-- -- file belongs to. Path is {user_id}/{post_id}/{file}, so folder 2 is the
+-- -- post id. The subquery runs as the caller, so the posts policy
+-- -- (public / followers / private) decides. The CASE keeps a malformed path
+-- -- from raising a uuid cast error.
+-- drop policy if exists "Anyone can view post images" on storage.objects;
+-- drop policy if exists "Viewers can read post images" on storage.objects;
+-- create policy "Viewers can read post images"
+-- on storage.objects for select to authenticated
+-- using (
+--   bucket_id = 'post-images'
+--   and (
+--     (storage.foldername(name))[1] = auth.uid()::text
+--     or exists (
+--       select 1 from public.posts p
+--       where p.id = case
+--         when (storage.foldername(name))[2] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+--         then ((storage.foldername(name))[2])::uuid
+--       end
+--     )
+--   )
+-- );
 
 
 -- --------------------------------------------
@@ -1609,5 +2024,8 @@ notify pgrst, 'reload schema';
 --   alter table comments validate constraint comments_content_check;
 --   alter table follows  validate constraint follows_no_self_check;
 --   alter table notifications validate constraint notifications_target_check;
+--   alter table profiles validate constraint profiles_username_reserved_check;
+--   alter table profiles validate constraint profiles_avatar_url_check;
+--   alter table post_images validate constraint post_images_url_check;
 --
 -- A failure names the offending rows; fix them and run it again.

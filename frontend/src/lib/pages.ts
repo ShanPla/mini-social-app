@@ -18,6 +18,7 @@ export const pageLoaders = {
   settings: () => import('../pages/Settings/Settings'),
   privacy: () => import('../pages/Privacy/Privacy'),
   terms: () => import('../pages/Terms/Terms'),
+  adminReports: () => import('../pages/AdminReports/AdminReports'),
 };
 
 export type PageName = keyof typeof pageLoaders;
@@ -35,6 +36,7 @@ export function pageForPath(pathname: string): PageName {
   if (pathname === '/settings') return 'settings';
   if (pathname === '/privacy') return 'privacy';
   if (pathname === '/terms') return 'terms';
+  if (pathname === '/admin/reports') return 'adminReports';
   if (pathname.startsWith('/messages')) return 'messages';
   return 'feed';
 }

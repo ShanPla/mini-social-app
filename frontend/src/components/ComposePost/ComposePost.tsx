@@ -6,6 +6,7 @@ import { useCooldown } from '../../lib/useCooldown';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import { shrinkImage, imageExtension, IMAGE_MAX_EDGE } from '../../lib/images';
+import { withSignedImage } from '../../lib/postImages';
 import { removePostImageFiles } from '../../lib/storage';
 import { revokePreview, useRevokeOnUnmount } from '../../lib/useObjectUrls';
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL, SUBMIT_SHORTCUT_ARIA } from '../../lib/submitShortcut';
@@ -85,12 +86,14 @@ export default function ComposePost({
     }
 
     /* Same shape fetch_posts returns, so the card needs no special case */
-    const newPost: Post = { ...(postData as Post), like_count: 0, comment_count: 0, liked_by_me: false, post_images: [] };
+    const newPost: Post = { ...(postData as Post), updated_at: null, like_count: 0, comment_count: 0, liked_by_me: false, post_images: [] };
 
     if (imageFiles.length > 0) {
       const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
       let failed = 0;
       let attachFailed = false;
+      /* A server message (photo cap, rate limit) beats the generic line */
+      let attachDetail = '';
 
       for (let i = 0; i < imageFiles.length; i++) {
         /* Big phone photos are resized first, so they fit the 5 MB limit */
@@ -118,8 +121,9 @@ export default function ComposePost({
           .select('id, post_id, image_url, position');
         if (imagesError || !imageRows) {
           attachFailed = true;
+          attachDetail = describeError(imagesError, '');
           void removePostImageFiles(uploadedImages.map((img) => img.image_url));
-          if (content.trim()) toast.error('The post went up, but its images could not be attached.');
+          if (content.trim()) toast.error(attachDetail || 'The post went up, but its images could not be attached.');
         } else {
           newPost.post_images = [...imageRows].sort((a, b) => a.position - b.position);
         }
@@ -132,14 +136,14 @@ export default function ComposePost({
         const { error: undoError } = await supabase.from('posts').delete().eq('id', postData.id);
         if (undoError) console.warn('could not remove the empty post:', undoError.message);
         toast.error(attachFailed
-          ? 'Your photos could not be attached, so nothing was published. Please try again.'
+          ? (attachDetail ? `${attachDetail} Nothing was published.` : 'Your photos could not be attached, so nothing was published. Please try again.')
           : 'Your photos could not be uploaded, so nothing was published. Please try again.');
         setPosting(false);
         return;
       }
     }
 
-    onPosted(newPost);
+    onPosted(await withSignedImage(newPost));
     toast.success('Post published');
     setContent('');
     writeDraft(draftKey, '');

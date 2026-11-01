@@ -300,7 +300,8 @@
 }
 
 /* Message button (chat) */
-.profile-message-btn {
+.profile-message-btn,
+.profile-report-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;

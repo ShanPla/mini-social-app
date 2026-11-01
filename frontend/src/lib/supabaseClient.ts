@@ -25,6 +25,8 @@ export type PostImage = {
   post_id: string;
   image_url: string;
   position: number;
+  /* Signed link for showing the photo (lib/postImages.ts). Never written to the database. */
+  display_url?: string;
 };
 
 export type Post = {
@@ -34,8 +36,12 @@ export type Post = {
   image_url: string | null;
   visibility: 'public' | 'followers' | 'private';
   created_at: string;
+  /* Set by the server when the text or visibility changes; null if never edited */
+  updated_at: string | null;
   profiles?: Profile;
   post_images?: PostImage[];
+  /* Signed link for the legacy single image */
+  display_image_url?: string;
   /* From fetch_posts: totals and the caller's own like, never every like row */
   like_count: number;
   comment_count: number;

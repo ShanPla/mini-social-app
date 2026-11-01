@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useId } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ImagePlus, Link2, MessageCircle, Settings } from 'lucide-react';
+import { ImagePlus, Link2, MessageCircle, Settings, Flag } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import Lightbox from '../../components/Lightbox/Lightbox';
@@ -10,8 +10,10 @@ import LoadMore from '../../components/LoadMore/LoadMore';
 import PostCard from '../../components/PostCard/PostCard';
 import ComposePost from '../../components/ComposePost/ComposePost';
 import EmptyState from '../../components/EmptyState/EmptyState';
+import ReportModal from '../../components/ReportModal/ReportModal';
 import FollowersModal from '../../components/FollowersModal/FollowersModal';
 import { usePageTitle } from '../../lib/usePageTitle';
+import { fetchProfileStats } from '../../lib/profileStats';
 import { displayName } from '../../lib/names';
 import { pruneFolder } from '../../lib/storage';
 import { shrinkImage, imageExtension, IMAGE_MAX_EDGE } from '../../lib/images';
@@ -37,8 +39,8 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const toast = useToast();
   const [messageLoading, setMessageLoading] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [followersCount, setFollowersCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
+  const [followersCount, setFollowersCount] = useState<number | null>(null);
+  const [followingCount, setFollowingCount] = useState<number | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -53,6 +55,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const [saveError, setSaveError] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   const [showAvatarLightbox, setShowAvatarLightbox] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [followModal, setFollowModal] = useState<'followers' | 'following' | null>(null);
 
   /* Avatar state */
@@ -129,21 +132,16 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
       setLoading(false);
     })();
 
+    /* One call for all three counts; a failure leaves them as dashes (posts fall back to the list length) */
     (async () => {
-      const { count } = await supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', userId);
-      if (cancelled) return;
-      setPostCount(count ?? 0);
+      const stats = await fetchProfileStats(userId);
+      if (cancelled || !stats) return;
+      setPostCount(stats.posts);
+      setFollowersCount(stats.followers);
+      setFollowingCount(stats.following);
     })();
 
     (async () => {
-      const [{ count: frs }, { count: fng }] = await Promise.all([
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
-      ]);
-      if (cancelled) return;
-      setFollowersCount(frs || 0);
-      setFollowingCount(fng || 0);
-
       if (currentUserId && currentUserId !== userId) {
         const { data } = await supabase
           .from('follows').select('id')
@@ -169,7 +167,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
         toast.error(describeError(error, 'Could not unfollow. Please try again.'));
       } else {
         setIsFollowing(false);
-        setFollowersCount((c) => c - 1);
+        setFollowersCount((c) => (c === null ? c : Math.max(0, c - 1)));
       }
     } else {
       const { error } = await supabase.from('follows').insert({ follower_id: currentUserId, following_id: userId });
@@ -178,7 +176,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
         toast.error(describeError(error, 'Could not follow. Please try again.'));
       } else {
         setIsFollowing(true);
-        setFollowersCount((c) => c + 1);
+        setFollowersCount((c) => (c === null ? c : c + 1));
       }
     }
     setFollowLoading(false);
@@ -471,14 +469,14 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                 className="stat stat--clickable"
                 onClick={() => setFollowModal('followers')}
               >
-                <span className="stat-count">{followersCount}</span>
+                <span className="stat-count">{followersCount ?? '–'}</span>
                 <span className="stat-label">Followers</span>
               </button>
               <button
                 className="stat stat--clickable"
                 onClick={() => setFollowModal('following')}
               >
-                <span className="stat-count">{followingCount}</span>
+                <span className="stat-count">{followingCount ?? '–'}</span>
                 <span className="stat-label">Following</span>
               </button>
             </div>
@@ -503,6 +501,11 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
               {!isOwnProfile && currentUserId && (
                 <button className="btn-ghost profile-message-btn" onClick={handleMessage} disabled={messageLoading}>
                   <MessageCircle size={14} /> {messageLoading ? 'Opening…' : 'Message'}
+                </button>
+              )}
+              {!isOwnProfile && currentUserId && (
+                <button className="btn-ghost profile-report-btn" onClick={() => setShowReport(true)}>
+                  <Flag size={14} /> Report user
                 </button>
               )}
             </div>
@@ -551,6 +554,9 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
             </>
           )}
         </section>
+        {showReport && userId && (
+          <ReportModal targetType="user" targetId={userId} onClose={() => setShowReport(false)} />
+        )}
         {followModal && userId && (
           <FollowersModal
             userId={userId}

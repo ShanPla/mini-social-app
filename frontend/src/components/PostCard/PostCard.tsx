@@ -1,7 +1,7 @@
 import { memo, useState, useRef, useEffect, useId } from 'react';
 import { moveFocus } from '../../lib/menuKeys';
 import { Link } from 'react-router-dom';
-import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Users, Lock, Link2 } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Pencil, Trash2, Shield, Users, Lock, Link2, Flag } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Post } from '../../lib/supabaseClient';
 import { useTimeAgo, parseDbDate, fullDate } from '../../lib/timeAgo';
@@ -9,6 +9,8 @@ import CommentSection from '../CommentSection/CommentSection';
 import ImageCollage from '../ImageCollage/ImageCollage';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import EditPostModal from '../EditPostModal/EditPostModal';
+import ReportModal from '../ReportModal/ReportModal';
+import { postImageUrls } from '../../lib/postImages';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import { pruneFolder, removePostImageFiles } from '../../lib/storage';
@@ -51,6 +53,7 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
   const [expanded, setExpanded] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [likeAnim, setLikeAnim] = useState<'pop' | 'unpop' | null>(null);
   const [showActions, setShowActions] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -168,9 +171,8 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
     ? currentPost.content.slice(0, CHAR_LIMIT).trimEnd()
     : currentPost.content;
 
-  const images = currentPost.post_images?.length
-    ? [...currentPost.post_images].sort((a, b) => a.position - b.position).map((img) => img.image_url)
-    : currentPost.image_url ? [currentPost.image_url] : [];
+  /* Signed display links when we have them, else the stored URLs */
+  const images = postImageUrls(currentPost);
 
   return (
     <>
@@ -189,11 +191,21 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
                 {currentPost.profiles ? displayName(currentPost.profiles) : 'Unknown'}
                 {currentPost.profiles?.display_name && <span className="author-handle">@{currentPost.profiles.username}</span>}
               </span>
-              <time
-                className="post-date"
-                dateTime={parseDbDate(currentPost.created_at).toISOString()}
-                title={fullDate(currentPost.created_at)}
-              >{postDate}</time>
+              <div className="post-date-row">
+                <time
+                  className="post-date"
+                  dateTime={parseDbDate(currentPost.created_at).toISOString()}
+                  title={fullDate(currentPost.created_at)}
+                >{postDate}</time>
+                {/* Set by the server when the text or visibility changed */}
+                {currentPost.updated_at && (
+                  <time
+                    className="post-edited"
+                    dateTime={parseDbDate(currentPost.updated_at).toISOString()}
+                    title={`Edited ${fullDate(currentPost.updated_at)}`}
+                  >(edited)</time>
+                )}
+              </div>
             </div>
           </Link>
 
@@ -231,6 +243,17 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
                     onClick={() => chooseAction(() => setShowEditModal(true))}
                   >
                     <Pencil size={14} /> Edit post
+                  </button>
+                )}
+                {/* Report — other people's posts */}
+                {currentUserId && !isOwner && (
+                  <button
+                    className="post-action-item"
+                    role="menuitem"
+                    tabIndex={-1}
+                    onClick={() => chooseAction(() => setShowReport(true))}
+                  >
+                    <Flag size={14} /> Report post
                   </button>
                 )}
                 {/* Delete — owner or admin */}
@@ -298,6 +321,7 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
             postId={currentPost.id}
             currentUserId={currentUserId}
             isAdmin={isAdmin}
+            postOwnerId={currentPost.user_id}
             onCountChange={setCommentCount}
           />
         )}
@@ -310,6 +334,10 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
           onClose={() => setShowEditModal(false)}
           onSave={handleEditSave}
         />
+      )}
+
+      {showReport && (
+        <ReportModal targetType="post" targetId={currentPost.id} onClose={() => setShowReport(false)} />
       )}
 
       {/* Delete confirmation */}

@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
 import { usePresence } from '../../context/PresenceContext';
 import { WidgetAvatar } from '../SidebarWidget/SidebarWidget';
+import { fetchProfileStats } from '../../lib/profileStats';
+import type { ProfileStats } from '../../lib/profileStats';
 import { displayName } from '../../lib/names';
 import './ProfileCard.css';
 
@@ -11,30 +13,23 @@ type Props = {
   userId: string;
 };
 
-type Counts = { posts: number; followers: number; following: number };
-
 /* Mini profile card for the feed's left column */
 export default function ProfileCard({ userId }: Props) {
   const { isOnline } = usePresence();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [counts, setCounts] = useState<Counts | null>(null);
+  const [counts, setCounts] = useState<ProfileStats | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [{ data }, posts, followers, following] = await Promise.all([
+      const [{ data }, stats] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-        supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', userId),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
+        fetchProfileStats(userId),
       ]);
       if (cancelled) return;
       if (data) setProfile(data as Profile);
-      setCounts({
-        posts: posts.count || 0,
-        followers: followers.count || 0,
-        following: following.count || 0,
-      });
+      /* On a failed call the counts stay as dashes */
+      if (stats) setCounts(stats);
     })();
     return () => { cancelled = true; };
   }, [userId]);

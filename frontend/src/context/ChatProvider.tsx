@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import type { ChatMessage, Conversation } from '../lib/supabaseClient';
 import { isMobile, sortConversations, conversationTitle, MAX_OPEN_POPUPS } from '../lib/chat';
 import { useToast } from './ToastContext';
+import { describeError } from '../lib/errors';
 import { ChatContext } from './ChatContext';
 import type { ChatContextValue, MeProfile, MessageEvent } from './ChatContext';
 
@@ -133,12 +134,13 @@ export default function ChatProvider({ userId, children }: Props) {
   const startDm = useCallback(async (otherUserId: string) => {
     if (!userId) return null;
     const { data, error } = await supabase.rpc('create_conversation', { member_ids: [otherUserId] });
+    if (error?.code === 'P0001') toast.error(describeError(error, 'Could not start the conversation.'));
     if (error || !data) return null;
     const id = data as string;
     await refreshConversations();
     openChat(id);
     return id;
-  }, [userId, refreshConversations, openChat]);
+  }, [userId, refreshConversations, openChat, toast]);
 
   const createGroup = useCallback(async (memberIds: string[], name: string | null) => {
     if (!userId) return null;
@@ -146,10 +148,12 @@ export default function ChatProvider({ userId, children }: Props) {
       member_ids: memberIds,
       group_name: name && name.trim() ? name.trim() : null,
     });
+    /* Server messages (rate limit) are worth showing as they are */
+    if (error?.code === 'P0001') toast.error(describeError(error, 'Could not start the conversation.'));
     if (error || !data) return null;
     await refreshConversations();
     return data as string;
-  }, [userId, refreshConversations]);
+  }, [userId, refreshConversations, toast]);
 
   const leaveConversation = useCallback(async (conversationId: string) => {
     if (!userId) return false;

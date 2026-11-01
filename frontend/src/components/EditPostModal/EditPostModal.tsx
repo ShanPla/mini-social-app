@@ -8,6 +8,7 @@ import type { Post } from '../../lib/supabaseClient';
 import { useToast } from '../../context/ToastContext';
 import { describeError } from '../../lib/errors';
 import { removePostImageFiles } from '../../lib/storage';
+import { withSignedRows } from '../../lib/postImages';
 import { shrinkImage, imageExtension, IMAGE_MAX_EDGE } from '../../lib/images';
 import { revokePreview, useRevokeOnUnmount } from '../../lib/useObjectUrls';
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL, SUBMIT_SHORTCUT_ARIA } from '../../lib/submitShortcut';
@@ -114,10 +115,12 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
     setSaving(true);
 
     /* Update post content and visibility */
-    const { error: updateError } = await supabase
+    const { data: updatedRow, error: updateError } = await supabase
       .from('posts')
       .update({ content: content.trim(), visibility })
-      .eq('id', post.id);
+      .eq('id', post.id)
+      .select('updated_at')
+      .single();
 
     if (updateError) {
       setError(describeError(updateError, 'Could not save your changes. Please try again.'));
@@ -177,7 +180,9 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
           .insert(uploadedImages)
           .select('id, post_id, image_url, position');
         if (insertError) {
-          setError('The text was saved, but the new images could not be attached. Try Save again.');
+          /* The photo cap and rate limits come with their own message */
+          const detail = describeError(insertError, '');
+          setError(detail ? `The text was saved, but the new images could not be attached. ${detail}` : 'The text was saved, but the new images could not be attached. Try Save again.');
           setSaving(false);
           return;
         }
@@ -193,7 +198,14 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       .eq('post_id', post.id)
       .order('position');
 
-    onSave({ ...post, content: content.trim(), visibility, post_images: updatedImages || [] } as Post);
+    /* updated_at comes back from the row: the server only sets it when the text or visibility changed */
+    onSave({
+      ...post,
+      content: content.trim(),
+      visibility,
+      updated_at: updatedRow?.updated_at ?? post.updated_at,
+      post_images: await withSignedRows(updatedImages || []),
+    } as Post);
     toast.success('Post updated');
     setSaving(false);
     onClose();
@@ -279,7 +291,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
               <div className="edit-images-grid">
                 {existingImages.map((img) => (
                   <div key={img.id} className="edit-image-item">
-                    <img src={img.image_url} alt="Post image" width={80} height={80} decoding="async" />
+                    <img src={img.display_url ?? img.image_url} alt="Post image" width={80} height={80} decoding="async" />
                     <button className="edit-image-remove" onClick={() => removeExisting(img.id)} type="button" aria-label="Remove image" title="Remove">
                       <X size={10} />
                     </button>

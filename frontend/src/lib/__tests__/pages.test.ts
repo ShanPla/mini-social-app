@@ -10,6 +10,7 @@ describe('pageForPath', () => {
     expect(pageForPath('/search')).toBe('search');
     expect(pageForPath('/notifications')).toBe('notifications');
     expect(pageForPath('/settings')).toBe('settings');
+    expect(pageForPath('/admin/reports')).toBe('adminReports');
   });
 
   it('maps paths with an id to profile and post pages', () => {

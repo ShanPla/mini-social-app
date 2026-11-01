@@ -35,6 +35,7 @@ const NotFound = lazy(pageLoaders.notFound);
 const SettingsPage = lazy(pageLoaders.settings);
 const PrivacyPage = lazy(pageLoaders.privacy);
 const TermsPage = lazy(pageLoaders.terms);
+const AdminReports = lazy(pageLoaders.adminReports);
 /* The chat tree (thread, bubbles, pickers) is shared by the popups and the
    /messages page; it loads with whichever is used first */
 const ChatDock = lazy(() => import('./components/ChatDock/ChatDock'));
@@ -171,7 +172,9 @@ function AppInner({ userId, isAdmin, recovery, onRecoverySteered }: AppInnerProp
           <Route path="/search" element={userId ? <SearchPage /> : <ToLogin />} />
           <Route path="/notifications" element={userId ? <NotificationsPage currentUserId={userId} /> : <ToLogin />} />
           <Route path="/messages/:conversationId?" element={userId ? <MessagesPage /> : <ToLogin />} />
-          <Route path="/settings" element={userId ? <SettingsPage userId={userId} /> : <ToLogin />} />
+          <Route path="/settings" element={userId ? <SettingsPage userId={userId} isAdmin={isAdmin} /> : <ToLogin />} />
+          {/* Admins only; everyone else gets the 404 (the database refuses them anyway) */}
+          <Route path="/admin/reports" element={userId ? (isAdmin ? <AdminReports userId={userId} /> : <NotFound userId={userId} />) : <ToLogin />} />
           {/* Legal pages: readable signed in or out */}
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />

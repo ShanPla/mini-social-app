@@ -56,6 +56,18 @@
   margin-left: 6px;
 }
 
+.post-date-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.post-edited {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
 .post-date {
   display: block;
   font-size: 0.75rem;

@@ -27,6 +27,9 @@
   /* Tints: danger hover, the danger card, unread rows */
   --accent-tint: #fde8e4;
   --accent-border: #f0c7bf;
+  /* Modal backdrop and box shadow (new modals; older ones still hardcode them) */
+  --overlay: rgba(26, 20, 16, 0.5);
+  --shadow-modal: 0 8px 40px rgba(26, 20, 16, 0.18);
   --unread-bg: #fffdf9;
   --unread-border: #e8dfc8;
   /* Notification type chips (like uses --accent-tint and --accent) */
@@ -74,6 +77,8 @@
   --success: #5bcc70;
   --accent-tint: rgba(228, 108, 79, 0.16);
   --accent-border: rgba(228, 108, 79, 0.45);
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow-modal: 0 8px 40px rgba(0, 0, 0, 0.5);
   --unread-bg: #272019;
   --unread-border: #4a3d30;
   --chip-comment-bg: rgba(116, 143, 252, 0.16);
