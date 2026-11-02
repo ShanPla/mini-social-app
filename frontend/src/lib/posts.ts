@@ -2,7 +2,7 @@ import { supabase } from './supabaseClient';
 import type { Post } from './supabaseClient';
 import { withSignedImages } from './postImages';
 
-export const POSTS_PAGE_SIZE = 20;
+const POSTS_PAGE_SIZE = 20;
 
 export type PostsQuery = {
   /* all posts the caller can see, only from people they follow, or the ones they saved */

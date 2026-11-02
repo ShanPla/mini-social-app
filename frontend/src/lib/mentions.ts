@@ -5,7 +5,7 @@
  * Pure helpers only; the lookup of names to people is in mentionCache.ts.
  */
 
-export const MENTION_MAX_LENGTH = 30;
+const MENTION_MAX_LENGTH = 30;
 
 const WORD = /[a-zA-Z0-9_]/;
 

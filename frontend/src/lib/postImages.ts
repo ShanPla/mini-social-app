@@ -19,7 +19,7 @@ const BUCKET = 'post-images';
 /* 12 hours: a feed tab left open all day keeps its photos; the list re-signs
    on every fetch anyway, so a shorter link would only break idle tabs */
 export const POST_IMAGE_TTL_S = 12 * 60 * 60;
-export const POST_IMAGE_RENEW_MS = 5 * 60 * 1000;
+const POST_IMAGE_RENEW_MS = 5 * 60 * 1000;
 
 type Signed = { url: string; expiresAt: number };
 const cache = new Map<string, Signed>();
