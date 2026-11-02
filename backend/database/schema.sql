@@ -1770,8 +1770,8 @@ grant execute on function public.get_conversations() to authenticated;
 create or replace function public.mark_conversation_read(conv_id uuid)
 returns void
 language plpgsql
-security invoker
-set search_path = public
+security definer
+set search_path = public, pg_temp
 as $$
 begin
   update conversation_members
@@ -1798,8 +1798,8 @@ grant execute on function public.mark_conversation_read(uuid) to authenticated;
 create or replace function public.hide_conversation(conv_id uuid)
 returns void
 language sql
-security invoker
-set search_path = public
+security definer
+set search_path = public, pg_temp
 as $$
   update conversation_members
     set hidden_at = now()
@@ -2396,11 +2396,10 @@ with check (
 );
 
 -- Users may update only their own row, and only last_read_at.
+-- No update policy or grant: last_read_at and hidden_at move only through
+-- mark_conversation_read and hide_conversation, always to the server time and
+-- only on the caller's own row, so nobody can fake what [Seen] shows.
 drop policy if exists "Users can update own membership" on conversation_members;
-create policy "Users can update own membership"
-on conversation_members for update to authenticated
-using (user_id = auth.uid())
-with check (user_id = auth.uid() and is_conversation_member(conversation_id));
 
 -- Leave a GROUP. DMs cannot be left (that would orphan a one-person DM);
 -- they are hidden instead (hide_conversation).
@@ -2427,7 +2426,6 @@ using (
 
 revoke insert, update on conversation_members from authenticated;
 grant insert (conversation_id, user_id) on conversation_members to authenticated;
-grant update (last_read_at, hidden_at) on conversation_members to authenticated;
 
 
 -- MESSAGES
