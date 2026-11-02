@@ -19,6 +19,7 @@ export default function Privacy() {
         <li>What you share: posts and their images, comments, likes and who you follow.</li>
         <li>Messages: chat messages and any photos you send in chats. Chat photos are kept in a private bucket and only people in that conversation can open them.</li>
         <li>Notifications that the app creates for you (likes, comments, follows, messages).</li>
+        <li>When you check whether a username is free: a one-way hash of your network address, deleted after 10 minutes, to stop people from trying every name.</li>
       </ul>
 
       <h2>Where it is stored</h2>

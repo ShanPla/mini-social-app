@@ -37,7 +37,9 @@ export default function Register() {
     if (cleaned.length < 3) { setUsernameStatus('idle'); return; }
     setUsernameStatus('checking');
     /* Logged-out users have no table access; this RPC is the one open door */
-    const { data } = await supabase.rpc('username_available', { name: cleaned });
+    const { data, error: checkError } = await supabase.rpc('username_available', { name: cleaned });
+    /* A failed check (rate limit, offline) says nothing about the name; signing up still does */
+    if (checkError) { setUsernameStatus('idle'); return; }
     setUsernameStatus(data === true ? 'available' : 'taken');
   };
 

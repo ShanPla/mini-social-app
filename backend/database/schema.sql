@@ -564,17 +564,53 @@ $$;
 grant execute on function public.conversation_member_count(uuid) to anon, authenticated;
 
 -- Username availability for the Register page, which runs logged out.
--- anon has no table access (section 5), so this is the only door.
+-- anon has no table access (section 5), so this is the only door. At most 60
+-- checks a minute per network address, so nobody can walk through every name.
+-- The log holds a one-way hash of the address and is cleared after 10 minutes.
+-- Without an address (SQL editor) there is no limit.
+create table if not exists username_checks (
+  ip_hash text not null,
+  checked_at timestamp not null default timezone('utc', now())
+);
+create index if not exists idx_username_checks_lookup on username_checks (ip_hash, checked_at);
+alter table username_checks enable row level security;
+revoke all on username_checks from public, anon, authenticated;
+
 create or replace function public.username_available(name text)
 returns boolean
-language sql
+language plpgsql
 security definer
-stable
 set search_path = public, pg_temp
 as $$
-  select not public.is_reserved_username(name) and not exists (
+declare
+  headers jsonb;
+  ip text;
+  ip_key text;
+  now_utc timestamp := timezone('utc', now());
+begin
+  begin
+    headers := nullif(current_setting('request.headers', true), '')::jsonb;
+  exception when others then
+    headers := null;
+  end;
+  ip := coalesce(headers->>'cf-connecting-ip', split_part(headers->>'x-forwarded-for', ',', 1));
+
+  if coalesce(ip, '') <> '' then
+    ip_key := encode(sha256(convert_to(ip, 'UTF8')), 'hex');
+    perform pg_advisory_xact_lock(hashtext('username_check:' || ip_key));
+    delete from username_checks where checked_at < now_utc - interval '10 minutes';
+    if (select count(*) from username_checks
+         where ip_hash = ip_key and checked_at > now_utc - interval '1 minute') >= 60 then
+      raise exception 'Too many username checks in a short time. Please wait a minute.'
+        using errcode = 'P0001', hint = 'rate_limit';
+    end if;
+    insert into username_checks (ip_hash, checked_at) values (ip_key, now_utc);
+  end if;
+
+  return not public.is_reserved_username(name) and not exists (
     select 1 from profiles where username = lower(trim(coalesce(name, '')))
   );
+end;
 $$;
 grant execute on function public.username_available(text) to anon, authenticated;
 
