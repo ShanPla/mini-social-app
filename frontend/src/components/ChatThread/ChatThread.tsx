@@ -315,6 +315,8 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
 
   /* ── Resolve senders who are not (or no longer) in the member list ── */
   useEffect(() => {
+    /* Signed out: no session to ask with, so no request (it would come back 401) */
+    if (!userId) return;
     const known = new Set([
       ...(conv?.members || []).map((m) => m.user_id),
       ...Object.keys(extraSenders),
@@ -338,7 +340,7 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, conv?.members]);
+  }, [messages, conv?.members, userId]);
 
   /* ── Typing indicator and reaction notices (private broadcast channel
      only members can hear). A [reaction] notice names a message whose
