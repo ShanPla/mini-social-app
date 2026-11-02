@@ -170,7 +170,7 @@ export default function Feed({ userId, isAdmin }: FeedProps) {
             </div>
           )}
 
-          {userId && <ComposePost userId={userId} onPosted={prepend} />}
+          {userId && <ComposePost userId={userId} onPosted={prepend} onPhotosAdded={prepend} />}
 
           {/* Feed tabs */}
           <div className="feed-tabs" role="tablist" aria-label="Feed" onKeyDown={handleTabKey}>

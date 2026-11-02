@@ -594,7 +594,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
         <section className="profile-posts">
           {/* Your own profile doubles as a place to publish from */}
           {isOwnProfile && currentUserId && tab === 'posts' && (
-            <ComposePost userId={currentUserId} onPosted={(post) => { prepend(post); setPostCount((c) => (c === null ? c : c + 1)); }} />
+            <ComposePost userId={currentUserId} onPhotosAdded={prepend} onPosted={(post) => { prepend(post); setPostCount((c) => (c === null ? c : c + 1)); }} />
           )}
           {isOwnProfile ? (
             <div className="profile-tabs" role="group" aria-label="Show">

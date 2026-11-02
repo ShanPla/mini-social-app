@@ -50,6 +50,12 @@ const VisibilityBadge = ({ visibility }: { visibility?: string }) => {
 
 function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowComments = false, onBlocked, onSaveChange }: PostCardProps) {
   const [currentPost, setCurrentPost] = useState(post);
+  /* The list handed down a newer copy (a retry added photos to this post): show it */
+  const [seenPost, setSeenPost] = useState(post);
+  if (post !== seenPost) {
+    setSeenPost(post);
+    setCurrentPost(post);
+  }
   const [liked, setLiked] = useState(post.liked_by_me);
   const [likeCount, setLikeCount] = useState(post.like_count);
   const [showComments, setShowComments] = useState(defaultShowComments);

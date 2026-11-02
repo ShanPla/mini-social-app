@@ -148,3 +148,20 @@
 @media (max-width: 680px) {
   .compose-card { padding: 16px; }
 }
+
+/* The post is up, but some photos did not upload */
+.compose-retry {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.compose-retry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}

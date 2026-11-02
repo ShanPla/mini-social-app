@@ -106,6 +106,18 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
     setNewPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
+  /* Part of the save went through and the dialog stays open for another try.
+     The card and this dialog both move to what the database holds now, so
+     Cancel leaves a correct card and Save again starts from the real state. */
+  const syncAfterPartialSave = async (updatedAt: string | null | undefined) => {
+    const { data } = await supabase.from('post_images').select('*').eq('post_id', post.id).order('position');
+    const rows = await withSignedRows(data || []);
+    savedImagesRef.current = rows;
+    setExistingImages(rows);
+    setContent(content.trim());
+    onSave({ ...post, content: content.trim(), visibility, updated_at: updatedAt ?? post.updated_at, post_images: rows } as Post);
+  };
+
   const handleSave = async () => {
     /* The keyboard shortcut can fire while a save is already running */
     if (saving) return;
@@ -152,7 +164,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
          would hand out a position a kept image already has */
       const startPosition = savedImagesRef.current.reduce((max, img) => Math.max(max, img.position + 1), 0);
       const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
-      let failed = 0;
+      const failedIndexes: number[] = [];
 
       for (let i = 0; i < newFiles.length; i++) {
         let url = uploadedRef.current.get(newFiles[i]);
@@ -162,17 +174,13 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
           const path = `${post.user_id}/${post.id}/${crypto.randomUUID()}.${imageExtension(file)}`;
           const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file, { contentType: file.type || undefined });
           if (uploadError) {
-            failed += 1;
+            failedIndexes.push(i);
             continue;
           }
           url = supabase.storage.from('post-images').getPublicUrl(path).data.publicUrl;
           uploadedRef.current.set(newFiles[i], url);
         }
         uploadedImages.push({ post_id: post.id, image_url: url, position: startPosition + uploadedImages.length });
-      }
-
-      if (failed > 0) {
-        toast.error(`${failed} of ${newFiles.length} new image${newFiles.length > 1 ? 's' : ''} could not be uploaded. Use JPG, PNG, WebP or GIF; a GIF must be under 5 MB.`);
       }
 
       if (uploadedImages.length > 0) {
@@ -184,11 +192,24 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
           /* The photo cap and rate limits come with their own message */
           const detail = describeError(insertError, '');
           setError(detail ? `The text was saved, but the new images could not be attached. ${detail}` : 'The text was saved, but the new images could not be attached. Try Save again.');
+          await syncAfterPartialSave(updatedRow?.updated_at);
           setSaving(false);
           return;
         }
         savedImagesRef.current = [...savedImagesRef.current, ...(insertedRows || [])];
         uploadedRef.current.clear();
+      }
+
+      /* Only the photos that failed stay in the dialog, so Save again cannot
+         attach the others twice */
+      if (failedIndexes.length > 0) {
+        newPreviews.forEach((src, i) => { if (!failedIndexes.includes(i)) revokePreview(src); });
+        setNewFiles(failedIndexes.map((i) => newFiles[i]));
+        setNewPreviews(failedIndexes.map((i) => newPreviews[i]));
+        setError(`Your other changes were saved, but ${failedIndexes.length} of ${newFiles.length} new image${newFiles.length > 1 ? 's' : ''} did not upload. Use JPG, PNG, WebP or GIF; a GIF must be under 5 MB. Press Save to try again, or remove them.`);
+        await syncAfterPartialSave(updatedRow?.updated_at);
+        setSaving(false);
+        return;
       }
     }
 

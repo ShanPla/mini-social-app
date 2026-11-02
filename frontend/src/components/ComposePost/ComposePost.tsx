@@ -8,6 +8,7 @@ import { describeError } from '../../lib/errors';
 import { shrinkImage, imageExtension, IMAGE_MAX_EDGE } from '../../lib/images';
 import { withSignedImage } from '../../lib/postImages';
 import { removePostImageFiles } from '../../lib/storage';
+import { fetchPosts } from '../../lib/posts';
 import { revokePreview, useRevokeOnUnmount } from '../../lib/useObjectUrls';
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL, SUBMIT_SHORTCUT_ARIA } from '../../lib/submitShortcut';
 import { readDraft, writeDraft } from '../../lib/drafts';
@@ -22,6 +23,8 @@ type Props = {
   /* Called with the new post (profile embedded, images attached) so the
      parent can prepend it to whatever list it is showing */
   onPosted: (post: Post) => void;
+  /* A retry added photos to a post that is already in the list */
+  onPhotosAdded: (post: Post) => void;
   label?: string;
   placeholder?: string;
 };
@@ -30,6 +33,7 @@ type Props = {
 export default function ComposePost({
   userId,
   onPosted,
+  onPhotosAdded,
   label = "What's on your mind?",
   placeholder = 'Share something with the world…',
 }: Props) {
@@ -40,6 +44,9 @@ export default function ComposePost({
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [visibility, setVisibility] = useState<Visibility>('public');
   const [posting, setPosting] = useState(false);
+  /* The post went up but these photos did not: offered for another try */
+  const [retry, setRetry] = useState<{ post: Post; files: File[]; total: number; detail: string } | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isOnCooldown, triggerCooldown] = useCooldown(3000);
   const toast = useToast();
@@ -69,9 +76,64 @@ export default function ComposePost({
 
   const canPost = !!content.trim() || imageFiles.length > 0;
 
+  /* Uploads the files and attaches them to the post. Files that fail come
+     back in failedFiles; if attaching fails, all of them do, and the uploads
+     are removed again. */
+  const attachPhotos = async (postId: string, files: File[], startPosition: number) => {
+    const uploaded: { post_id: string; image_url: string; position: number }[] = [];
+    const failedFiles: File[] = [];
+    for (const original of files) {
+      try {
+        /* Big phone photos are resized first, so they fit the 5 MB limit */
+        const file = await shrinkImage(original, IMAGE_MAX_EDGE.post);
+        const path = `${userId}/${postId}/${crypto.randomUUID()}.${imageExtension(file)}`;
+        const { error } = await supabase.storage.from('post-images').upload(path, file, { contentType: file.type || undefined });
+        if (error) { failedFiles.push(original); continue; }
+        const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(path);
+        uploaded.push({ post_id: postId, image_url: urlData.publicUrl, position: startPosition + uploaded.length });
+      } catch {
+        failedFiles.push(original);
+      }
+    }
+    if (uploaded.length === 0) return { rows: [], failedFiles, attachFailed: false, detail: '' };
+    /* Read the rows back so the card holds their real ids: editing the post
+       straight away deletes removed images by id */
+    const { data: rows, error } = await supabase
+      .from('post_images')
+      .insert(uploaded)
+      .select('id, post_id, image_url, position');
+    if (error || !rows) {
+      void removePostImageFiles(uploaded.map((img) => img.image_url));
+      /* A server message (photo cap, rate limit) beats the generic line */
+      return { rows: [], failedFiles: files, attachFailed: true, detail: describeError(error, '') };
+    }
+    return { rows: [...rows].sort((a, b) => a.position - b.position), failedFiles, attachFailed: false, detail: '' };
+  };
+
+  const handleRetry = async () => {
+    if (!retry || retrying) return;
+    setRetrying(true);
+    const existing = retry.post.post_images ?? [];
+    const start = existing.reduce((max, img) => Math.max(max, img.position + 1), 0);
+    const result = await attachPhotos(retry.post.id, retry.files, start);
+    const post = { ...retry.post, post_images: [...existing, ...result.rows] };
+    if (result.rows.length > 0) {
+      /* Read it back: the post may have been edited since it was published */
+      const page = await fetchPosts({ postId: post.id });
+      onPhotosAdded(page.posts[0] ?? await withSignedImage(post));
+    }
+    if (result.failedFiles.length > 0) {
+      setRetry({ post, files: result.failedFiles, total: retry.total, detail: result.detail });
+    } else {
+      setRetry(null);
+      toast.success('Photos added to your post');
+    }
+    setRetrying(false);
+  };
+
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canPost || posting || isOnCooldown) return;
+    if (!canPost || posting || isOnCooldown || retry) return;
     setPosting(true);
 
     const { data: postData, error: postError } = await supabase
@@ -89,55 +151,22 @@ export default function ComposePost({
     /* Same shape fetch_posts returns, so the card needs no special case */
     const newPost: Post = { ...(postData as Post), updated_at: null, like_count: 0, comment_count: 0, liked_by_me: false, saved_by_me: false, post_images: [] };
 
+    let stillFailed: File[] = [];
+    let failDetail = '';
+
     if (imageFiles.length > 0) {
-      const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
-      let failed = 0;
-      let attachFailed = false;
-      /* A server message (photo cap, rate limit) beats the generic line */
-      let attachDetail = '';
-
-      for (let i = 0; i < imageFiles.length; i++) {
-        /* Big phone photos are resized first, so they fit the 5 MB limit */
-        const file = await shrinkImage(imageFiles[i], IMAGE_MAX_EDGE.post);
-        const path = `${userId}/${postData.id}/${i}.${imageExtension(file)}`;
-        const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file, { contentType: file.type || undefined });
-        if (uploadError) {
-          failed += 1;
-        } else {
-          const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(path);
-          uploadedImages.push({ post_id: postData.id, image_url: urlData.publicUrl, position: i });
-        }
-      }
-
-      if (failed > 0) {
-        toast.error(`${failed} of ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} could not be uploaded. Use JPG, PNG, WebP or GIF; a GIF must be under 5 MB.`);
-      }
-
-      if (uploadedImages.length > 0) {
-        /* Read the rows back so the card holds their real ids: editing the
-           post straight away deletes removed images by id */
-        const { data: imageRows, error: imagesError } = await supabase
-          .from('post_images')
-          .insert(uploadedImages)
-          .select('id, post_id, image_url, position');
-        if (imagesError || !imageRows) {
-          attachFailed = true;
-          attachDetail = describeError(imagesError, '');
-          void removePostImageFiles(uploadedImages.map((img) => img.image_url));
-          if (content.trim()) toast.error(attachDetail || 'The post went up, but its images could not be attached.');
-        } else {
-          newPost.post_images = [...imageRows].sort((a, b) => a.position - b.position);
-        }
-      }
+      const result = await attachPhotos(postData.id, imageFiles, 0);
+      newPost.post_images = result.rows;
+      stillFailed = result.failedFiles;
+      failDetail = result.detail;
 
       /* An image-only post with no image attached would be a blank post:
          take it back and keep the draft so the user can try again */
-      if (!content.trim() && (newPost.post_images ?? []).length === 0) {
-        if (!attachFailed) void removePostImageFiles(uploadedImages.map((img) => img.image_url));
+      if (!content.trim() && result.rows.length === 0) {
         const { error: undoError } = await supabase.from('posts').delete().eq('id', postData.id);
         if (undoError) console.warn('could not remove the empty post:', undoError.message);
-        toast.error(attachFailed
-          ? (attachDetail ? `${attachDetail} Nothing was published.` : 'Your photos could not be attached, so nothing was published. Please try again.')
+        toast.error(result.attachFailed
+          ? (failDetail ? `${failDetail} Nothing was published.` : 'Your photos could not be attached, so nothing was published. Please try again.')
           : 'Your photos could not be uploaded, so nothing was published. Please try again.');
         setPosting(false);
         return;
@@ -145,7 +174,11 @@ export default function ComposePost({
     }
 
     onPosted(await withSignedImage(newPost));
-    toast.success('Post published');
+    if (stillFailed.length > 0) {
+      setRetry({ post: newPost, files: stillFailed, total: imageFiles.length, detail: failDetail });
+    } else {
+      toast.success('Post published');
+    }
     setContent('');
     writeDraft(draftKey, '');
     clearImages();
@@ -224,9 +257,27 @@ export default function ComposePost({
           </select>
         </div>
 
+        {/* The post is up, some photos are not */}
+        {retry && (
+          <div className="compose-retry" role="alert">
+            <p>
+              Your post is up, but {retry.files.length} of {retry.total} photo{retry.total > 1 ? 's' : ''} did not upload.{' '}
+              {retry.detail || 'Use JPG, PNG, WebP or GIF; a GIF must be under 5 MB.'}
+            </p>
+            <div className="compose-retry-actions">
+              <button type="button" className="btn-ghost" onClick={handleRetry} disabled={retrying}>
+                {retrying ? 'Retrying…' : 'Retry'}
+              </button>
+              <button type="button" className="btn-ghost" onClick={() => setRetry(null)} disabled={retrying}>
+                Skip these photos
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="compose-footer">
           <CharCount length={content.length} max={500} />
-          <button type="submit" className="btn-primary" disabled={posting || !canPost} title={`Publish (${SUBMIT_SHORTCUT_LABEL})`}>
+          <button type="submit" className="btn-primary" disabled={posting || !canPost || !!retry} title={`Publish (${SUBMIT_SHORTCUT_LABEL})`}>
             {posting ? 'Publishing…' : 'Publish'}
           </button>
         </div>
