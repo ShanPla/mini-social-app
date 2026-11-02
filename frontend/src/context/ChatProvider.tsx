@@ -44,6 +44,8 @@ export default function ChatProvider({ userId, children }: Props) {
   const onMessagesPageRef = useRef(false);
   const openChatsRef = useRef<string[]>([]);
   const subscribedOnceRef = useRef(false);
+  /* Chats I am leaving right now: the notice about it can arrive before the delete call returns */
+  const leavingRef = useRef(new Set<string>());
 
   useEffect(() => {
     onMessagesPageRef.current = location.pathname.startsWith('/messages');
@@ -157,12 +159,16 @@ export default function ChatProvider({ userId, children }: Props) {
 
   const leaveConversation = useCallback(async (conversationId: string) => {
     if (!userId) return false;
+    leavingRef.current.add(conversationId);
     const { error } = await supabase
       .from('conversation_members')
       .delete()
       .eq('conversation_id', conversationId)
       .eq('user_id', userId);
-    if (error) return false;
+    if (error) {
+      leavingRef.current.delete(conversationId);
+      return false;
+    }
 
     /* The bell entry would otherwise link to a conversation we can no longer read */
     await supabase
@@ -174,6 +180,7 @@ export default function ChatProvider({ userId, children }: Props) {
 
     commit(conversationsRef.current.filter((c) => c.id !== conversationId));
     closeChat(conversationId);
+    leavingRef.current.delete(conversationId);
     return true;
   }, [userId, commit, closeChat]);
 
@@ -294,9 +301,8 @@ export default function ChatProvider({ userId, children }: Props) {
 
       if (eventType === 'DELETE') {
         if (row.user_id === userId) {
-          /* Still in the list means someone else removed us: leaving would
-             have dropped it already */
-          if (conv) toast.info(`You were removed from ${conversationTitle(conv, userId)}`);
+          /* Someone else removed us, unless we are leaving it ourselves */
+          if (conv && !leavingRef.current.has(row.conversation_id)) toast.info(`You were removed from ${conversationTitle(conv, userId)}`);
           commit(list.filter((c) => c.id !== row.conversation_id));
           closeChat(row.conversation_id);
         } else if (conv) {
