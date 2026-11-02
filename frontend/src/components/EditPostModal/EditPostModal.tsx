@@ -127,6 +127,32 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
     }
     setSaving(true);
 
+    /* Upload first, before anything on the post changes: if the text is empty,
+       the old photos are going and no new photo made it, saving would leave a
+       blank post. Files uploaded by an earlier attempt are reused. */
+    const failedIndexes: number[] = [];
+    for (let i = 0; i < newFiles.length; i++) {
+      if (uploadedRef.current.has(newFiles[i])) continue;
+      try {
+        /* Big phone photos are resized first, so they fit the 5 MB limit */
+        const file = await shrinkImage(newFiles[i], IMAGE_MAX_EDGE.post);
+        const path = `${post.user_id}/${post.id}/${crypto.randomUUID()}.${imageExtension(file)}`;
+        const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file, { contentType: file.type || undefined });
+        if (uploadError) {
+          failedIndexes.push(i);
+          continue;
+        }
+        uploadedRef.current.set(newFiles[i], supabase.storage.from('post-images').getPublicUrl(path).data.publicUrl);
+      } catch {
+        failedIndexes.push(i);
+      }
+    }
+    if (!content.trim() && existingImages.length === 0 && failedIndexes.length === newFiles.length) {
+      setError(`Nothing was changed: the new image${newFiles.length > 1 ? 's' : ''} did not upload and the post would be empty. Use JPG, PNG, WebP or GIF; a GIF must be under 5 MB. Press Save to try again.`);
+      setSaving(false);
+      return;
+    }
+
     /* Update post content and visibility */
     const { data: updatedRow, error: updateError } = await supabase
       .from('posts')
@@ -157,31 +183,17 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       void removePostImageFiles(removedImages.map((img) => img.image_url));
     }
 
-    /* Upload new images. Files uploaded by an earlier attempt are reused. */
+    /* Attach the new images */
     if (newFiles.length > 0) {
       /* New images go after the highest position still in use: positions only
          sort, and removing a middle image leaves a gap, so counting images
          would hand out a position a kept image already has */
       const startPosition = savedImagesRef.current.reduce((max, img) => Math.max(max, img.position + 1), 0);
       const uploadedImages: { post_id: string; image_url: string; position: number }[] = [];
-      const failedIndexes: number[] = [];
-
-      for (let i = 0; i < newFiles.length; i++) {
-        let url = uploadedRef.current.get(newFiles[i]);
-        if (!url) {
-          /* Big phone photos are resized first, so they fit the 5 MB limit */
-          const file = await shrinkImage(newFiles[i], IMAGE_MAX_EDGE.post);
-          const path = `${post.user_id}/${post.id}/${crypto.randomUUID()}.${imageExtension(file)}`;
-          const { error: uploadError } = await supabase.storage.from('post-images').upload(path, file, { contentType: file.type || undefined });
-          if (uploadError) {
-            failedIndexes.push(i);
-            continue;
-          }
-          url = supabase.storage.from('post-images').getPublicUrl(path).data.publicUrl;
-          uploadedRef.current.set(newFiles[i], url);
-        }
-        uploadedImages.push({ post_id: post.id, image_url: url, position: startPosition + uploadedImages.length });
-      }
+      newFiles.forEach((file) => {
+        const url = uploadedRef.current.get(file);
+        if (url) uploadedImages.push({ post_id: post.id, image_url: url, position: startPosition + uploadedImages.length });
+      });
 
       if (uploadedImages.length > 0) {
         const { data: insertedRows, error: insertError } = await supabase
