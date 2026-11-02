@@ -3,6 +3,14 @@ import type { Post } from './supabaseClient';
 import { fetchPosts } from './posts';
 import type { PostsQuery } from './posts';
 
+/* The first page, with any post published while it was loading in front: the
+   query may have run before that post existed. */
+export function keepPublished(published: Post[], page: Post[]): Post[] {
+  if (published.length === 0) return page;
+  const inPage = new Set(page.map((p) => p.id));
+  return [...published.filter((p) => !inPage.has(p.id)), ...page];
+}
+
 /*
  * Paged post list for the feed and profile pages.
  * The first page loads in an effect keyed by the query and refreshKey
@@ -21,6 +29,8 @@ export function usePostList(query: PostsQuery, refreshKey = 0, enabled = true) {
   /* A failed Load more keeps the list and hasMore, so it can be retried */
   const [moreError, setMoreError] = useState<string | null>(null);
   const keyRef = useRef(key);
+  /* Posts added with prepend since the first page started loading */
+  const publishedRef = useRef<Post[]>([]);
   const loading = enabled && loadedKey !== key;
 
   useEffect(() => {
@@ -30,10 +40,11 @@ export function usePostList(query: PostsQuery, refreshKey = 0, enabled = true) {
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    publishedRef.current = [];
     (async () => {
       const page = await fetchPosts({ mode, author, postId });
       if (cancelled) return;
-      setPosts(page.posts);
+      setPosts(keepPublished(publishedRef.current, page.posts));
       setHasMore(page.hasMore);
       setError(page.error);
       setMoreError(null);
@@ -66,8 +77,14 @@ export function usePostList(query: PostsQuery, refreshKey = 0, enabled = true) {
 
   /* Drops any copy already in the list: a refetch can land while a post is
      still being published, and the new post would otherwise show twice */
-  const prepend = useCallback((post: Post) => setPosts((prev) => [post, ...prev.filter((p) => p.id !== post.id)]), []);
-  const remove = useCallback((id: string) => setPosts((prev) => prev.filter((p) => p.id !== id)), []);
+  const prepend = useCallback((post: Post) => {
+    publishedRef.current = [post, ...publishedRef.current.filter((p) => p.id !== post.id)];
+    setPosts((prev) => [post, ...prev.filter((p) => p.id !== post.id)]);
+  }, []);
+  const remove = useCallback((id: string) => {
+    publishedRef.current = publishedRef.current.filter((p) => p.id !== id);
+    setPosts((prev) => prev.filter((p) => p.id !== id));
+  }, []);
   /* After a block: everything by that author leaves the list */
   const removeByAuthor = useCallback((userId: string) => setPosts((prev) => prev.filter((p) => p.user_id !== userId)), []);
 
