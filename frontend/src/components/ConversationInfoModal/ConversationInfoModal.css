@@ -1,7 +1,7 @@
 .ci-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(26, 20, 16, 0.5);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -19,7 +19,7 @@
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 40px rgba(26, 20, 16, 0.18);
+  box-shadow: var(--shadow-modal);
   animation: slideUp 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   overflow: hidden;
 }
