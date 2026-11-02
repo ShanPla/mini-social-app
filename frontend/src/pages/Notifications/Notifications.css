@@ -130,7 +130,17 @@
 .notif-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 .notif-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.notif-body p { font-size: 0.88rem; color: var(--ink-light); line-height: 1.5; }
+.notif-body p {
+  font-size: 0.88rem;
+  color: var(--ink-light);
+  line-height: 1.5;
+  /* A very long name or group title ends in an ellipsis after two lines */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
 
 .notif-actor { position: relative; z-index: 1; font-weight: 600; color: var(--ink); text-decoration: none; transition: color 0.2s; }
 .notif-actor:hover { color: var(--accent); }
