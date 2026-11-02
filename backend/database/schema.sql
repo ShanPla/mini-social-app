@@ -1523,6 +1523,50 @@ after insert or update of last_read_at or delete on conversation_members
 for each row execute procedure public.broadcast_member_change();
 
 
+-- 3l. Reaction changes reach only the members of the chat. A DELETE event
+--     of a published table goes to every subscriber, so message_reactions
+--     is not in the realtime publication (section 7a). This trigger sends
+--     a private broadcast, event [reaction], on the chat's topic
+--     typing:{conversation_id}, which only members can hear (7b). It
+--     carries only the message id: the open chat reads that message's
+--     reactions again, so a member who sends a fake notice changes nothing.
+create or replace function public.broadcast_reaction_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  msg uuid;
+  conv uuid;
+begin
+  if tg_op = 'DELETE' then
+    msg := old.message_id;
+  else
+    msg := new.message_id;
+  end if;
+  -- Gone when the whole message is being deleted: nothing to tell
+  select m.conversation_id into conv from messages m where m.id = msg;
+  if conv is null then
+    return null;
+  end if;
+  begin
+    perform realtime.send(jsonb_build_object('message_id', msg), 'reaction', 'typing:' || conv::text, true);
+  exception when others then
+    null;
+  end;
+  return null;
+end;
+$$;
+
+revoke all on function public.broadcast_reaction_change() from public, anon, authenticated;
+
+drop trigger if exists trg_broadcast_reaction_change on message_reactions;
+create trigger trg_broadcast_reaction_change
+after insert or update of emoji or delete on message_reactions
+for each row execute procedure public.broadcast_reaction_change();
+
+
 
 -- --------------------------------------------
 -- 4. RPCs
@@ -2669,14 +2713,15 @@ using (
 -- --------------------------------------------
 
 -- 7a. postgres_changes. RLS scopes INSERT/UPDATE events per subscriber.
---     conversation_members is left out on purpose, see 3k.
+--     conversation_members and message_reactions are left out on
+--     purpose, see 3k and 3l.
 --     posts feeds the [new posts] banner; the rest drive chat and the bell.
 --     message_reactions drives live reactions in an open chat.
 do $$
 declare t text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    foreach t in array array['posts', 'notifications', 'messages', 'conversations', 'message_reactions'] loop
+    foreach t in array array['posts', 'notifications', 'messages', 'conversations'] loop
       if not exists (
         select 1 from pg_publication_tables
         where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
@@ -2684,13 +2729,16 @@ begin
         execute format('alter publication supabase_realtime add table public.%I', t);
       end if;
     end loop;
-    -- Membership changes go out as private broadcasts instead (3k)
-    if exists (
-      select 1 from pg_publication_tables
-      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'conversation_members'
-    ) then
-      alter publication supabase_realtime drop table public.conversation_members;
-    end if;
+    -- Membership and reaction changes go out as private broadcasts
+    -- instead (3k, 3l)
+    foreach t in array array['conversation_members', 'message_reactions'] loop
+      if exists (
+        select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+      ) then
+        execute format('alter publication supabase_realtime drop table public.%I', t);
+      end if;
+    end loop;
   end if;
 end $$;
 
@@ -2700,11 +2748,10 @@ alter table posts replica identity default;
 alter table notifications replica identity default;
 alter table messages replica identity default;
 alter table conversation_members replica identity default;
--- Reactions too: a DELETE event carries only the key (message_id, user_id),
--- which is all the open chat needs to drop that reaction.
 alter table message_reactions replica identity default;
 
 -- 7b. Private broadcast channels for typing indicators: topic typing:{conversation_id}.
+--     The same topic carries the [reaction] notices from 3l.
 --     Only members can join/send (Realtime Authorization via realtime.messages RLS).
 drop policy if exists "Members can receive typing broadcasts" on realtime.messages;
 create policy "Members can receive typing broadcasts"

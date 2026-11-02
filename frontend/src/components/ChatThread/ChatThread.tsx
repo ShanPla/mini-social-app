@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useId, Fragment } from 'react';
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import { ChevronsDown } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabaseClient';
@@ -120,7 +120,6 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
   const mountedRef = useRef(true);
   const toast = useToast();
   const toastRef = useRef(toast);
-  const instanceId = useId();
   const reactionsRef = useRef<Record<string, Reaction[]>>({});
   const messagesRef = useRef<ChatMessage[]>([]);
   const membersRef = useRef<ChatMember[]>([]);
@@ -271,35 +270,6 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     })();
   }, [messages, reactionVersion]);
 
-  useEffect(() => {
-    if (!userId) return;
-    let subscribedOnce = false;
-    const channel = supabase
-      .channel(`reactions:${conversationId}:${instanceId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions' }, (payload) => {
-        if (payload.eventType === 'DELETE') {
-          /* Only the key comes with a delete */
-          const old = payload.old as Partial<Reaction>;
-          if (!old.message_id || !old.user_id || !reactionsLoadedRef.current.has(old.message_id)) return;
-          const { message_id, user_id } = old;
-          setReactions((prev) => removeReaction(prev, message_id, user_id));
-        } else {
-          const row = payload.new as Reaction;
-          if (!row.message_id || !reactionsLoadedRef.current.has(row.message_id)) return;
-          setReactions((prev) => upsertReaction(prev, row));
-        }
-      })
-      .subscribe((status) => {
-        /* Events are at-most-once: after a reconnect, read everything again */
-        if (status === 'SUBSCRIBED' && subscribedOnce) {
-          reactionsLoadedRef.current.clear();
-          setReactionVersion((v) => v + 1);
-        }
-        if (status === 'SUBSCRIBED') subscribedOnce = true;
-      });
-    return () => { supabase.removeChannel(channel); };
-  }, [conversationId, userId, instanceId]);
-
   /* ── People I blocked (RLS returns only my own rows); only group chats collapse their messages ── */
   const isGroup = !!conv?.is_group;
   useEffect(() => {
@@ -370,9 +340,12 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, conv?.members]);
 
-  /* ── Typing indicator (private broadcast channel, no DB) ── */
+  /* ── Typing indicator and reaction notices (private broadcast channel
+     only members can hear). A [reaction] notice names a message whose
+     reactions changed; they are read again through RLS (schema 3l). ── */
   useEffect(() => {
     if (!userId) return;
+    let subscribedOnce = false;
     const channel = supabase.channel(`typing:${conversationId}`, {
       config: { private: true, broadcast: { self: false } },
     });
@@ -387,7 +360,20 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
           return next;
         });
       })
-      .subscribe();
+      .on('broadcast', { event: 'reaction' }, ({ payload }) => {
+        const id = (payload as { message_id?: string } | null)?.message_id;
+        if (!id || !reactionsLoadedRef.current.has(id)) return;
+        reactionsLoadedRef.current.delete(id);
+        setReactionVersion((v) => v + 1);
+      })
+      .subscribe((status) => {
+        /* Broadcasts are at-most-once: after a reconnect, read all reactions again */
+        if (status === 'SUBSCRIBED' && subscribedOnce) {
+          reactionsLoadedRef.current.clear();
+          setReactionVersion((v) => v + 1);
+        }
+        if (status === 'SUBSCRIBED') subscribedOnce = true;
+      });
     typingChannelRef.current = channel;
 
     return () => {
