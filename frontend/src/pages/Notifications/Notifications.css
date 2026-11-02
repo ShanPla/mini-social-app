@@ -73,11 +73,6 @@
 .skeleton-line.medium { width: 55%; }
 .skeleton-line.short { width: 25%; }
 
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
 /* Notifications list */
 .notif-list { display: flex; flex-direction: column; gap: 2px; }
 

@@ -10,11 +10,6 @@
   animation: fadeIn 0.15s ease;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 .edit-modal-box {
   background: var(--card-bg);
   border: 1px solid var(--border);
@@ -26,11 +21,6 @@
   flex-direction: column;
   box-shadow: 0 8px 40px rgba(26, 20, 16, 0.18);
   animation: slideUp 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* Header */

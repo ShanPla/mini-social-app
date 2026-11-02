@@ -128,6 +128,17 @@
   animation: dropdownEnter 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* ── Shared modal keyframes (single copy; component CSS only references them) ── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* ── Modal entrance ── */
 @keyframes modalBackdropIn {
   from { opacity: 0; }

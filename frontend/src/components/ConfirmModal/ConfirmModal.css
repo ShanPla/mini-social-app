@@ -13,11 +13,6 @@
   animation: fadeIn 0.15s ease;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 .modal-box {
   background: var(--card-bg);
   border: 1px solid var(--border);
@@ -26,10 +21,10 @@
   width: 100%;
   max-width: 400px;
   box-shadow: 0 8px 40px rgba(26, 20, 16, 0.18);
-  animation: slideUp 0.15s ease;
+  animation: confirmSlideUp 0.15s ease;
 }
 
-@keyframes slideUp {
+@keyframes confirmSlideUp {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
