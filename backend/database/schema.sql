@@ -86,6 +86,9 @@ alter table profiles add constraint profiles_avatar_url_check
   check (avatar_url is null or avatar_url like 'https://%') not valid;
 
 
+-- When the username last changed (null = never). Set by trg_limit_username_change.
+alter table profiles add column if not exists username_changed_at timestamp;
+
 create table if not exists posts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references profiles(id) on delete cascade not null,
@@ -1271,6 +1274,39 @@ drop trigger if exists trg_limit_post_images on post_images;
 create trigger trg_limit_post_images
 before insert on post_images
 for each row execute procedure public.limit_post_images();
+
+
+-- 3g2. A username can change once every 7 days, so nobody can keep swapping
+--      names and hand the old ones to someone else. The first change is free.
+--      SQL editor calls (no user) are not limited. The client can not write
+--      username_changed_at (column grants, section 5).
+create or replace function public.limit_username_change()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+declare
+  now_utc timestamp := timezone('utc', now());
+  next_allowed timestamp := old.username_changed_at + interval '7 days';
+begin
+  if new.username is not distinct from old.username then
+    return new;
+  end if;
+  if auth.uid() is not null and next_allowed > now_utc then
+    raise exception 'You can change your username again on %.', to_char(next_allowed, 'FMMonth FMDD, YYYY')
+      using errcode = 'P0001', hint = 'limit';
+  end if;
+  new.username_changed_at := now_utc;
+  return new;
+end;
+$$;
+
+revoke all on function public.limit_username_change() from public, anon, authenticated;
+
+drop trigger if exists trg_limit_username_change on profiles;
+create trigger trg_limit_username_change
+before update of username on profiles
+for each row execute procedure public.limit_username_change();
 
 
 -- 3h. Edited marker. updated_at moves only when the text or the visibility

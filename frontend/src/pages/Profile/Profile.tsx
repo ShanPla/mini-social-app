@@ -300,7 +300,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     const { error } = await supabase.from('profiles')
       .update({ bio: editBio, username, display_name }).eq('id', currentUserId);
     if (error) {
-      setSaveError(error.code === '23505' ? 'That username is already taken.' : 'Could not save your profile. Please try again.');
+      setSaveError(error.code === '23505' ? 'That username is already taken.' : describeError(error, 'Could not save your profile. Please try again.'));
     } else {
       setProfile((p) => p ? { ...p, bio: editBio, username, display_name } : p);
       setEditing(false);
