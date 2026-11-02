@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { Heart, Reply, Trash2, Shield, ChevronDown, ChevronUp, Flag } from 'lucide-react';
+import { Heart, Reply, Trash2, Shield, ChevronDown, ChevronUp, Flag, Pencil } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useTimeAgo, parseDbDate, fullDate } from '../../lib/timeAgo';
 import { useCooldown } from '../../lib/useCooldown';
@@ -25,6 +26,8 @@ type CommentData = {
   parent_id: string | null;
   content: string;
   created_at: string;
+  /* Null until the text is edited; set by the server */
+  updated_at?: string | null;
   profiles?: {
     id: string;
     username: string;
@@ -58,6 +61,12 @@ function insertInTree(list: CommentData[], node: CommentData): CommentData[] {
 
 function removeFromTree(list: CommentData[], id: string): CommentData[] {
   return list.filter((c) => c.id !== id).map((c) => ({ ...c, replies: removeFromTree(c.replies || [], id) }));
+}
+
+function setEditInTree(list: CommentData[], id: string, content: string, updatedAt: string | null): CommentData[] {
+  return list.map((c) => c.id === id
+    ? { ...c, content, updated_at: updatedAt }
+    : { ...c, replies: setEditInTree(c.replies || [], id, content, updatedAt) });
 }
 
 function setLikeInTree(list: CommentData[], id: string, userId: string, liked: boolean): CommentData[] {
@@ -173,6 +182,23 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
     }
   };
 
+  /* True when saved, so the form knows it can close. RLS refuses an edit with
+     no error and no rows, which counts as a failure too. */
+  const handleEdit = async (commentId: string, content: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('comments')
+      .update({ content })
+      .eq('id', commentId)
+      .select('content, updated_at')
+      .maybeSingle();
+    if (error || !data) {
+      toast.error(describeError(error, 'Could not save your comment. Please try again.'));
+      return false;
+    }
+    setComments((prev) => setEditInTree(prev, commentId, data.content, data.updated_at));
+    return true;
+  };
+
   const handleLikeComment = async (commentId: string, isLiked: boolean) => {
     if (!currentUserId) return;
     /* Optimistic: flip the heart now, flip it back if the write fails */
@@ -209,6 +235,7 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
             postOwnerId={postOwnerId}
             postId={postId}
             onDelete={handleDelete}
+            onEdit={handleEdit}
             onLike={handleLikeComment}
             onReply={handleSubmit}
             loading={loading}
@@ -261,6 +288,7 @@ type CommentItemProps = {
   postOwnerId?: string;
   postId: string;
   onDelete: (id: string) => void;
+  onEdit: (id: string, content: string) => Promise<boolean>;
   onLike: (id: string, isLiked: boolean) => void;
   onReply: (e: React.FormEvent, parentId: string, content: string, clearFn: () => void) => void;
   loading: boolean;
@@ -268,7 +296,7 @@ type CommentItemProps = {
   depth: number;
 };
 
-function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, onLike, onReply, loading, isOnCooldown, depth }: CommentItemProps) {
+function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, onEdit, onLike, onReply, loading, isOnCooldown, depth }: CommentItemProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showReplies, setShowReplies] = useState(depth < 1);
   const [replyValue, setReplyValue] = useState('');
@@ -276,6 +304,10 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
   const [showReport, setShowReport] = useState(false);
   const commentTime = useTimeAgo(comment.created_at);
   const replyBtnRef = useRef<HTMLButtonElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const editBtnRef = useRef<HTMLButtonElement>(null);
 
   const isOwner = currentUserId === comment.user_id;
   const isPostOwner = !!currentUserId && currentUserId === postOwnerId;
@@ -286,6 +318,23 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
   const likeCount = comment.comment_likes?.length ?? 0;
   const replyCount = comment.replies?.length ?? 0;
   const indentDepth = Math.min(depth, 3);
+  const editTrimmed = editValue.trim();
+
+  const closeEdit = () => {
+    /* The Edit button is disabled while the form is open, and a disabled button can not take focus */
+    flushSync(() => setEditing(false));
+    editBtnRef.current?.focus();
+  };
+
+  const submitEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (savingEdit || !editTrimmed) return;
+    if (editTrimmed === comment.content) { closeEdit(); return; }
+    setSavingEdit(true);
+    const saved = await onEdit(comment.id, editTrimmed);
+    setSavingEdit(false);
+    if (saved) closeEdit();
+  };
 
   return (
     <>
@@ -299,16 +348,45 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
             }
           </Link>
 
+          {/* Edit form, in place of the bubble */}
+          {editing && (
+            <form className="comment-reply-form comment-edit-form" onSubmit={submitEdit}>
+              <MentionInput
+                value={editValue}
+                onValueChange={setEditValue}
+                placeholder="Edit your comment…"
+                aria-label="Edit your comment"
+                maxLength={COMMENT_MAX}
+                autoFocus
+                onKeyDown={(e) => {
+                  /* Escape keeps the old text and hands focus back to the Edit button */
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeEdit();
+                  }
+                }}
+              />
+              {editValue.length >= COMMENT_COUNT_FROM && <CharCount length={editValue.length} max={COMMENT_MAX} className="comment-char-count" />}
+              <button type="submit" disabled={savingEdit || !editTrimmed}>
+                {savingEdit ? 'Saving…' : 'Save'}
+              </button>
+              <button type="button" className="reply-cancel" onClick={closeEdit}>Cancel</button>
+            </form>
+          )}
+
           {/* Content bubble */}
-          <div className="comment-body">
-            <Link to={`/profile/${comment.user_id}`} className="comment-author">
-              {comment.profiles ? displayName(comment.profiles) : 'Unknown'}
-            </Link>
-            <span className="comment-content"><MentionText text={comment.content} /></span>
-          </div>
+          {!editing && (
+            <div className="comment-body">
+              <Link to={`/profile/${comment.user_id}`} className="comment-author">
+                {comment.profiles ? displayName(comment.profiles) : 'Unknown'}
+              </Link>
+              <span className="comment-content"><MentionText text={comment.content} /></span>
+            </div>
+          )}
 
           {/* Delete — opens confirmation modal */}
-          {canDelete && (
+          {canDelete && !editing && (
             <button
               onClick={() => setShowDeleteModal(true)}
               className={`comment-delete ${asAdmin ? 'comment-delete--admin' : ''}`}
@@ -327,6 +405,15 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
             dateTime={parseDbDate(comment.created_at).toISOString()}
             title={fullDate(comment.created_at)}
           >{commentTime}</time>
+
+          {/* Set by the server when the text changed */}
+          {comment.updated_at && (
+            <time
+              className="comment-edited"
+              dateTime={parseDbDate(comment.updated_at).toISOString()}
+              title={`Edited ${fullDate(comment.updated_at)}`}
+            >(edited)</time>
+          )}
 
           {/* Like */}
           <button
@@ -349,6 +436,19 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
             >
               <Reply size={11} />
               <span>Reply</span>
+            </button>
+          )}
+
+          {/* Edit — your own comments */}
+          {isOwner && (
+            <button
+              ref={editBtnRef}
+              className="comment-action-btn"
+              onClick={() => { setEditValue(comment.content); setEditing(true); }}
+              disabled={editing}
+            >
+              <Pencil size={11} />
+              <span>Edit</span>
             </button>
           )}
 
@@ -419,6 +519,7 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
                 postOwnerId={postOwnerId}
                 postId={comment.post_id}
                 onDelete={onDelete}
+                onEdit={onEdit}
                 onLike={onLike}
                 onReply={onReply}
                 loading={loading}

@@ -137,6 +137,9 @@ create table if not exists comments (
   created_at timestamp default now()
 );
 
+-- Edited marker: null = never edited. Set by trg_mark_comment_edited (3h) only.
+alter table comments add column if not exists updated_at timestamp;
+
 alter table comments drop constraint if exists comments_content_check;
 alter table comments add constraint comments_content_check
   check (content ~ '\S' and length(content) <= 300) not valid;
@@ -989,7 +992,7 @@ $$;
 
 -- A comment's mention also needs the post to be visible to the mentioned
 -- person. The post owner is skipped on a top-level comment: the [comment]
--- entry already tells them.
+-- entry already tells them. On an edit only the newly added handles count.
 create or replace function public.notify_mentions_comment()
 returns trigger
 language plpgsql
@@ -1001,13 +1004,16 @@ declare
   owner uuid;
   vis text;
 begin
+  if tg_op = 'UPDATE' then
+    names := array(select n from unnest(names) n where n <> all (public.extract_mentions(old.content)));
+  end if;
   if coalesce(array_length(names, 1), 0) = 0 then return null; end if;
 
   select p.user_id, p.visibility into owner, vis from posts p where p.id = new.post_id;
   if owner is null or vis = 'private' then return null; end if;
 
   insert into notifications (user_id, actor_id, type, post_id, comment_id, created_at)
-  select pr.id, new.user_id, 'mention', new.post_id, new.id, new.created_at
+  select pr.id, new.user_id, 'mention', new.post_id, new.id, coalesce(new.updated_at, new.created_at)
     from profiles pr
    where pr.username = any (names)
      and pr.id <> new.user_id
@@ -1038,7 +1044,7 @@ for each row execute procedure public.notify_mentions_post();
 
 drop trigger if exists trg_notify_mentions_comment on comments;
 create trigger trg_notify_mentions_comment
-after insert on comments
+after insert or update of content on comments
 for each row execute procedure public.notify_mentions_comment();
 
 
@@ -1256,6 +1262,29 @@ drop trigger if exists trg_mark_post_edited on posts;
 create trigger trg_mark_post_edited
 before update on posts
 for each row execute procedure public.mark_post_edited();
+
+-- The same for comments: the client can write only the text (section 5).
+create or replace function public.mark_comment_edited()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if new.content is distinct from old.content then
+    new.updated_at := timezone('utc', now());
+  else
+    new.updated_at := old.updated_at;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.mark_comment_edited() from public, anon, authenticated;
+
+drop trigger if exists trg_mark_comment_edited on comments;
+create trigger trg_mark_comment_edited
+before update on comments
+for each row execute procedure public.mark_comment_edited();
 
 
 -- 3i. Blocks and chat rules.
@@ -2235,8 +2264,16 @@ using (exists (
   select 1 from posts p where p.id = comments.post_id and p.user_id = auth.uid()
 ));
 
+-- You edit only your own comment, and only the text, on a post you can see.
+drop policy if exists "Users can edit own comments" on comments;
+create policy "Users can edit own comments"
+on comments for update to authenticated
+using (auth.uid() = user_id and exists (select 1 from posts where id = post_id))
+with check (auth.uid() = user_id);
+
 revoke insert, update on comments from authenticated;
 grant insert (user_id, post_id, parent_id, content) on comments to authenticated;
+grant update (content) on comments to authenticated;
 
 
 alter table comment_likes enable row level security;

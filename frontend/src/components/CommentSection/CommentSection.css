@@ -127,6 +127,12 @@
   letter-spacing: 0.02em;
 }
 
+.comment-edited {
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
 .comment-action-btn {
   background: none;
   border: none;
@@ -155,6 +161,14 @@
   gap: 6px;
   padding-left: 36px;
   margin-top: 6px;
+}
+
+/* The edit form sits beside the avatar, where the bubble was */
+.comment-edit-form {
+  flex: 1;
+  min-width: 0;
+  padding-left: 0;
+  margin-top: 0;
 }
 
 .comment-reply-form input {
@@ -257,6 +271,7 @@
   .comment-thread.depth-3 { margin-left: 40px; }
   .comment-actions,
   .comment-reply-form { padding-left: 30px; }
+  .comment-edit-form { padding-left: 0; }
   .comment-content { font-size: 0.86rem; }
 }
 

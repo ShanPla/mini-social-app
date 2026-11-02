@@ -57,6 +57,7 @@ export type Comment = {
   parent_id: string | null;
   content: string;
   created_at: string;
+  updated_at?: string | null;
   profiles?: Profile;
   comment_likes?: { id: string; user_id: string }[];
   replies?: Comment[];
