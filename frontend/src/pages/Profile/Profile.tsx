@@ -59,6 +59,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
   const [showAvatarLightbox, setShowAvatarLightbox] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showBlock, setShowBlock] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   /* You blocked this person: their content is replaced by an Unblock prompt */
   const [blocked, setBlocked] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
@@ -110,6 +111,19 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     setEditing(false);
   };
 
+  /* Unsaved text edits compared with the saved profile */
+  const editDirty = !!profile && (
+    editBio !== (profile.bio || '')
+    || editUsername !== profile.username
+    || editDisplayName !== (profile.display_name || '')
+  );
+
+  /* Every way out of the editor asks first when there is something to lose */
+  const requestCancel = () => {
+    if (editDirty) setConfirmDiscard(true);
+    else cancelEditor();
+  };
+
   /* Escape cancels the editor, unless a dialog (followers list, photo viewer,
      a post's edit or delete dialog) is open and wants the key itself */
   useEffect(() => {
@@ -117,12 +131,12 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     const handleKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
       if (document.querySelector('[aria-modal="true"]')) return;
-      cancelEditor();
+      requestCancel();
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing, profile]);
+  }, [editing, profile, editBio, editUsername, editDisplayName]);
 
   /* App remounts this page per path, so state starts fresh for every profile.
      The cancelled flag covers the remaining case: a response landing after
@@ -501,7 +515,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
                   <button className="btn-primary" onClick={handleSaveProfile} disabled={saveLoading}>
                     {saveLoading ? 'Saving…' : 'Save'}
                   </button>
-                  <button className="btn-ghost" onClick={cancelEditor}>Cancel</button>
+                  <button className="btn-ghost" onClick={requestCancel}>Cancel</button>
                 </div>
                 {saveError && <p className="edit-error">{saveError}</p>}
               </div>
@@ -645,6 +659,17 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
         </section>
         {showReport && userId && (
           <ReportModal targetType="user" targetId={userId} onClose={() => setShowReport(false)} />
+        )}
+        {confirmDiscard && (
+          <ConfirmModal
+            title="Discard changes?"
+            message="Your edits to this profile have not been saved and will be lost."
+            confirmLabel="Discard"
+            cancelLabel="Keep editing"
+            danger
+            onConfirm={() => { setConfirmDiscard(false); cancelEditor(); }}
+            onCancel={() => setConfirmDiscard(false)}
+          />
         )}
         {showBlock && (
           <ConfirmModal
