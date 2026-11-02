@@ -1668,6 +1668,7 @@ grant execute on function public.create_conversation(uuid[], text) to authentica
 -- get_conversations()
 -- The caller's conversation list, newest activity first, with the last
 -- message, unread count, and member list (with last_read_at for Seen).
+-- The 200 most recently active conversations at most.
 -- security invoker: normal RLS applies.
 create or replace function public.get_conversations()
 returns table (
@@ -1726,7 +1727,8 @@ as $$
     on me.conversation_id = c.id
    and me.user_id = auth.uid()
   where me.hidden_at is null or c.last_message_at > me.hidden_at
-  order by c.last_message_at desc;
+  order by c.last_message_at desc
+  limit 200;
 $$;
 
 revoke all on function public.get_conversations() from public, anon;
