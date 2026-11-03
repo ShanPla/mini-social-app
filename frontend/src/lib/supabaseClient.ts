@@ -16,9 +16,12 @@ export type Profile = {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
-  is_admin: boolean;
   created_at: string;
 };
+
+/* Everything a client may read from profiles. Name the columns: [*] is refused,
+   because is_admin is not readable (i_am_admin tells you about yourself). */
+export const PROFILE_COLUMNS = 'id, username, display_name, bio, avatar_url, created_at';
 
 export type PostImage = {
   id: string;

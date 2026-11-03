@@ -618,6 +618,22 @@ $$;
 grant execute on function public.username_available(text) to anon, authenticated;
 
 
+-- True when the caller is an admin. security definer because nobody can read
+-- profiles.is_admin directly (section 5), which keeps secret who the admins
+-- are. Policies and the client both ask through here.
+create or replace function public.i_am_admin()
+returns boolean
+language sql
+security definer
+stable
+set search_path = public, pg_temp
+as $$
+  select coalesce((select is_admin from profiles where id = auth.uid()), false);
+$$;
+revoke all on function public.i_am_admin() from public, anon;
+grant execute on function public.i_am_admin() to authenticated;
+
+
 -- True when either person has blocked the other. security definer because
 -- blocks is readable only by the blocker (RLS), yet the blocked side must be
 -- hidden too. Policies, RPCs and triggers all go through this one function.
@@ -2196,6 +2212,12 @@ with check (auth.uid() = id);
 revoke insert, update on profiles from authenticated;
 grant update (username, display_name, bio, avatar_url) on profiles to authenticated;
 
+-- Reading is by named column: is_admin and username_changed_at stay private,
+-- and a select of [*] is refused. Keep this list in step with PROFILE_COLUMNS
+-- in the client (lib/supabaseClient.ts).
+revoke select on profiles from anon, authenticated;
+grant select (id, username, display_name, bio, avatar_url, created_at) on profiles to authenticated;
+
 
 -- POSTS
 alter table posts enable row level security;
@@ -2241,7 +2263,7 @@ using (auth.uid() = user_id);
 drop policy if exists "Admins can delete any post" on posts;
 create policy "Admins can delete any post"
 on posts for delete to authenticated
-using (exists (select 1 from profiles where id = auth.uid() and is_admin = true));
+using (public.i_am_admin());
 
 -- Editing can never move a post to another user or bump it to the top of
 -- the feed by rewriting created_at.
@@ -2324,7 +2346,7 @@ using (auth.uid() = user_id);
 drop policy if exists "Admins can delete any comment" on comments;
 create policy "Admins can delete any comment"
 on comments for delete to authenticated
-using (exists (select 1 from profiles where id = auth.uid() and is_admin = true));
+using (public.i_am_admin());
 
 -- A post's owner can clear comments off their own post. Deleting cascades
 -- to replies, comment likes and the comment's bell entry (FKs); the
@@ -2543,14 +2565,14 @@ using (reporter_id = auth.uid());
 drop policy if exists "Admins can view all reports" on reports;
 create policy "Admins can view all reports"
 on reports for select to authenticated
-using (exists (select 1 from profiles where id = auth.uid() and is_admin = true));
+using (public.i_am_admin());
 
 drop policy if exists "Admins can resolve reports" on reports;
 create policy "Admins can resolve reports"
 on reports for update to authenticated
-using (exists (select 1 from profiles where id = auth.uid() and is_admin = true))
+using (public.i_am_admin())
 with check (
-  exists (select 1 from profiles where id = auth.uid() and is_admin = true)
+  public.i_am_admin()
   and (resolved_by is null or resolved_by = auth.uid())
 );
 
@@ -2730,7 +2752,7 @@ using (
   bucket_id = 'post-images'
   and (
     (storage.foldername(name))[1] = auth.uid()::text
-    or exists (select 1 from profiles where id = auth.uid() and is_admin = true)
+    or public.i_am_admin()
     or exists (
       select 1 from public.posts p
       where p.id = case
@@ -2757,7 +2779,7 @@ using (
   bucket_id = 'post-images'
   and (
     (storage.foldername(name))[1] = auth.uid()::text
-    or exists (select 1 from profiles where id = auth.uid() and is_admin = true)
+    or public.i_am_admin()
   )
 );
 

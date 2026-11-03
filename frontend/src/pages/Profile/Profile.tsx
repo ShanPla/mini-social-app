@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useId } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ImagePlus, Link2, MessageCircle, Settings, Flag, Ban } from 'lucide-react';
-import { supabase } from '../../lib/supabaseClient';
+import { supabase, PROFILE_COLUMNS } from '../../lib/supabaseClient';
 import { useChat } from '../../context/ChatContext';
 import Lightbox from '../../components/Lightbox/Lightbox';
 import type { Profile } from '../../lib/supabaseClient';
@@ -146,7 +146,7 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      const { data, error } = await supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).maybeSingle();
       if (cancelled) return;
       setLoadFailed(!!error);
       if (data) {

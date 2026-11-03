@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabaseClient';
+import { supabase, PROFILE_COLUMNS } from '../../lib/supabaseClient';
 import type { Profile } from '../../lib/supabaseClient';
 import { usePresence } from '../../context/PresenceContext';
 import { WidgetAvatar } from '../SidebarWidget/SidebarWidget';
@@ -23,7 +23,7 @@ export default function ProfileCard({ userId }: Props) {
     let cancelled = false;
     (async () => {
       const [{ data }, stats] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).maybeSingle(),
         fetchProfileStats(userId),
       ]);
       if (cancelled) return;

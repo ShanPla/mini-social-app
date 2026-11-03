@@ -232,7 +232,7 @@ frontend/
 - Built with React Portal to avoid z-index clipping
 
 **Admin**
-- Admin role via is_admin flag on profiles
+- Admin role via is_admin flag on profiles, private to the database (i_am_admin tells you about yourself)
 - Copy link on every post (the post options menu): copies /post/:id, and for followers-only or private posts the toast says who can open it
 - Admin can delete any post or comment
 - Enforced server-side via Supabase RLS policies

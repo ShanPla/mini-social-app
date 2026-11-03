@@ -209,10 +209,10 @@ function App() {
    */
   const fetchAdminStatus = async (uid: string) => {
     try {
-      const { data, error } = await supabase.from('profiles').select('is_admin').eq('id', uid).maybeSingle();
+      const { data, error } = await supabase.rpc('i_am_admin');
       if (currentUidRef.current !== uid) return;
-      if (error || !data) return;
-      setIsAdmin(!!data.is_admin);
+      if (error || typeof data !== 'boolean') return;
+      setIsAdmin(data);
     } catch (e) {
       console.error('Admin check failed:', e);
     }
