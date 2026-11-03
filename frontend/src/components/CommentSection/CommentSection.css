@@ -68,6 +68,7 @@
 /* ── Content bubble ── */
 .comment-body {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -83,7 +84,9 @@
   font-size: 0.82rem;
   color: var(--ink);
   text-decoration: none;
-  flex-shrink: 0;
+  /* The longest display names wrap inside the bubble */
+  min-width: 0;
+  overflow-wrap: anywhere;
   transition: color 0.2s;
 }
 .comment-author:hover { color: var(--accent); }
@@ -272,6 +275,9 @@
   .comment-actions,
   .comment-reply-form { padding-left: 30px; }
   .comment-edit-form { padding-left: 0; }
+  /* The field gets its own line: beside the buttons it is too narrow to read */
+  .comment-reply-form { flex-wrap: wrap; }
+  .comment-reply-form .mention-wrap { flex: 1 0 100%; }
   .comment-content { font-size: 0.86rem; }
 }
 
