@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 
-/* Supabase returns `timestamp` columns with no timezone suffix — treat them as UTC. */
+/* Dates come with a zone ([+00:00]). A value without one, from a page that
+   loaded before the columns moved to timestamptz, is UTC. */
 export function parseDbDate(dateStr: string): Date {
-  return new Date(/Z$|[+-]\d\d:?\d\d$/.test(dateStr) ? dateStr : dateStr + 'Z');
+  return new Date(/Z$|[+-]\d\d(:?\d\d)?$/.test(dateStr) ? dateStr : dateStr + 'Z');
 }
 
 /* Full localized date and time, for a hover tooltip or <time title>.

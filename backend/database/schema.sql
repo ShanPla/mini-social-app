@@ -23,7 +23,7 @@
 --   8. Finish
 --
 -- Conventions
---   * All timestamps are `timestamp` (no zone) in UTC. The client appends
+--   * All timestamps are `timestamptz` (no zone) in UTC. The client appends
 --     a Z when parsing (lib/timeAgo.ts parseDbDate).
 --   * CHECK constraints added to tables that may already hold data are
 --     created NOT VALID: enforced for every new write, not retro-checked.
@@ -42,7 +42,7 @@ create table if not exists profiles (
   bio text,
   avatar_url text,
   is_admin boolean default false,
-  created_at timestamp default now()
+  created_at timestamptz default now()
 );
 
 -- Handle stays lowercase and URL-safe; the display name is free text shown
@@ -87,7 +87,7 @@ alter table profiles add constraint profiles_avatar_url_check
 
 
 -- When the username last changed (null = never). Set by trg_limit_username_change.
-alter table profiles add column if not exists username_changed_at timestamp;
+alter table profiles add column if not exists username_changed_at timestamptz;
 
 create table if not exists posts (
   id uuid primary key default gen_random_uuid(),
@@ -96,7 +96,7 @@ create table if not exists posts (
   image_url text,
   visibility text not null default 'public'
     check (visibility in ('public', 'followers', 'private')),
-  created_at timestamp default now()
+  created_at timestamptz default now()
 );
 
 -- Image-only posts carry empty content, so only the length is capped.
@@ -106,7 +106,7 @@ alter table posts add constraint posts_content_check
 
 -- Edited marker: null = never edited. Set by trg_mark_post_edited (3h) only
 -- when the text or the visibility changes.
-alter table posts add column if not exists updated_at timestamp;
+alter table posts add column if not exists updated_at timestamptz;
 
 
 create table if not exists post_images (
@@ -114,7 +114,7 @@ create table if not exists post_images (
   post_id uuid references posts(id) on delete cascade not null,
   image_url text not null,
   position integer not null default 0,
-  created_at timestamp default now()
+  created_at timestamptz default now()
 );
 
 alter table post_images drop constraint if exists post_images_url_check;
@@ -126,7 +126,7 @@ create table if not exists likes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references profiles(id) on delete cascade not null,
   post_id uuid references posts(id) on delete cascade not null,
-  created_at timestamp default now(),
+  created_at timestamptz default now(),
   unique (user_id, post_id)
 );
 
@@ -137,11 +137,11 @@ create table if not exists comments (
   post_id uuid references posts(id) on delete cascade not null,
   parent_id uuid references comments(id) on delete cascade,
   content text not null,
-  created_at timestamp default now()
+  created_at timestamptz default now()
 );
 
 -- Edited marker: null = never edited. Set by trg_mark_comment_edited (3h) only.
-alter table comments add column if not exists updated_at timestamp;
+alter table comments add column if not exists updated_at timestamptz;
 
 alter table comments drop constraint if exists comments_content_check;
 alter table comments add constraint comments_content_check
@@ -152,7 +152,7 @@ create table if not exists comment_likes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references profiles(id) on delete cascade not null,
   comment_id uuid references comments(id) on delete cascade not null,
-  created_at timestamp default now(),
+  created_at timestamptz default now(),
   unique (user_id, comment_id)
 );
 
@@ -161,7 +161,7 @@ create table if not exists follows (
   id uuid primary key default gen_random_uuid(),
   follower_id uuid references profiles(id) on delete cascade not null,
   following_id uuid references profiles(id) on delete cascade not null,
-  created_at timestamp default now(),
+  created_at timestamptz default now(),
   unique (follower_id, following_id)
 );
 
@@ -177,8 +177,8 @@ create table if not exists conversations (
   is_group boolean not null default false,
   name text,
   created_by uuid references profiles(id) on delete set null,
-  created_at timestamp default now(),
-  last_message_at timestamp default now(),
+  created_at timestamptz default now(),
+  last_message_at timestamptz default now(),
   constraint conversations_name_check check (
     name is null or (name ~ '\S' and length(name) <= 100)
   )
@@ -188,15 +188,15 @@ create table if not exists conversations (
 create table if not exists conversation_members (
   conversation_id uuid references conversations(id) on delete cascade not null,
   user_id uuid references profiles(id) on delete cascade not null,
-  joined_at timestamp default now(),
-  last_read_at timestamp default now(),
+  joined_at timestamptz default now(),
+  last_read_at timestamptz default now(),
   -- Set when this member hides the conversation from their list. It comes
   -- back by itself once a message newer than this arrives.
-  hidden_at timestamp,
+  hidden_at timestamptz,
   primary key (conversation_id, user_id)
 );
 
-alter table conversation_members add column if not exists hidden_at timestamp;
+alter table conversation_members add column if not exists hidden_at timestamptz;
 
 -- A message has text, an image, or both.
 -- image_url stores the STORAGE PATH inside the private chat-images bucket:
@@ -210,7 +210,7 @@ create table if not exists messages (
   sender_id uuid references profiles(id) on delete set null,
   content text,
   image_url text,
-  created_at timestamp default now(),
+  created_at timestamptz default now(),
   constraint messages_has_body check (
     coalesce(content ~ '\S', false) or nullif(trim(image_url), '') is not null
   ),
@@ -290,7 +290,7 @@ create table if not exists notifications (
   comment_id uuid references comments(id) on delete cascade,
   conversation_id uuid references conversations(id) on delete cascade,
   is_read boolean default false,
-  created_at timestamp default now()
+  created_at timestamptz default now()
 );
 
 -- Upgrade path for tables created before these columns existed.
@@ -458,7 +458,7 @@ create table if not exists rate_events (
   id bigint generated always as identity primary key,
   user_id uuid not null,
   kind text not null,
-  created_at timestamp not null default timezone('utc', now())
+  created_at timestamptz not null default now()
 );
 
 create index if not exists idx_rate_events_lookup on rate_events (user_id, kind, created_at desc);
@@ -476,8 +476,8 @@ create table if not exists reports (
   target_type text not null,
   target_id uuid not null,
   reason text not null,
-  created_at timestamp default timezone('utc', now()),
-  resolved_at timestamp,
+  created_at timestamptz default now(),
+  resolved_at timestamptz,
   resolved_by uuid references profiles(id) on delete set null,
   constraint reports_target_type_check check (target_type in ('post', 'comment', 'user', 'message')),
   constraint reports_reason_check check (reason ~ '\S' and length(reason) <= 500),
@@ -496,7 +496,7 @@ create index if not exists idx_reports_open on reports (created_at desc) where r
 create table if not exists blocks (
   blocker_id uuid not null default auth.uid() references profiles(id) on delete cascade,
   blocked_id uuid not null references profiles(id) on delete cascade,
-  created_at timestamp default timezone('utc', now()),
+  created_at timestamptz default now(),
   primary key (blocker_id, blocked_id),
   constraint blocks_no_self_check check (blocker_id <> blocked_id)
 );
@@ -509,7 +509,7 @@ create index if not exists idx_blocks_blocked on blocks (blocked_id, blocker_id)
 create table if not exists saved_posts (
   user_id uuid not null default auth.uid() references profiles(id) on delete cascade,
   post_id uuid not null references posts(id) on delete cascade,
-  created_at timestamp default timezone('utc', now()),
+  created_at timestamptz default now(),
   primary key (user_id, post_id)
 );
 
@@ -522,13 +522,46 @@ create table if not exists message_reactions (
   message_id uuid not null references messages(id) on delete cascade,
   user_id uuid not null default auth.uid() references profiles(id) on delete cascade,
   emoji text not null,
-  created_at timestamp default timezone('utc', now()),
+  created_at timestamptz default now(),
   primary key (message_id, user_id)
 );
 
 alter table message_reactions drop constraint if exists message_reactions_emoji_check;
 alter table message_reactions add constraint message_reactions_emoji_check
   check (emoji in ('👍', '❤️', '😂', '😮', '😢', '🙏'));
+
+
+-- Every date is timestamptz. Older tables were created with timestamp and hold
+-- UTC. The two triggers name these columns, so they go first; section 3 puts
+-- them back. Columns with a default and no nulls also become not null.
+drop trigger if exists trg_clamp_member_times on conversation_members;
+drop trigger if exists trg_broadcast_member_change on conversation_members;
+
+do $$
+declare
+  c record;
+  has_nulls boolean;
+begin
+  for c in
+    select col.table_name, col.column_name, col.column_default
+    from information_schema.columns col
+    join pg_tables t on t.schemaname = col.table_schema and t.tablename = col.table_name
+    where col.table_schema = 'public' and col.data_type = 'timestamp without time zone'
+  loop
+    if c.column_default is not null then
+      execute format('alter table public.%I alter column %I drop default', c.table_name, c.column_name);
+    end if;
+    execute format('alter table public.%I alter column %I type timestamptz using %I at time zone ''UTC''',
+      c.table_name, c.column_name, c.column_name);
+    if c.column_default is not null then
+      execute format('alter table public.%I alter column %I set default now()', c.table_name, c.column_name);
+      execute format('select exists (select 1 from public.%I where %I is null)', c.table_name, c.column_name) into has_nulls;
+      if not has_nulls then
+        execute format('alter table public.%I alter column %I set not null', c.table_name, c.column_name);
+      end if;
+    end if;
+  end loop;
+end $$;
 
 
 -- --------------------------------------------
@@ -573,7 +606,7 @@ grant execute on function public.conversation_member_count(uuid) to anon, authen
 -- Without an address (SQL editor) there is no limit.
 create table if not exists username_checks (
   ip_hash text not null,
-  checked_at timestamp not null default timezone('utc', now())
+  checked_at timestamptz not null default now()
 );
 create index if not exists idx_username_checks_lookup on username_checks (ip_hash, checked_at);
 alter table username_checks enable row level security;
@@ -589,7 +622,7 @@ declare
   headers jsonb;
   ip text;
   ip_key text;
-  now_utc timestamp := timezone('utc', now());
+  now_utc timestamptz := now();
 begin
   begin
     headers := nullif(current_setting('request.headers', true), '')::jsonb;
@@ -740,7 +773,7 @@ declare
   window_s integer := TG_ARGV[1]::integer;
   max_events integer := TG_ARGV[2]::integer;
   v_label text := coalesce(TG_ARGV[3], TG_ARGV[0]);
-  now_utc timestamp := timezone('utc', now());
+  now_utc timestamptz := now();
   recent integer;
 begin
   if uid is null then
@@ -1027,7 +1060,7 @@ begin
 
   insert into notifications (user_id, actor_id, type, post_id, created_at)
   select pr.id, new.user_id, 'mention', new.id,
-         case when tg_op = 'INSERT' then new.created_at else timezone('utc', now()) end
+         case when tg_op = 'INSERT' then new.created_at else now() end
     from profiles pr
    where pr.username = any (names)
      and pr.id <> new.user_id
@@ -1181,7 +1214,7 @@ begin
   end if;
 
   insert into notifications (user_id, actor_id, type, conversation_id, created_at)
-  values (new.user_id, actor, 'added', new.conversation_id, coalesce(new.joined_at, timezone('utc', now())))
+  values (new.user_id, actor, 'added', new.conversation_id, coalesce(new.joined_at, now()))
   on conflict (user_id, conversation_id) where type = 'added'
   do update set actor_id = excluded.actor_id, created_at = excluded.created_at, is_read = false;
 
@@ -1243,7 +1276,7 @@ returns trigger
 language plpgsql
 set search_path = public, pg_temp
 as $$
-declare now_utc timestamp := timezone('utc', now());
+declare now_utc timestamptz := now();
 begin
   if new.last_read_at is not null and new.last_read_at > now_utc then
     new.last_read_at := now_utc;
@@ -1302,14 +1335,14 @@ language plpgsql
 set search_path = public, pg_temp
 as $$
 declare
-  now_utc timestamp := timezone('utc', now());
-  next_allowed timestamp := old.username_changed_at + interval '7 days';
+  now_utc timestamptz := now();
+  next_allowed timestamptz := old.username_changed_at + interval '7 days';
 begin
   if new.username is not distinct from old.username then
     return new;
   end if;
   if auth.uid() is not null and next_allowed > now_utc then
-    raise exception 'You can change your username again on %.', to_char(next_allowed, 'FMMonth FMDD, YYYY')
+    raise exception 'You can change your username again on %.', to_char(next_allowed at time zone 'utc', 'FMMonth FMDD, YYYY')
       using errcode = 'P0001', hint = 'limit';
   end if;
   new.username_changed_at := now_utc;
@@ -1336,7 +1369,7 @@ as $$
 begin
   if new.content is distinct from old.content
      or new.visibility is distinct from old.visibility then
-    new.updated_at := timezone('utc', now());
+    new.updated_at := now();
   else
     new.updated_at := old.updated_at;
   end if;
@@ -1359,7 +1392,7 @@ set search_path = public, pg_temp
 as $$
 begin
   if new.content is distinct from old.content then
-    new.updated_at := timezone('utc', now());
+    new.updated_at := now();
   else
     new.updated_at := old.updated_at;
   end if;
@@ -1397,7 +1430,7 @@ begin
       or (user_id = new.blocked_id and actor_id = new.blocker_id);
 
   update conversation_members cm
-     set hidden_at = timezone('utc', now())
+     set hidden_at = now()
     from conversations c
    where c.id = cm.conversation_id
      and not c.is_group
@@ -1787,13 +1820,14 @@ grant execute on function public.create_conversation(uuid[], text) to authentica
 -- message, unread count, and member list (with last_read_at for Seen).
 -- The 200 most recently active conversations at most.
 -- security invoker: normal RLS applies.
+drop function if exists public.get_conversations();
 create or replace function public.get_conversations()
 returns table (
   id uuid,
   is_group boolean,
   name text,
   created_by uuid,
-  last_message_at timestamp,
+  last_message_at timestamptz,
   last_message jsonb,
   unread_count bigint,
   members jsonb
@@ -1967,11 +2001,12 @@ grant execute on function public.my_chat_image_paths() to authenticated;
 -- Return columns changed (saved_by_me), which create or replace can not do
 -- (42P13), so the old signature goes first. The grants below recreate access.
 drop function if exists public.fetch_posts(text, uuid, uuid, timestamp, uuid, integer);
+drop function if exists public.fetch_posts(text, uuid, uuid, timestamptz, uuid, integer);
 create or replace function public.fetch_posts(
   p_mode text default 'all',
   p_author uuid default null,
   p_post_id uuid default null,
-  p_before timestamp default null,
+  p_before timestamptz default null,
   p_before_id uuid default null,
   p_limit integer default 20
 )
@@ -1981,8 +2016,8 @@ returns table (
   content text,
   image_url text,
   visibility text,
-  created_at timestamp,
-  updated_at timestamp,
+  created_at timestamptz,
+  updated_at timestamptz,
   like_count integer,
   comment_count integer,
   liked_by_me boolean,
@@ -2042,8 +2077,8 @@ as $$
   limit least(greatest(coalesce(p_limit, 20), 1), 50);
 $$;
 
-revoke all on function public.fetch_posts(text, uuid, uuid, timestamp, uuid, integer) from public, anon;
-grant execute on function public.fetch_posts(text, uuid, uuid, timestamp, uuid, integer) to authenticated;
+revoke all on function public.fetch_posts(text, uuid, uuid, timestamptz, uuid, integer) from public, anon;
+grant execute on function public.fetch_posts(text, uuid, uuid, timestamptz, uuid, integer) to authenticated;
 
 
 -- suggested_follows(p_limit)
@@ -2108,7 +2143,7 @@ as $$
     count(*)::integer as post_count
   from posts p
   join profiles pr on pr.id = p.user_id
-  where p.created_at > timezone('utc', now()) - make_interval(days => least(greatest(coalesce(p_days, 7), 1), 30))
+  where p.created_at > now() - make_interval(days => least(greatest(coalesce(p_days, 7), 1), 30))
     and not public.is_blocked_pair(auth.uid(), pr.id)
   group by pr.id, pr.username, pr.display_name, pr.avatar_url
   order by post_count desc, max(p.created_at) desc
@@ -2125,6 +2160,7 @@ grant execute on function public.active_posters(integer, integer) to authenticat
 -- username, never anyone in a blocked pair with the caller. Pass the last
 -- username seen as p_after for the next page. Returns the same fields as
 -- the profile selects in the app.
+drop function if exists public.search_profiles(text, text, integer);
 create or replace function public.search_profiles(
   q text,
   p_after text default null,
@@ -2136,7 +2172,7 @@ returns table (
   display_name text,
   bio text,
   avatar_url text,
-  created_at timestamp
+  created_at timestamptz
 )
 language sql
 security invoker
