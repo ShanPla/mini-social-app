@@ -2083,7 +2083,8 @@ grant execute on function public.fetch_posts(text, uuid, uuid, timestamptz, uuid
 
 -- suggested_follows(p_limit)
 -- People the caller does not follow yet, most followed first. Replaces a
--- client that pulled the whole follows table to count.
+-- client that pulled the whole follows table to count. Followers are counted
+-- once for everybody, and only the top 200 go through the block check.
 create or replace function public.suggested_follows(p_limit integer default 5)
 returns table (
   id uuid,
@@ -2098,20 +2099,25 @@ security invoker
 stable
 set search_path = public
 as $$
-  select
-    pr.id,
-    pr.username,
-    pr.display_name,
-    pr.avatar_url,
-    pr.bio,
-    (select count(*) from follows f where f.following_id = pr.id)::integer as follower_count
-  from profiles pr
-  where pr.id <> auth.uid()
-    and not public.is_blocked_pair(auth.uid(), pr.id)
-    and not exists (
-      select 1 from follows f where f.follower_id = auth.uid() and f.following_id = pr.id
-    )
-  order by follower_count desc, pr.created_at asc
+  with counts as (
+    select f.following_id, count(*)::integer as n from follows f group by f.following_id
+  ),
+  candidates as (
+    select pr.id, pr.username, pr.display_name, pr.avatar_url, pr.bio, pr.created_at,
+           coalesce(c.n, 0) as follower_count
+    from profiles pr
+    left join counts c on c.following_id = pr.id
+    where pr.id <> auth.uid()
+      and not exists (
+        select 1 from follows f where f.follower_id = auth.uid() and f.following_id = pr.id
+      )
+    order by follower_count desc, pr.created_at asc
+    limit 200
+  )
+  select c.id, c.username, c.display_name, c.avatar_url, c.bio, c.follower_count
+  from candidates c
+  where not public.is_blocked_pair(auth.uid(), c.id)
+  order by c.follower_count desc, c.created_at asc
   limit least(greatest(coalesce(p_limit, 5), 1), 20);
 $$;
 
