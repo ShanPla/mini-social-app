@@ -38,7 +38,7 @@ export default function ImageCollage({ images }: Props) {
       {count === 1 && (
         <div className="collage collage--1">
           <button type="button" className="collage-img" onClick={(e) => handleClick(0, e)} aria-label={label(0)}>
-            <img src={displayImages[0]} alt="Post image" width={600} height={380} loading="lazy" decoding="async" />
+            <img src={displayImages[0]} alt="Attached to this post" width={600} height={380} loading="lazy" decoding="async" />
             <ExpandHint />
           </button>
         </div>
@@ -48,7 +48,7 @@ export default function ImageCollage({ images }: Props) {
         <div className="collage collage--2">
           {displayImages.map((src, i) => (
             <button type="button" key={i} className="collage-img" onClick={(e) => handleClick(i, e)} aria-label={label(i)}>
-              <img src={src} alt={`Post image ${i + 1}`} width={300} height={300} loading="lazy" decoding="async" />
+              <img src={src} alt={`Attachment ${i + 1} of this post`} width={300} height={300} loading="lazy" decoding="async" />
               <ExpandHint />
             </button>
           ))}
@@ -58,13 +58,13 @@ export default function ImageCollage({ images }: Props) {
       {count === 3 && (
         <div className="collage collage--3">
           <button type="button" className="collage-img collage-img--main" onClick={(e) => handleClick(0, e)} aria-label={label(0)}>
-            <img src={displayImages[0]} alt="Post image 1" width={300} height={300} loading="lazy" decoding="async" />
+            <img src={displayImages[0]} alt="Attachment 1 of this post" width={300} height={300} loading="lazy" decoding="async" />
             <ExpandHint />
           </button>
           <div className="collage-side">
             {displayImages.slice(1).map((src, i) => (
               <button type="button" key={i} className="collage-img" onClick={(e) => handleClick(i + 1, e)} aria-label={label(i + 1)}>
-                <img src={src} alt={`Post image ${i + 2}`} width={300} height={300} loading="lazy" decoding="async" />
+                <img src={src} alt={`Attachment ${i + 2} of this post`} width={300} height={300} loading="lazy" decoding="async" />
                 <ExpandHint />
               </button>
             ))}
@@ -76,7 +76,7 @@ export default function ImageCollage({ images }: Props) {
         <div className="collage collage--4">
           {displayImages.map((src, i) => (
             <button type="button" key={i} className="collage-img" onClick={(e) => handleClick(i, e)} aria-label={label(i)}>
-              <img src={src} alt={`Post image ${i + 1}`} width={300} height={300} loading="lazy" decoding="async" />
+              <img src={src} alt={`Attachment ${i + 1} of this post`} width={300} height={300} loading="lazy" decoding="async" />
               {i === 3 && overflow > 0
                 ? <span className="collage-overflow">+{overflow}</span>
                 : <ExpandHint />

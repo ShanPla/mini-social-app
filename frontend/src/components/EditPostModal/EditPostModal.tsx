@@ -348,7 +348,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
               <div className="edit-images-grid">
                 {existingImages.map((img) => (
                   <div key={img.id} className="edit-image-item">
-                    <img src={img.display_url ?? img.image_url} alt="Post image" width={80} height={80} decoding="async" />
+                    <img src={img.display_url ?? img.image_url} alt="Attached to this post" width={80} height={80} decoding="async" />
                     <button className="edit-image-remove" onClick={() => removeExisting(img.id)} type="button" aria-label="Remove image" title="Remove">
                       <X size={10} />
                     </button>
@@ -362,7 +362,7 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
               <div className="edit-images-grid">
                 {newPreviews.map((src, i) => (
                   <div key={i} className="edit-image-item edit-image-item--new">
-                    <img src={src} alt={`New image ${i + 1}`} width={80} height={80} decoding="async" />
+                    <img src={src} alt={`New attachment ${i + 1}`} width={80} height={80} decoding="async" />
                     <button className="edit-image-remove" onClick={() => removeNew(i)} type="button" aria-label={`Remove new image ${i + 1}`} title="Remove">
                       <X size={10} />
                     </button>

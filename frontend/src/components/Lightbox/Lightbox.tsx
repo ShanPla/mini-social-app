@@ -65,7 +65,7 @@ export default function Lightbox({ images, startIndex = 0, onClose }: Props) {
 
       {/* Image */}
       <div className="lightbox-image-wrap" onClick={(e) => e.stopPropagation()}>
-        <img src={images[current]} alt={`Image ${current + 1}`} className="lightbox-image" decoding="async" />
+        <img src={images[current]} alt={`Attachment ${current + 1} of ${images.length}`} className="lightbox-image" decoding="async" />
       </div>
 
       {/* Next */}
