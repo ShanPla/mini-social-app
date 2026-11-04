@@ -397,6 +397,7 @@ npm run lint
 npm test          # vitest run
 npm run test:watch  # while working
 npm run e2e       # Playwright smoke tests in the installed Chrome (not run in CI)
+npm run e2e:live   # signed-in tests in e2e-live: real database, throwaway accounts, Confirm email off, not in CI
 npm run build     # type check, then production build
 ```
 The unit tests cover the pure helpers in `src/lib` (names, relative times, search escaping, error messages, chat titles and previews, storage paths, drafts, theme preference, page routing, stale-chunk reload, menu keys, mentions, reactions, profile stats, safe redirects, nav matching, the intentional sign-out flag, post photo URLs) and check that the hash in the Content-Security-Policy still matches the inline theme script in index.html. The e2e smoke tests build the app, serve it with `vite preview` and check the signed-out pages (login, register, 404, redirect, robots.txt); they need Chrome installed and never sign in. Anything else that needs a browser is checked by scripted runs instead. Test config lives in `vitest.config.ts`, separate from `vite.config.ts` because Vitest carries its own copy of Vite, and `playwright.config.ts`.
