@@ -108,14 +108,25 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
 
   /* Part of the save went through and the dialog stays open for another try.
      The card and this dialog both move to what the database holds now, so
-     Cancel leaves a correct card and Save again starts from the real state. */
-  const syncAfterPartialSave = async (updatedAt: string | null | undefined) => {
+     Cancel leaves a correct card and Save again starts from the real state.
+     stillToRemove: rows the user took out that could not be deleted yet. */
+  const syncAfterPartialSave = async (updatedAt: string | null | undefined, stillToRemove: string[] = []) => {
     const { data } = await supabase.from('post_images').select('*').eq('post_id', post.id).order('position');
     const rows = await withSignedRows(data || []);
     savedImagesRef.current = rows;
-    setExistingImages(rows);
+    setExistingImages(rows.filter((img) => !stillToRemove.includes(img.id)));
     setContent(content.trim());
     onSave({ ...post, content: content.trim(), visibility, updated_at: updatedAt ?? post.updated_at, post_images: rows } as Post);
+  };
+
+  /* The rows first, then the files behind them. False when the rows could not be deleted. */
+  const deleteSavedImages = async (images: NonNullable<Post['post_images']>) => {
+    if (images.length === 0) return true;
+    const { error: removeError } = await supabase.from('post_images').delete().in('id', images.map((img) => img.id));
+    if (removeError) return false;
+    savedImagesRef.current = savedImagesRef.current.filter((img) => !images.includes(img));
+    void removePostImageFiles(images.map((img) => img.image_url));
+    return true;
   };
 
   const handleSave = async () => {
@@ -167,20 +178,21 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
       return;
     }
 
-    /* Delete removed images: the rows first, then the files behind them.
-       Compared with what is stored now (not the opening snapshot), so a retry
-       after a partial failure does not delete the same rows again. */
+    /* Compared with what is stored now (not the opening snapshot), so a retry
+       after a partial failure does not delete the same rows again. New photos
+       are attached before the old ones go, so a failure can not leave an empty
+       post. Only what would push the post over the 10-photo cap has to go first. */
     const removedImages = savedImagesRef.current.filter((img) => !existingImages.find((e) => e.id === img.id));
+    const uploadedCount = newFiles.length - failedIndexes.length;
+    const overflow = Math.max(0, savedImagesRef.current.length + uploadedCount - 10);
+    const removeFirst = removedImages.slice(0, overflow);
+    const removeLast = removedImages.slice(overflow);
+    const REMOVE_FAILED = 'The text was saved, but the removed images could not be taken off. Try Save again.';
 
-    if (removedImages.length > 0) {
-      const { error: removeError } = await supabase.from('post_images').delete().in('id', removedImages.map((img) => img.id));
-      if (removeError) {
-        setError('The text was saved, but the removed images could not be taken off. Try Save again.');
-        setSaving(false);
-        return;
-      }
-      savedImagesRef.current = savedImagesRef.current.filter((img) => !removedImages.includes(img));
-      void removePostImageFiles(removedImages.map((img) => img.image_url));
+    if (!(await deleteSavedImages(removeFirst))) {
+      setError(REMOVE_FAILED);
+      setSaving(false);
+      return;
     }
 
     /* Attach the new images */
@@ -204,25 +216,35 @@ export default function EditPostModal({ post, onClose, onSave }: Props) {
           /* The photo cap and rate limits come with their own message */
           const detail = describeError(insertError, '');
           setError(detail ? `The text was saved, but the new images could not be attached. ${detail}` : 'The text was saved, but the new images could not be attached. Try Save again.');
-          await syncAfterPartialSave(updatedRow?.updated_at);
+          await syncAfterPartialSave(updatedRow?.updated_at, removeLast.map((img) => img.id));
           setSaving(false);
           return;
         }
         savedImagesRef.current = [...savedImagesRef.current, ...(insertedRows || [])];
         uploadedRef.current.clear();
       }
+    }
 
-      /* Only the photos that failed stay in the dialog, so Save again cannot
-         attach the others twice */
-      if (failedIndexes.length > 0) {
-        newPreviews.forEach((src, i) => { if (!failedIndexes.includes(i)) revokePreview(src); });
-        setNewFiles(failedIndexes.map((i) => newFiles[i]));
-        setNewPreviews(failedIndexes.map((i) => newPreviews[i]));
-        setError(`Your other changes were saved, but ${failedIndexes.length} of ${newFiles.length} new image${newFiles.length > 1 ? 's' : ''} did not upload. Use JPG, PNG, WebP or GIF; a GIF must be under 5 MB. Press Save to try again, or remove them.`);
-        await syncAfterPartialSave(updatedRow?.updated_at);
-        setSaving(false);
-        return;
-      }
+    /* Only the photos that failed stay in the dialog, so Save again cannot
+       attach the others twice */
+    if (uploadedCount > 0) {
+      newPreviews.forEach((src, i) => { if (!failedIndexes.includes(i)) revokePreview(src); });
+      setNewFiles(failedIndexes.map((i) => newFiles[i]));
+      setNewPreviews(failedIndexes.map((i) => newPreviews[i]));
+    }
+
+    if (!(await deleteSavedImages(removeLast))) {
+      setError(REMOVE_FAILED);
+      await syncAfterPartialSave(updatedRow?.updated_at, removeLast.map((img) => img.id));
+      setSaving(false);
+      return;
+    }
+
+    if (failedIndexes.length > 0) {
+      setError(`Your other changes were saved, but ${failedIndexes.length} of ${newFiles.length} new image${newFiles.length > 1 ? 's' : ''} did not upload. Use JPG, PNG, WebP or GIF; a GIF must be under 5 MB. Press Save to try again, or remove them.`);
+      await syncAfterPartialSave(updatedRow?.updated_at);
+      setSaving(false);
+      return;
     }
 
     /* Fetch updated post_images */
