@@ -359,12 +359,12 @@ function PostCard({ post, currentUserId, isAdmin = false, onDelete, defaultShowC
             <span className={`like-icon ${likeAnim === 'pop' ? 'like-icon--popping' : likeAnim === 'unpop' ? 'like-icon--unpopping' : ''}`}>
               <Heart size={15} fill={liked ? 'currentColor' : 'none'} />
             </span>
-            <span>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</span>
+            <span>{likeCount === 0 ? 'Like' : `${likeCount} ${likeCount === 1 ? 'like' : 'likes'}`}</span>
           </button>
 
           <button className="post-action comment-btn" onClick={() => setShowComments(!showComments)}>
             <MessageCircle size={15} />
-            <span>{commentCount} {commentCount === 1 ? 'comment' : 'comments'}</span>
+            <span>{commentCount === 0 ? 'Comment' : `${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`}</span>
           </button>
 
           {/* Save — pushed to the right; the bookmark fills once saved */}

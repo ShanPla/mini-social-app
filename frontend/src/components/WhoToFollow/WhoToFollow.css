@@ -14,10 +14,9 @@
   color: var(--cream);
   border: 1px solid var(--ink);
   padding: 4px 10px;
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  border-radius: 999px;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  border-radius: var(--radius);
   flex-shrink: 0;
   transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
