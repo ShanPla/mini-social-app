@@ -59,6 +59,8 @@ test.describe.serial('what the database keeps private', () => {
     expect((await update({ hidden_at: '2020-01-01T00:00:00Z' })).error?.code).toBe('42501')
     const before = await row()
     await page.waitForTimeout(1100)
+    /* Marking read only moves the time when something is unread */
+    await second.client.from('messages').insert({ conversation_id: chat, sender_id: second.id, content: 'unread' })
     expect((await first.client.rpc('mark_conversation_read', { conv_id: chat })).error).toBeNull()
     expect(new Date((await row())!.last_read_at).getTime()).toBeGreaterThan(new Date(before!.last_read_at).getTime())
     expect((await first.client.rpc('hide_conversation', { conv_id: chat })).error).toBeNull()
