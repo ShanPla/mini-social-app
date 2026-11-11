@@ -528,7 +528,10 @@ create table if not exists message_reactions (
 
 alter table message_reactions drop constraint if exists message_reactions_emoji_check;
 alter table message_reactions add constraint message_reactions_emoji_check
-  check (emoji in ('👍', '❤️', '😂', '😮', '😢', '🙏'));
+  -- Written as Unicode escapes on purpose (thumbs up, heart, joy, surprise,
+  -- cry, thanks): pasting this file through a tool that misreads UTF-8 once
+  -- turned the emoji into garbage and every reaction was refused.
+  check (emoji in (U&'\+01F44D', U&'\2764\FE0F', U&'\+01F602', U&'\+01F62E', U&'\+01F622', U&'\+01F64F'));
 
 
 -- Every date is timestamptz. Older tables were created with timestamp and hold
