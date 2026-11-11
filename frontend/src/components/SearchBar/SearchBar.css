@@ -1,16 +1,7 @@
-.searchbar-wrapper {
-  background: var(--warm-white);
-  border-bottom: 1px solid var(--border);
-  position: relative;
-  z-index: 90;
-}
+/* Lives inside the navbar (Navbar.tsx places and sizes it) */
+.searchbar-wrapper { position: relative; }
 
-.searchbar-inner {
-  max-width: 780px;
-  margin: 0 auto;
-  padding: 10px 24px;
-  position: relative;
-}
+.searchbar-inner { position: relative; }
 
 .searchbar-input-wrap {
   display: flex;
@@ -19,7 +10,7 @@
   background: var(--cream);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 8px 16px;
+  padding: 7px 14px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .searchbar-input-wrap:focus-within {
@@ -44,6 +35,8 @@
   font-family: var(--font-body);
 }
 .searchbar-input::placeholder { color: var(--ink-muted); }
+/* The rounded field around it shows focus (border and halo), so no second ring inside */
+.searchbar-input:focus-visible { outline: none; }
 /* type=search brings a native clear button; the bar has its own */
 .searchbar-input::-webkit-search-cancel-button,
 .searchbar-input::-webkit-search-decoration { appearance: none; -webkit-appearance: none; display: none; }
@@ -75,9 +68,11 @@
 /* Dropdown */
 .searchbar-dropdown {
   position: absolute;
-  top: calc(100% - 4px);
-  left: 24px;
-  right: 24px;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  /* The field can be narrow in the bar; the list keeps a readable width */
+  min-width: min(320px, calc(100vw - 24px));
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -171,8 +166,6 @@
 
 /* Phones: match the navbar gutter and keep the dropdown inside it */
 @media (max-width: 560px) {
-  .searchbar-inner { padding: 8px 12px; }
-  .searchbar-dropdown { left: 12px; right: 12px; }
   .dropdown-item { padding: 10px 12px; }
 }
 

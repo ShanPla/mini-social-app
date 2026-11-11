@@ -14,7 +14,7 @@ type Props = {
 /*
  * Bottom tab bar for phones. Below 680px the feed sidebars, and with them
  * the quick links, are hidden, so this carries the five places that matter.
- * Logout lives in the navbar and at the bottom of Settings.
+ * Log out is at the bottom of Settings.
  */
 export default function MobileNav({ userId }: Props) {
   const location = useLocation();

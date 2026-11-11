@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useNa
 import { supabase } from './lib/supabaseClient';
 import { clearAllDrafts } from './lib/drafts';
 import Navbar from './components/Navbar/Navbar';
-import SearchBar from './components/SearchBar/SearchBar';
 import ChatProvider from './context/ChatProvider';
 import PresenceProvider from './context/PresenceProvider';
 import { useChat } from './context/ChatContext';
@@ -149,7 +148,6 @@ function AppInner({ userId, isAdmin, recovery, onRecoverySteered }: AppInnerProp
     <PresenceProvider key={`presence:${userId ?? 'signed-out'}`} userId={userId}>
       <ScrollToTop />
       {!isAuthPage && <Navbar userId={userId} />}
-      {!isAuthPage && userId && <SearchBar />}
       {/* Floating chat popups — global, outside PageWrapper so they survive route changes */}
       {!isAuthPage && userId && <ChatDockGate />}
       {/* Phones lose the feed sidebars, so navigation moves to a bottom bar */}

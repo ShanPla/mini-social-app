@@ -1,7 +1,8 @@
 .messages-page {
   padding: 24px;
-  height: calc(100vh - 118px);
-  height: calc(100dvh - 118px);
+  /* viewport minus the 60px navbar */
+  height: calc(100vh - 60px);
+  height: calc(100dvh - 60px);
   min-height: 480px;
 }
 
@@ -157,8 +158,8 @@
   .messages-page {
     padding: 0;
     min-height: 0;
-    height: calc(100vh - 112px - var(--mobile-nav-total));
-    height: calc(100dvh - 112px - var(--mobile-nav-total));
+    height: calc(100vh - 60px - var(--mobile-nav-total));
+    height: calc(100dvh - 60px - var(--mobile-nav-total));
   }
   .messages-inner {
     grid-template-columns: 1fr;

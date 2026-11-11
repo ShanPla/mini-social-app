@@ -7,14 +7,25 @@
   backdrop-filter: blur(8px);
 }
 
+/* As wide as the feed, so the name and the icons line up with its columns */
 .navbar-inner {
-  max-width: 780px;
+  max-width: 1060px;
   margin: 0 auto;
   padding: 0 24px;
   height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 24px;
+}
+
+.navbar-brand { flex-shrink: 0; }
+
+/* Search takes the room between the name and the links */
+.navbar-search {
+  flex: 1;
+  min-width: 120px;
+  max-width: 360px;
 }
 
 .navbar-brand {
@@ -42,7 +53,8 @@
 .navbar-links {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 24px;
+  flex-shrink: 0;
 }
 
 .nav-link {
@@ -56,28 +68,53 @@
 }
 .nav-link:hover { color: var(--ink); }
 
-.nav-logout {
+/* Icon controls in the bar: search (phones), theme, settings */
+.nav-icon-btn {
   background: none;
   border: none;
-  font-size: 0.85rem;
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
+  color: var(--ink-light);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: color 0.2s;
-  padding: 0;
+  transition: color 0.2s, transform 0.3s;
 }
-.nav-logout:hover { color: var(--accent-hover); }
+.nav-icon-btn:hover,
+.nav-icon-btn--active { color: var(--ink); }
+
+/* Search is always in the bar above 680px, so its icon is for phones only */
+.nav-search-toggle { display: none; }
 
 /* Auth pages — hide navbar entirely */
 .navbar--hidden {
   display: none;
 }
 
-/* The bottom tab bar carries Feed and Profile below 680px */
+@media (max-width: 900px) {
+  .navbar-inner { gap: 18px; }
+  .navbar-links { gap: 18px; }
+  .navbar-search { max-width: 240px; }
+}
+
+/* The bottom tab bar carries Feed, Profile and Settings below 680px */
 @media (max-width: 680px) {
-  .navbar-links .nav-link { display: none; }
+  .navbar-links .nav-link,
+  .nav-settings { display: none; }
+  .nav-search-toggle { display: flex; }
+  /* Closed by default; open, it hangs under the bar over the page */
+  .navbar-search { display: none; }
+  .navbar-search--open {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-width: none;
+    padding: 8px 12px;
+    background: var(--warm-white);
+    border-bottom: 1px solid var(--border);
+  }
 }
 
 @media (max-width: 560px) {
@@ -94,17 +131,7 @@
 }
 
 /* Sun or moon, next to the bell */
-.nav-theme-btn {
-  background: none;
-  border: none;
-  color: var(--ink-light);
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s, transform 0.3s;
-}
-.nav-theme-btn:hover { color: var(--ink); transform: rotate(-20deg); }
+.nav-theme-btn:hover { transform: rotate(-20deg); }
 
 .nav-link--badged { position: relative; }
 .nav-badge {
