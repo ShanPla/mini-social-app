@@ -45,7 +45,7 @@
 
 .skeleton-line {
   height: 14px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: linear-gradient(90deg, var(--border) 25%, var(--cream) 50%, var(--border) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
@@ -120,7 +120,7 @@
   font-family: var(--font-body);
   color: var(--ink-muted);
   cursor: pointer;
-  border-radius: 999px;
+  border-radius: var(--radius);
   transition: all 0.2s;
   white-space: nowrap;
 }
@@ -296,7 +296,7 @@
   border: none;
   cursor: pointer;
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   transition: background 0.2s, transform 0.15s;
   font-family: var(--font-body);
 }

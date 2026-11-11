@@ -13,7 +13,7 @@
 .edit-modal-box {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   width: 100%;
   max-width: 520px;
   max-height: 90vh;
@@ -196,7 +196,7 @@
   font-size: 0.62rem;
   font-weight: 700;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }

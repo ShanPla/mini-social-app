@@ -8,7 +8,7 @@
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-bottom: none;
-  border-radius: 10px 10px 0 0;
+  border-radius: var(--radius) var(--radius) 0 0;
   box-shadow: 0 -2px 8px rgba(26,20,16,0.08), 0 8px 32px rgba(26,20,16,0.16);
   overflow: hidden;
   animation: popupIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;

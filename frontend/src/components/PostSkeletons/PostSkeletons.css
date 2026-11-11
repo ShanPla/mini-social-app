@@ -28,7 +28,7 @@
 
 .post-skel-meta { display: flex; flex-direction: column; gap: 6px; flex: 1; }
 
-.post-skel-line { height: 12px; border-radius: 4px; }
+.post-skel-line { height: 12px; border-radius: var(--radius); }
 .post-skel-line--wide { width: 80%; }
 .post-skel-line--medium { width: 55%; }
 .post-skel-line--short { width: 30%; }

@@ -13,7 +13,7 @@
 .ci-modal {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius);
   width: 100%;
   max-width: 420px;
   max-height: 80vh;
@@ -83,7 +83,7 @@
   padding: 4px;
   display: flex;
   align-items: center;
-  border-radius: 4px;
+  border-radius: var(--radius);
   transition: color 0.2s;
   flex-shrink: 0;
 }
@@ -114,7 +114,7 @@
   align-items: center;
   gap: 10px;
   padding: 8px 6px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   transition: background 0.15s;
 }
 .ci-member:hover { background: var(--cream); }
@@ -158,7 +158,7 @@
   color: var(--ink-muted);
   border: 1px solid var(--border);
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius);
 }
 
 .ci-action {
@@ -169,7 +169,7 @@
   border: 1px dashed var(--border);
   color: var(--ink-light);
   padding: 10px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   font-size: 0.9rem;
   font-family: var(--font-body);
   transition: border-color 0.2s, color 0.2s;

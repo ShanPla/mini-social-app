@@ -19,7 +19,7 @@
   color: var(--cream);
   font-size: 0.8rem;
   padding: 4px 6px 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius);
 }
 .picker-chip button {
   background: none;
@@ -39,7 +39,7 @@
   gap: 8px;
   background: var(--cream);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius);
   padding: 8px 14px;
   transition: border-color 0.2s;
 }
@@ -83,7 +83,7 @@
   padding: 8px 10px;
   background: none;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius);
   text-align: left;
   font-family: var(--font-body);
   transition: background 0.15s;

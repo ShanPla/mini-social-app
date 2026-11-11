@@ -13,7 +13,7 @@
 .fw-modal {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius);
   width: 100%;
   max-width: 400px;
   max-height: 70vh;
@@ -58,7 +58,7 @@
   display: flex;
   align-items: center;
   transition: color 0.2s;
-  border-radius: 4px;
+  border-radius: var(--radius);
 }
 .fw-close:hover { color: var(--accent); }
 
@@ -167,7 +167,7 @@
 
 .fw-skeleton-line {
   height: 12px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: linear-gradient(90deg, var(--border) 25%, var(--cream) 50%, var(--border) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;

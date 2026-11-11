@@ -43,7 +43,7 @@
   font-family: var(--font-body);
   font-size: 0.85rem;
   padding: 7px 16px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s;
 }

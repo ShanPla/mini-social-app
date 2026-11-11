@@ -87,7 +87,7 @@
   font-size: 1.1rem;
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   transition: background 0.2s, color 0.2s;
   line-height: 1;
   letter-spacing: 0.1em;
@@ -100,7 +100,7 @@
   right: 0;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   box-shadow: var(--shadow-hover);
   overflow: hidden;
   z-index: 100;
@@ -139,7 +139,7 @@
   background: var(--cream);
   border: 1px solid var(--border);
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   margin-bottom: 10px;
 }
 
