@@ -68,7 +68,8 @@
 }
 .nav-link:hover { color: var(--ink); }
 
-/* Icon controls in the bar: search (phones), theme, settings */
+/* Icon controls in the bar: search (phones), settings. The theme switch
+   has its own file (components/ThemeToggle). */
 .nav-icon-btn {
   background: none;
   border: none;
@@ -129,9 +130,6 @@
   border-bottom: 2px solid var(--ink);
   padding-bottom: 2px;
 }
-
-/* Sun or moon, next to the bell */
-.nav-theme-btn:hover { transform: rotate(-20deg); }
 
 .nav-link--badged { position: relative; }
 .nav-badge {

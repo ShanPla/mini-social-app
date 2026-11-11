@@ -7,6 +7,8 @@ import { useSyncExternalStore } from 'react';
  * never flashes white; this module keeps it in step afterwards (the switch in
  * Settings and the navbar, the device setting changing, other open tabs).
  * The colours themselves are CSS variables in styles/global.css.
+ * A change fades in: one cross-fade of the whole page (a View Transition,
+ * styled in styles/animations.css), not hundreds of colours moving one by one.
  */
 
 export type ThemePreference = 'system' | 'light' | 'dark';
@@ -39,18 +41,49 @@ export function getTheme(): Theme {
   return window.matchMedia(DARK_QUERY).matches ? 'dark' : 'light';
 }
 
+type TransitionDocument = Document & {
+  startViewTransition?: (update: () => void) => { finished: Promise<void> };
+};
+
+/* The fade needs the browser feature, a page someone is looking at, and a
+   reader who has not asked for less motion. Without them the change is instant. */
+function canFade(): boolean {
+  if (typeof (document as TransitionDocument).startViewTransition !== 'function') return false;
+  if (document.visibilityState !== 'visible') return false;
+  return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/* Counts fades, so a quick second switch does not have its class taken away by the first */
+let fades = 0;
+
 function applyTheme() {
   const theme = getTheme();
   const root = document.documentElement;
-  if (root.dataset.theme !== theme) {
-    /* Switching should not animate every colour on the page at once */
+  if (root.dataset.theme === theme) {
+    listeners.forEach((notify) => notify());
+    return;
+  }
+  const change = () => {
+    /* The colours themselves change in one step; the fade is done on pictures of the page */
     root.classList.add('theme-switching');
     root.dataset.theme = theme;
     root.style.colorScheme = theme;
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', BROWSER_BAR[theme]);
     requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('theme-switching')));
+    /* Inside the change, so the sun or moon in the new picture is already the right one */
+    listeners.forEach((notify) => notify());
+  };
+  if (!canFade()) { change(); return; }
+  const mine = ++fades;
+  /* Set before the old picture is taken: see .theme-fade in animations.css */
+  root.classList.add('theme-fade');
+  const done = () => { if (mine === fades) root.classList.remove('theme-fade'); };
+  try {
+    (document as TransitionDocument).startViewTransition!(change).finished.then(done, done);
+  } catch {
+    done();
+    change();
   }
-  listeners.forEach((notify) => notify());
 }
 
 export function setThemePreference(preference: ThemePreference) {

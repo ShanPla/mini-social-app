@@ -1,0 +1,36 @@
+/* Sun or moon. Same look wherever it sits: a bar, or the corner of a page. */
+.theme-toggle {
+  background: none;
+  border: none;
+  color: var(--ink-light);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: color 0.2s, transform 0.3s;
+}
+.theme-toggle:hover { color: var(--ink); transform: rotate(-20deg); }
+
+/* Sign-in pages have no bar, so the switch takes the top corner of the page.
+   Its own transition name keeps it in place, above the form, while one
+   sign-in page gives way to another (styles/animations.css). */
+.theme-toggle--corner {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  padding: 8px;
+  view-transition-name: auth-theme;
+}
+
+/* On phones that corner is on the dark panel, which is dark in both themes */
+@media (max-width: 700px) {
+  .theme-toggle--corner {
+    top: 24px;
+    right: 18px;
+    color: rgba(255,255,255,0.62);
+  }
+  .theme-toggle--corner:hover { color: var(--night-text); }
+}

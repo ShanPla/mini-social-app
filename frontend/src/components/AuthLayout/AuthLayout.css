@@ -2,6 +2,8 @@
    Used by Login, ForgotPassword and ResetPassword. */
 
 .login-page {
+  /* for the theme switch in its corner */
+  position: relative;
   display: flex;
   height: 100vh;
   height: 100dvh;

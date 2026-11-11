@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Pause, Play } from 'lucide-react';
 import { prefetchPage } from '../../lib/pages';
 import { useMediaQuery } from '../../lib/useMediaQuery';
+import ThemeToggle from '../../components/ThemeToggle/ThemeToggle';
 import './Landing.css';
 
 /*
@@ -99,6 +100,7 @@ export default function Landing() {
             <span className="landing-name-main">Chronicle</span>
           </span>
           <nav className="landing-bar-links" aria-label="Account">
+            <ThemeToggle />
             <Link to="/login" className="landing-signin" onMouseEnter={warm} onFocus={warm}>Sign in</Link>
             <Link
               to="/register"

@@ -8,6 +8,7 @@ import type { FromState } from '../../lib/redirect';
 import { useToast } from '../../context/ToastContext';
 import PasswordInput from '../../components/PasswordInput/PasswordInput';
 import CharCount from '../../components/CharCount/CharCount';
+import ThemeToggle from '../../components/ThemeToggle/ThemeToggle';
 import './Register.css';
 import { swapAuthPage } from '../../lib/authSwap';
 import { loadAuthPage } from '../../lib/pages';
@@ -209,6 +210,8 @@ export default function Register() {
           <p className="register-art-quote">"Every voice matters."</p>
         </div>
       </div>
+
+      <ThemeToggle corner />
     </div>
   );
 }

@@ -95,3 +95,17 @@ test('the front page shows the site and leads to sign in and create account', as
   await page.getByRole('link', { name: 'Sign in' }).first().click()
   await expect(page).toHaveURL(/\/login$/)
 })
+
+test('every signed-out page has the theme switch, and the choice carries over', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  for (const path of ['/', '/login', '/register', '/forgot-password', '/privacy', '/terms']) {
+    await page.goto(path)
+    await expect(page.getByRole('button', { name: 'Switch to dark theme' })).toHaveCount(1)
+  }
+  await page.getByRole('button', { name: 'Switch to dark theme' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  /* Kept on this device: another page opens dark, with the switch offering light */
+  await page.goto('/login')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(page.getByRole('button', { name: 'Switch to light theme' })).toBeVisible()
+})

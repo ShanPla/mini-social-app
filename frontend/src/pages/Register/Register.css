@@ -2,6 +2,8 @@
    where they were when one page gives way to the other. The form comes first
    in the markup, hence the reversed row. */
 .register-page {
+  /* for the theme switch in its corner */
+  position: relative;
   display: flex;
   flex-direction: row-reverse;
   height: 100vh;

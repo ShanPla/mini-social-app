@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import ThemeToggle from '../ThemeToggle/ThemeToggle';
 import './AuthLayout.css';
 
 type Props = {
@@ -51,6 +52,8 @@ export default function AuthLayout({ children, page }: Props) {
       <div className="login-right">
         <div className="login-box">{children}</div>
       </div>
+
+      <ThemeToggle corner />
     </div>
   );
 }

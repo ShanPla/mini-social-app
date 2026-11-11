@@ -261,7 +261,17 @@
 .search-results-list .search-result-card:nth-child(3) { animation-delay: 80ms; }
 .search-results-list .search-result-card:nth-child(n+4) { animation-delay: 120ms; }
 
-/* ── Reduce motion for accessibility ── */
+/* ── Light <-> dark ──
+   One cross-fade of the whole page (lib/theme.ts starts it). While it runs,
+   the parts that have their own transition names (the sign-in panels) give
+   them up, so the page fades as one picture instead of in pieces. */
+.theme-fade * { view-transition-name: none !important; }
+.theme-fade::view-transition-old(root),
+.theme-fade::view-transition-new(root) {
+  animation-duration: 0.4s;
+  animation-timing-function: ease;
+}
+
 /* ── Sign in <-> Create account, Sign in <-> Forgot password ──
    All of them have the form on the same side. Leaving Sign in, the other
    form drops in from the top over it; going back, it lifts away again.
@@ -274,6 +284,8 @@
 
 /* On phones the form travels over the dark panel above it */
 ::view-transition-group(auth-form) { z-index: 1; }
+/* The theme switch is in the same corner on every sign-in page: it stays put, on top */
+::view-transition-group(auth-theme) { z-index: 2; }
 ::view-transition-old(auth-form),
 ::view-transition-new(auth-form) {
   /* Whole panels, one over the other: no blending, no scaling */

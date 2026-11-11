@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Sun, Moon, Search, Settings } from 'lucide-react';
+import { Search, Settings } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
 import { isActivePath } from '../../lib/navActive';
 import { prefetchPage } from '../../lib/pages';
-import { useTheme } from '../../lib/theme';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import SearchBar from '../SearchBar/SearchBar';
+import ThemeToggle from '../ThemeToggle/ThemeToggle';
 import './Navbar.css';
 
 type NavbarProps = {
@@ -16,7 +16,6 @@ type NavbarProps = {
 export default function Navbar({ userId }: NavbarProps) {
   const location = useLocation();
   const { unreadConversations } = useChat();
-  const { theme, setPreference } = useTheme();
   const navRef = useRef<HTMLElement>(null);
   /* Phones keep search behind an icon. It is open only on the page where it
      was opened, so going anywhere (a result, a tab) closes it again. */
@@ -76,15 +75,7 @@ export default function Navbar({ userId }: NavbarProps) {
             </button>
             <NotificationBell currentUserId={userId} />
             {/* Flips light and dark; Settings also offers following the device */}
-            <button
-              type="button"
-              className="nav-icon-btn nav-theme-btn"
-              onClick={() => setPreference(theme === 'dark' ? 'light' : 'dark')}
-              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-              title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
-            >
-              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
-            </button>
+            <ThemeToggle />
             {/* Log out lives in Settings. Phones reach Settings from the bottom bar. */}
             <Link
               to="/settings"
@@ -97,6 +88,13 @@ export default function Navbar({ userId }: NavbarProps) {
             >
               <Settings size={17} />
             </Link>
+          </div>
+        )}
+
+        {/* Signed out there is nothing else in the bar, but the theme switch stays */}
+        {!userId && (
+          <div className="navbar-links">
+            <ThemeToggle />
           </div>
         )}
       </div>
