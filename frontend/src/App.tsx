@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
+import { clearAllDrafts } from './lib/drafts';
 import Navbar from './components/Navbar/Navbar';
 import SearchBar from './components/SearchBar/SearchBar';
 import ChatProvider from './context/ChatProvider';
@@ -245,6 +246,9 @@ function App() {
       setUserId(uid);
       /* A different account must not inherit the previous one's admin flag */
       if (changed) setIsAdmin(false);
+      /* Also when the session expired or was ended elsewhere: unfinished text
+         must not stay behind on a shared device */
+      if (event === 'SIGNED_OUT') clearAllDrafts();
       if (uid) fetchAdminStatus(uid);
       if (event === 'PASSWORD_RECOVERY' && landedOnRecoveryLink) setRecovery(true);
     });
