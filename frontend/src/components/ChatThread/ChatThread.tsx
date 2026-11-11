@@ -355,9 +355,13 @@ export default function ChatThread({ conversationId, compact = false, autoFocus 
       .on('broadcast', { event: 'typing' }, ({ payload }) => {
         const p = payload as { user_id: string; username: string; typing: boolean };
         if (!p || p.user_id === userId) return;
+        /* Any member can send this, so the name comes from our own member
+           list, never from the payload, and strangers to the chat are ignored */
+        const member = membersRef.current.find((m) => m.user_id === p.user_id);
+        if (!member) return;
         setTyping((prev) => {
           const next = { ...prev };
-          if (p.typing) next[p.user_id] = { username: p.username, until: Date.now() + TYPING_TTL_MS };
+          if (p.typing) next[p.user_id] = { username: displayName(member), until: Date.now() + TYPING_TTL_MS };
           else delete next[p.user_id];
           return next;
         });
