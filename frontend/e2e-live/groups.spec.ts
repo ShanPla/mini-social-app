@@ -51,6 +51,20 @@ test.describe.serial('group chats', () => {
     await expect(thirdPage.getByText('live message').first()).toBeVisible()
   })
 
+  test('a reaction is stored and shows live', async () => {
+    const { data: message } = await member.client.from('messages').select('id').eq('conversation_id', chatId).eq('content', 'hello group').single()
+    /* Written as escapes: a thumbs up, then a change to a heart */
+    const added = await third.client.from('message_reactions').insert({ message_id: message!.id, emoji: '\u{1F44D}' })
+    expect(added.error).toBeNull()
+    const chip = creatorPage.locator('.msg-row', { hasText: 'hello group' }).locator('.msg-chip')
+    await expect(chip.first()).toBeVisible()
+    const changed = await third.client.from('message_reactions').update({ emoji: '❤️' }).eq('message_id', message!.id).eq('user_id', third.id)
+    expect(changed.error).toBeNull()
+    /* Anything outside the six allowed emoji is refused */
+    const refused = await member.client.from('message_reactions').insert({ message_id: message!.id, emoji: 'x' })
+    expect(refused.error).not.toBeNull()
+  })
+
   test('only the creator can rename, and everyone sees it live', async () => {
     await info(memberPage).click()
     await expect(memberPage.getByRole('button', { name: 'Leave group' })).toBeVisible()
