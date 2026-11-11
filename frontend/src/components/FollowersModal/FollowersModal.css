@@ -111,10 +111,10 @@
   color: var(--ink);
 }
 
-.fw-handle { font-size: 0.78rem; color: var(--ink-muted); }
-.fw-cap { text-align: center; font-size: 0.76rem; color: var(--ink-muted); padding: 14px 12px 6px; }
+.fw-handle { font-size: 0.8rem; color: var(--ink-muted); }
+.fw-cap { text-align: center; font-size: 0.75rem; color: var(--ink-muted); padding: 14px 12px 6px; }
 .fw-bio {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--ink-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -136,7 +136,7 @@
   padding: 40px 20px;
   text-align: center;
   color: var(--ink-muted);
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-style: italic;
 }
 

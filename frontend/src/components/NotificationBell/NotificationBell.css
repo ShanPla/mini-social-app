@@ -26,7 +26,7 @@
   right: -4px;
   background: var(--accent);
   color: var(--on-accent);
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   font-weight: 700;
   min-width: 16px;
   height: 16px;
@@ -54,7 +54,7 @@
 
 .bell-dropdown-header {
   padding: 12px 16px;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -65,7 +65,7 @@
 
 .bell-empty {
   padding: 20px 16px;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   color: var(--ink-muted);
   font-style: italic;
   text-align: center;
@@ -99,7 +99,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   flex-shrink: 0;
 }
 .bell-item-icon--like { background: var(--accent-tint); color: var(--accent); }
@@ -131,7 +131,7 @@
 }
 .bell-item-text {
   display: block;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: var(--ink-light);
   line-height: 1.4;
   white-space: nowrap;
@@ -141,14 +141,14 @@
 .bell-item-body strong { color: var(--ink); }
 
 .bell-item-time {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--ink-muted);
 }
 
 .bell-see-all {
   display: block;
   padding: 12px 16px;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: var(--ink-muted);
   text-decoration: none;
   text-align: center;

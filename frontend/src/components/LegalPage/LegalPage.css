@@ -16,7 +16,7 @@
 .legal-back {
   display: inline-block;
   margin-bottom: 18px;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-muted);
@@ -37,7 +37,7 @@
   margin: 6px 0 28px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--border);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: var(--ink-muted);
 }
 
@@ -67,7 +67,7 @@
   margin-top: 36px;
   padding-top: 18px;
   border-top: 1px solid var(--border);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: var(--ink-muted);
 }
 

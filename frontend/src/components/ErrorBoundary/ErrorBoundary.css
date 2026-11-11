@@ -26,7 +26,7 @@
 
 .error-boundary-card h1 {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   color: var(--ink);
   letter-spacing: -0.01em;
 }
@@ -43,7 +43,7 @@
   background: var(--cream);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   color: var(--ink-muted);
   text-align: left;
   white-space: pre-wrap;

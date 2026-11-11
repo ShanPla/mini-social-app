@@ -88,7 +88,7 @@
 
 .dropdown-empty {
   padding: 16px 20px;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   color: var(--ink-muted);
   font-style: italic;
 }
@@ -136,14 +136,14 @@
 }
 
 .dropdown-username {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: var(--ink);
 }
 
-.dropdown-handle { font-size: 0.74rem; color: var(--ink-muted); }
+.dropdown-handle { font-size: 0.75rem; color: var(--ink-muted); }
 .dropdown-bio {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--ink-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -157,7 +157,7 @@
   background: var(--cream);
   border: none;
   border-top: 1px solid var(--border);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: var(--ink-muted);
   cursor: pointer;
   text-align: left;

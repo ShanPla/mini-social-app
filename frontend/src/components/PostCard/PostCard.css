@@ -116,7 +116,7 @@
   padding: 10px 14px;
   background: none;
   border: none;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   color: var(--ink-light);
   cursor: pointer;
   text-align: left;
@@ -132,7 +132,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.04em;
   color: var(--ink-muted);
@@ -145,7 +145,7 @@
 
 /* Content */
 .post-content {
-  font-size: 0.97rem;
+  font-size: 0.95rem;
   line-height: 1.7;
   color: var(--ink-light);
   margin-bottom: 14px;
@@ -207,7 +207,7 @@
   .post-card { padding: 16px 14px; }
   .author-avatar { width: 34px; height: 34px; }
   .author-handle { display: block; margin-left: 0; }
-  .post-content { font-size: 0.93rem; }
+  .post-content { font-size: 0.95rem; }
   .post-footer { gap: 14px; padding-top: 12px; }
   .post-actions-dropdown { right: 0; left: auto; max-width: calc(100vw - 32px); }
 }

@@ -195,7 +195,7 @@ input, textarea {
   color: var(--accent);
   border: 1px solid var(--accent);
   padding: 6px 14px;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
@@ -297,7 +297,7 @@ input, textarea {
 @media (max-width: 560px) {
   .btn-primary, .btn-ghost {
     padding: 11px 18px;
-    font-size: 0.82rem;
+    font-size: 0.85rem;
   }
 }
 

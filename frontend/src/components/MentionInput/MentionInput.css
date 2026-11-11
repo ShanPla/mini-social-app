@@ -61,6 +61,6 @@
 }
 .mention-handle {
   color: var(--ink-muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   white-space: nowrap;
 }

@@ -82,7 +82,7 @@
 
 .chat-error {
   color: var(--accent);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   padding: 0 6px 6px;
 }
 
@@ -126,7 +126,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   line-height: 1.3;
 }
 .chat-reply-label { font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

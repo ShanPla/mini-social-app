@@ -92,7 +92,7 @@
 .edit-textarea::placeholder { color: var(--ink-muted); }
 
 .edit-char-count {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   text-align: right;
 }
 
@@ -131,7 +131,7 @@
 }
 
 .visibility-label {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: var(--ink);
 }
@@ -177,7 +177,7 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -193,7 +193,7 @@
   background: var(--gold);
   /* Dark on gold in both themes (--ink turns light in dark mode) */
   color: var(--night);
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   font-weight: 700;
   padding: 1px 5px;
   border-radius: 3px;

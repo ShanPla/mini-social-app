@@ -26,7 +26,7 @@
   letter-spacing: -0.02em;
 }
 
-.notif-mark-all { padding: 6px 14px; font-size: 0.78rem; }
+.notif-mark-all { padding: 6px 14px; font-size: 0.8rem; }
 
 /* Skeletons */
 .notif-skeletons { display: flex; flex-direction: column; gap: 2px; }
@@ -126,7 +126,7 @@
 
 .notif-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .notif-body p {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   color: var(--ink-light);
   line-height: 1.5;
   /* A very long name or group title ends in an ellipsis after two lines */

@@ -101,7 +101,7 @@
 }
 
 .ci-section-label {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-muted);
@@ -152,7 +152,7 @@
 .ci-username { font-size: 0.9rem; color: var(--ink); flex: 1; }
 
 .ci-you {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-muted);
@@ -170,7 +170,7 @@
   color: var(--ink-light);
   padding: 10px 12px;
   border-radius: 6px;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-family: var(--font-body);
   transition: border-color 0.2s, color 0.2s;
 }

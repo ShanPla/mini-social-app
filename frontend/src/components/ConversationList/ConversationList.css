@@ -96,7 +96,7 @@
   gap: 6px;
 }
 .conv-empty p { font-size: 0.9rem; font-style: italic; }
-.conv-empty span { font-size: 0.78rem; }
+.conv-empty span { font-size: 0.8rem; }
 
 /* Skeleton */
 .conv-skeleton {

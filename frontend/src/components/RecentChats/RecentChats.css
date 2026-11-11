@@ -15,7 +15,7 @@
 }
 
 .rc-time {
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   color: var(--ink-muted);
   flex-shrink: 0;
 }

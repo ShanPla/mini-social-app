@@ -23,7 +23,7 @@
   border-left: 3px solid var(--ink-muted);
   border-radius: var(--radius);
   box-shadow: var(--shadow-hover);
-  font-size: 0.86rem;
+  font-size: 0.85rem;
   line-height: 1.45;
   color: var(--ink);
   animation: toastIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);

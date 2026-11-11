@@ -30,7 +30,7 @@
 .search-page-header h1 em { font-style: italic; color: var(--accent); }
 
 .result-count {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-muted);
@@ -83,7 +83,7 @@
 }
 .search-empty span { font-size: 2.5rem; }
 .search-empty p { font-size: 0.95rem; color: var(--ink-light); }
-.search-empty small { font-size: 0.82rem; color: var(--ink-muted); }
+.search-empty small { font-size: 0.85rem; color: var(--ink-muted); }
 
 /* Results */
 .search-results-list { display: flex; flex-direction: column; gap: 2px; }
@@ -121,7 +121,7 @@
 .result-info { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .result-username { font-size: 0.95rem; font-weight: 500; color: var(--ink); }
 .result-handle { font-size: 0.8rem; color: var(--ink-muted); }
-.result-bio { font-size: 0.82rem; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.result-bio { font-size: 0.85rem; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .result-arrow { color: var(--ink-muted); font-size: 1rem; transition: transform 0.2s, color 0.2s; }
 .search-result-card:hover .result-arrow { transform: translateX(4px); color: var(--accent); }

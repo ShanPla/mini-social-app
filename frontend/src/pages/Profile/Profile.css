@@ -95,7 +95,7 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
-  font-size: 2.2rem;
+  font-size: 2rem;
   color: var(--cream);
   overflow: hidden;
 }
@@ -116,7 +116,7 @@
   background: none;
   border: 1px solid var(--border);
   padding: 4px 6px;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-family: var(--font-body);
   color: var(--ink-muted);
   cursor: pointer;
@@ -151,7 +151,7 @@
   border: 1px solid var(--border);
   background: var(--warm-white);
   padding: 7px 10px;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--ink);
   outline: none;
   border-radius: var(--radius);
@@ -185,7 +185,7 @@
 
 .profile-username {
   font-family: var(--font-display);
-  font-size: 1.7rem;
+  font-size: 1.6rem;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.02em;
@@ -195,7 +195,7 @@
 .profile-handle { font-size: 0.9rem; color: var(--ink-muted); margin: -4px 0 6px; }
 
 .profile-bio {
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   color: var(--ink-light);
   line-height: 1.6;
 }
@@ -205,7 +205,7 @@
 
 .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .stat-count { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--ink); }
-.stat-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); }
+.stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); }
 
 .profile-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
@@ -217,7 +217,7 @@
   border: 1px solid var(--border);
   background: var(--warm-white);
   padding: 10px 12px;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   color: var(--ink);
   outline: none;
   border-radius: var(--radius);
@@ -232,8 +232,8 @@
 .edit-actions { display: flex; gap: 10px; }
 /* A link dressed as the ghost button */
 .profile-settings-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; line-height: normal; }
-.edit-error { color: var(--accent); font-size: 0.82rem; margin-top: 8px; }
-.edit-hint { font-size: 0.72rem; color: var(--ink-muted); margin-top: 2px; }
+.edit-error { color: var(--accent); font-size: 0.85rem; margin-top: 8px; }
+.edit-hint { font-size: 0.75rem; color: var(--ink-muted); margin-top: 2px; }
 
 /* Posts section */
 .profile-posts-title {

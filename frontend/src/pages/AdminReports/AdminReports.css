@@ -24,7 +24,7 @@
 
 .admin-reports-back {
   display: inline-block;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-muted);
@@ -41,7 +41,7 @@
   border: 1px solid var(--border);
   color: var(--ink-muted);
   font-family: var(--font-body);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   padding: 7px 16px;
   border-radius: 999px;
   cursor: pointer;
@@ -75,7 +75,7 @@
 .admin-report-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 
 .admin-report-type {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;

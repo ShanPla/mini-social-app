@@ -99,7 +99,7 @@
 }
 .report-textarea:focus { border-color: var(--ink); }
 
-.report-char-count { font-size: 0.72rem; text-align: right; }
+.report-char-count { font-size: 0.75rem; text-align: right; }
 
 .report-error { font-size: 0.85rem; color: var(--accent); }
 
