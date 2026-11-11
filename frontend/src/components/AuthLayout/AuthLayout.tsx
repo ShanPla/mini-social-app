@@ -2,16 +2,18 @@ import './AuthLayout.css';
 
 type Props = {
   children: React.ReactNode;
+  /* Which page this is, for the animation between them (lib/authSwap.ts) */
+  page?: 'login' | 'forgotPassword' | 'resetPassword';
 };
 
 /*
  * The dark art panel on the left and a form column on the right.
  * Login, ForgotPassword and ResetPassword all render inside it.
- * (Register keeps its own art panel; it reads as the mirror image.)
+ * (Register keeps its own art panel, on the same side.)
  */
-export default function AuthLayout({ children }: Props) {
+export default function AuthLayout({ children, page }: Props) {
   return (
-    <div className="login-page">
+    <div className="login-page" data-auth-page={page}>
       <div className="login-left">
         <div className="login-watermark">✦</div>
 

@@ -1,9 +1,11 @@
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
 import { friendlyAuthError, isUnconfirmedEmail } from '../../lib/authErrors';
 import { redirectTarget } from '../../lib/redirect';
+import { swapAuthPage } from '../../lib/authSwap';
+import { loadAuthPage } from '../../lib/pages';
 import type { FromState } from '../../lib/redirect';
 import { useToast } from '../../context/ToastContext';
 import AuthLayout from '../../components/AuthLayout/AuthLayout';
@@ -25,6 +27,14 @@ export default function Login() {
   const id = useId();
 
   usePageTitle('Sign In');
+
+  /* The other page's code, so the slide to it starts at once */
+
+  /* The pages this one leads to, so the animation to them starts at once */
+  useEffect(() => {
+    loadAuthPage('register').catch(() => undefined);
+    loadAuthPage('forgotPassword').catch(() => undefined);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +63,7 @@ export default function Login() {
   };
 
   return (
-    <AuthLayout>
+    <AuthLayout page="login">
       <div className="login-header">
         <h1>Sign In</h1>
         <p>Welcome back to The Chronicle</p>
@@ -88,7 +98,7 @@ export default function Login() {
         </div>
 
         <div className="login-aux">
-          <Link to="/forgot-password">Forgot password?</Link>
+          <Link to="/forgot-password" onClick={(e) => swapAuthPage(e, navigate, 'forgotPassword', undefined)}>Forgot password?</Link>
         </div>
 
         {error && <p className="error-msg">{error}</p>}
@@ -105,7 +115,8 @@ export default function Login() {
 
       <p className="login-register-link">
         New here?{' '}
-        <Link to="/register" state={fromState}>Create an account</Link>
+        {/* Slides the two columns past each other where the browser can (lib/authSwap.ts) */}
+        <Link to="/register" state={fromState} onClick={(e) => swapAuthPage(e, navigate, 'register', fromState)}>Create an account</Link>
       </p>
       <p className="auth-legal">
         <Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy</Link>

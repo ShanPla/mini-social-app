@@ -13,6 +13,7 @@ import { consumeIntentionalSignOut } from './lib/session';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import LoadingScreen from './components/LoadingScreen/LoadingScreen';
 import { pageLoaders, pageForPath, prefetchPage } from './lib/pages';
+import { ForgotPasswordPage, LoginPage, RegisterPage } from './lib/authPages';
 import { redirectTarget } from './lib/redirect';
 import type { FromState } from './lib/redirect';
 import './styles/global.css';
@@ -21,9 +22,10 @@ import './styles/animations.css';
 /* Every page is its own chunk, fetched the first time it is visited. The
    shell (navbar, search, toasts, providers) stays in the main bundle.
    The thunks live in lib/pages.ts so the same import() backs prefetching. */
-const Login = lazy(pageLoaders.login);
-const Register = lazy(pageLoaders.register);
-const ForgotPassword = lazy(pageLoaders.forgotPassword);
+/* These can render without suspending once warmed, for the animation between them */
+const Login = LoginPage;
+const Register = RegisterPage;
+const ForgotPassword = ForgotPasswordPage;
 const ResetPassword = lazy(pageLoaders.resetPassword);
 const Feed = lazy(pageLoaders.feed);
 const ProfilePage = lazy(pageLoaders.profile);

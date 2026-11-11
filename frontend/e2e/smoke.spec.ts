@@ -55,3 +55,15 @@ test('register links to the terms and privacy pages', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Terms' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Privacy Policy' })).toBeVisible()
 })
+
+test('sign in and create account lead to each other', async ({ page }) => {
+  /* With the slide between them (lib/authSwap.ts) the links must still land */
+  await page.goto('/login')
+  await page.getByRole('link', { name: 'Create an account' }).click()
+  await expect(page).toHaveURL(/\/register$/)
+  await expect(page.locator('.register-art')).toBeVisible()
+  await page.getByRole('link', { name: /Back to Sign In/ }).click()
+  await expect(page).toHaveURL(/\/login$/)
+  await expect(page.getByLabel('Email')).toBeEditable()
+  await expect(page.locator('html')).not.toHaveClass(/auth-swap/)
+})

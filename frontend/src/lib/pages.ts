@@ -1,3 +1,5 @@
+import type { ComponentType } from 'react';
+
 /*
  * One import() thunk per page, shared by React.lazy in App.tsx and by the
  * places that warm a chunk early (the auth gate, navbar hover). The browser
@@ -39,6 +41,20 @@ export function pageForPath(pathname: string): PageName {
   if (pathname === '/admin/reports') return 'adminReports';
   if (pathname.startsWith('/messages')) return 'messages';
   return 'feed';
+}
+
+/* Sign in, Create account and Forgot password give way to each other with an
+   animation (lib/authSwap.ts). A page loaded through here can render at once,
+   without suspending (lib/authPages.tsx). */
+export type AuthPageName = 'login' | 'register' | 'forgotPassword';
+const readyAuth: Partial<Record<AuthPageName, ComponentType>> = {};
+
+export function loadAuthPage(name: AuthPageName): Promise<void> {
+  return pageLoaders[name]().then((module) => { readyAuth[name] = module.default; });
+}
+
+export function readyAuthPage(name: AuthPageName): ComponentType | undefined {
+  return readyAuth[name];
 }
 
 /* Fire and forget. Errors surface later through React.lazy, not here. */

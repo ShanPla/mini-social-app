@@ -1,4 +1,4 @@
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { usePageTitle } from '../../lib/usePageTitle';
@@ -9,6 +9,8 @@ import { useToast } from '../../context/ToastContext';
 import PasswordInput from '../../components/PasswordInput/PasswordInput';
 import CharCount from '../../components/CharCount/CharCount';
 import './Register.css';
+import { swapAuthPage } from '../../lib/authSwap';
+import { loadAuthPage } from '../../lib/pages';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -29,6 +31,10 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
 
   usePageTitle('Create Account');
+
+  /* The other page's code, so the slide to it starts at once */
+
+  useEffect(() => { loadAuthPage('login').catch(() => undefined); }, []);
 
   const handleUsernameChange = async (value: string) => {
     const cleaned = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
@@ -83,10 +89,10 @@ export default function Register() {
   };
 
   return (
-    <div className="register-page">
+    <div className="register-page" data-auth-page="register">
       <div className="register-box">
         <div className="register-header">
-          <Link to="/login" state={fromState} className="register-back">← Back to Sign In</Link>
+          <Link to="/login" state={fromState} className="register-back" onClick={(e) => swapAuthPage(e, navigate, 'login', fromState)}>← Back to Sign In</Link>
           <h1>Create Account</h1>
           <p>Join The Chronicle today</p>
         </div>

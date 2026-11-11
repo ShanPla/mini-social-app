@@ -262,6 +262,84 @@
 .search-results-list .search-result-card:nth-child(n+4) { animation-delay: 120ms; }
 
 /* ── Reduce motion for accessibility ── */
+/* ── Sign in <-> Create account, Sign in <-> Forgot password ──
+   All of them have the form on the same side. Leaving Sign in, the other
+   form drops in from the top over it; going back, it lifts away again.
+   The panels carry the same names on both pages, which is what lets the
+   browser show the old and the new one together (lib/authSwap.ts starts it). */
+.login-left,
+.register-art { view-transition-name: auth-art; }
+.login-right,
+.register-box { view-transition-name: auth-form; }
+
+/* On phones the form travels over the dark panel above it */
+::view-transition-group(auth-form) { z-index: 1; }
+::view-transition-old(auth-form),
+::view-transition-new(auth-form) {
+  /* Whole panels, one over the other: no blending, no scaling */
+  mix-blend-mode: normal;
+  height: 100%;
+  object-fit: cover;
+  object-position: left top;
+}
+/* The dark panel has the same frame on both pages, so it does not seem to
+   change. Only its words do: the old ones leave, then the new ones arrive,
+   instead of the two showing through each other. */
+.login-brand,
+.register-art-main { view-transition-name: auth-words; }
+.login-deco-quote,
+.register-art-quote { view-transition-name: auth-quote; }
+
+::view-transition-group(auth-words),
+::view-transition-group(auth-quote) { animation-duration: 0.54s; }
+/* Only when the words differ (Create account). Sign in and Forgot password
+   show the same ones, which then stay as they are. */
+.auth-swap--words::view-transition-old(auth-words),
+.auth-swap--words::view-transition-new(auth-words),
+.auth-swap--words::view-transition-old(auth-quote),
+.auth-swap--words::view-transition-new(auth-quote) {
+  /* Their own size: the two texts differ, and stretching one to fit the other shows */
+  width: auto;
+  height: auto;
+  mix-blend-mode: normal;
+}
+.auth-swap--words::view-transition-old(auth-words),
+.auth-swap--words::view-transition-old(auth-quote) { animation: authWordsOut 0.18s ease-in both; }
+.auth-swap--words::view-transition-new(auth-words),
+.auth-swap--words::view-transition-new(auth-quote) { animation: authWordsIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both; }
+
+@keyframes authWordsOut {
+  to { opacity: 0; transform: translateY(-8px); }
+}
+@keyframes authWordsIn {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+@keyframes authDrop {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+@keyframes authLift {
+  from { transform: translateY(0); }
+  to { transform: translateY(-100%); }
+}
+
+/* Leaving Sign in: it stays where it is, the new form falls over it */
+.auth-swap--in::view-transition-old(auth-form) { animation: none; }
+.auth-swap--in::view-transition-new(auth-form) {
+  animation: authDrop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.2));
+}
+/* Back to Sign in: it is already underneath, the other form lifts off it */
+.auth-swap--out::view-transition-new(auth-form) { animation: none; }
+.auth-swap--out::view-transition-old(auth-form) {
+  animation: authLift 0.4s cubic-bezier(0.5, 0, 0.75, 0) both;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.2));
+  z-index: 1;
+}
+/* The page's own fade-in would fight this */
+.auth-swap .page-enter { animation: none; }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
