@@ -66,7 +66,7 @@ export default function PasswordForm({ submitLabel = 'Set new password', onDone,
 
       {error && <p className="error-msg">{error}</p>}
 
-      <button type="submit" className="btn-primary login-submit" disabled={loading}>
+      <button type="submit" className="btn-primary login-submit" disabled={loading || !password || !confirm}>
         {loading ? 'Saving…' : submitLabel}
       </button>
     </form>
