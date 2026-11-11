@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Radio } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { usePresence } from '../../context/PresenceContext';
-import SidebarWidget, { WidgetAvatar, WidgetEmpty } from '../SidebarWidget/SidebarWidget';
+import SidebarWidget, { WidgetAvatar } from '../SidebarWidget/SidebarWidget';
 import { displayName } from '../../lib/names';
 import './OnlineNow.css';
 
@@ -42,21 +42,20 @@ export default function OnlineNow({ userId }: Props) {
   const visible = others.map((id) => profiles[id]).filter((p): p is Mini => !!p).slice(0, LIMIT);
   const extra = others.length - visible.length;
 
+  /* Nobody else around: show no widget at all rather than an empty box */
+  if (others.length === 0) return null;
+
   return (
     <SidebarWidget title="Online now" icon={<Radio size={15} />}>
-      {others.length === 0 ? (
-        <WidgetEmpty>No one else is online right now.</WidgetEmpty>
-      ) : (
-        <div className="online-list">
-          {visible.map((p) => (
-            <Link key={p.id} to={`/profile/${p.id}`} className="online-item" title={`@${p.username}`}>
-              <WidgetAvatar username={p.username} avatarUrl={p.avatar_url} size={36} online />
-              <span className="online-name">{displayName(p)}</span>
-            </Link>
-          ))}
-          {extra > 0 && <span className="online-more">+{extra}</span>}
-        </div>
-      )}
+      <div className="online-list">
+        {visible.map((p) => (
+          <Link key={p.id} to={`/profile/${p.id}`} className="online-item" title={`@${p.username}`}>
+            <WidgetAvatar username={p.username} avatarUrl={p.avatar_url} size={36} online />
+            <span className="online-name">{displayName(p)}</span>
+          </Link>
+        ))}
+        {extra > 0 && <span className="online-more">+{extra}</span>}
+      </div>
     </SidebarWidget>
   );
 }

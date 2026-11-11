@@ -1,8 +1,7 @@
+/* A plain link list under a thin rule: no card around it */
 .quick-links {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  padding: 8px 0 0;
   display: flex;
   flex-direction: column;
 }
@@ -11,13 +10,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 16px;
+  padding: 9px 12px;
   font-size: 0.85rem;
   letter-spacing: 0.04em;
   color: var(--ink-light);
   transition: background 0.15s, color 0.15s;
 }
-.quick-link:hover { background: var(--cream); color: var(--ink); }
+.quick-link:hover { background: var(--warm-white); color: var(--ink); }
+
 .quick-link--active {
   color: var(--ink);
   font-weight: 500;

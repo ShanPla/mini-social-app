@@ -1,15 +1,15 @@
+/* Side widgets are quiet: no card, box or shadow. A heading with a thin rule,
+   rows with hairlines, and the gap between widgets does the grouping. */
 .widget {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
+  background: none;
+  border: 0;
 }
 
 .widget-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px 10px;
+  padding: 0 0 8px;
   border-bottom: 1px solid var(--border);
 }
 .widget-icon { color: var(--ink-muted); display: flex; align-items: center; }
@@ -21,30 +21,29 @@
   letter-spacing: -0.01em;
 }
 
-.widget-body { padding: 6px 0; }
+.widget-body { padding: 0; }
 
+/* Plain text link under a widget, e.g. [All messages →] */
 .widget-footer {
-  display: block;
-  padding: 10px 16px;
+  display: inline-block;
+  margin-top: 8px;
   font-size: 0.8rem;
   color: var(--ink-muted);
-  background: var(--cream);
-  border-top: 1px solid var(--border);
   transition: color 0.2s;
 }
-.widget-footer:hover { color: var(--ink); }
+.widget-footer:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
 /* User row shared by widgets */
 .widget-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 16px;
+  padding: 8px 0;
   min-width: 0;
   text-decoration: none;
-  transition: background 0.15s;
 }
-.widget-row:hover { background: var(--cream); }
+.widget-row + .widget-row { border-top: 1px solid var(--border); }
+.widget-row:hover .widget-row-name { color: var(--accent); }
 
 .widget-row-info {
   flex: 1;
@@ -60,6 +59,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.2s;
 }
 .widget-row-sub {
   font-size: 0.75rem;
@@ -92,12 +92,12 @@
   height: 10px;
   border-radius: 50%;
   background: var(--success);
-  border: 2px solid var(--card-bg);
+  border: 2px solid var(--cream);
 }
 
 /* Empty + skeleton */
 .widget-empty {
-  padding: 14px 16px;
+  padding: 10px 0 2px;
   font-size: 0.8rem;
   color: var(--ink-muted);
   font-style: italic;
@@ -108,7 +108,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 16px;
+  padding: 8px 0;
 }
 .widget-skeleton-avatar,
 .widget-skeleton-line {
@@ -118,6 +118,3 @@
 }
 .widget-skeleton-avatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
 .widget-skeleton-line { height: 11px; border-radius: var(--radius); flex: 1; max-width: 60%; }
-
-/* This box clips overflow, so focus rings inside it are drawn inward */
-.widget :focus-visible { outline-offset: -2px; }

@@ -1,13 +1,10 @@
+/* No card: the left column reads as quiet text on the page, like the widgets */
 .profile-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px 16px 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  overflow: hidden;
 }
 
 .profile-card-top {
@@ -74,20 +71,17 @@
 }
 .profile-card-stat:hover strong { color: var(--accent); }
 
+/* Plain text link */
 .profile-card-link {
-  width: calc(100% + 32px);
-  margin: 12px -16px 0;
-  padding: 10px;
+  margin-top: 10px;
   font-size: 0.8rem;
   color: var(--ink-muted);
-  background: var(--cream);
-  border-top: 1px solid var(--border);
   transition: color 0.2s;
 }
-.profile-card-link:hover { color: var(--ink); }
+.profile-card-link:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
 /* Skeleton */
-.profile-card--loading { padding-bottom: 18px; gap: 10px; }
+.profile-card--loading { gap: 10px; }
 .profile-card-skeleton-avatar,
 .profile-card-skeleton-line {
   background: linear-gradient(90deg, var(--border) 25%, var(--cream) 50%, var(--border) 75%);
@@ -97,6 +91,3 @@
 .profile-card-skeleton-avatar { width: 56px; height: 56px; border-radius: 50%; }
 .profile-card-skeleton-line { height: 12px; width: 60%; border-radius: var(--radius); }
 .profile-card-skeleton-line--short { width: 40%; }
-
-/* This box clips overflow, so focus rings inside it are drawn inward */
-.profile-card :focus-visible { outline-offset: -2px; }
