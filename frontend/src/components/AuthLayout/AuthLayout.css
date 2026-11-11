@@ -59,7 +59,7 @@
   font-family: var(--font-display);
   font-style: italic;
   font-size: 1rem;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.62);
 }
 
 .login-panel-brand-main {
@@ -81,7 +81,7 @@
 
 .brand-tagline {
   font-size: 0.8rem;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255,255,255,0.62);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-weight: 300;
@@ -120,7 +120,7 @@
   font-family: var(--font-display);
   font-style: italic;
   font-size: 0.9rem;
-  color: rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.62);
   line-height: 1.6;
   max-width: 320px;
 }
