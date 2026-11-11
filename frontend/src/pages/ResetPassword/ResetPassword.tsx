@@ -22,15 +22,14 @@ export default function ResetPassword({ userId }: Props) {
 
   usePageTitle('New Password');
 
-  /* Supabase reports a dead link in the URL hash rather than with a session */
-  const linkError = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('error_description');
 
   if (!userId) {
     return (
       <AuthLayout>
         <div className="login-header">
           <h1>Link expired</h1>
-          <p>{linkError || 'This reset link is invalid or has already been used.'}</p>
+          {/* Fixed wording: the link carries its own error text, which anyone could have written */}
+          <p>This reset link is invalid, has expired or has already been used.</p>
         </div>
         <div className="login-form">
           <Link to="/forgot-password" className="btn-primary login-submit login-submit--link">Request a new link</Link>
