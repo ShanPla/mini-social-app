@@ -171,12 +171,12 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
   /* Same icons as the bell. Lucide marks them aria-hidden, so the text beside them is what is read */
   const getIcon = (type: string) => {
     switch (type) {
-      case 'like': return <Heart size={13} fill="currentColor" />;
-      case 'comment': return <MessageCircle size={13} />;
-      case 'follow': return <UserPlus size={13} />;
-      case 'message': return <MessageSquare size={13} />;
-      case 'added': return <Users size={13} />;
-      case 'mention': return <AtSign size={13} />;
+      case 'like': return <Heart size={10} fill="currentColor" />;
+      case 'comment': return <MessageCircle size={10} />;
+      case 'follow': return <UserPlus size={10} />;
+      case 'message': return <MessageSquare size={10} />;
+      case 'added': return <Users size={10} />;
+      case 'mention': return <AtSign size={10} />;
     }
   };
 
@@ -196,7 +196,6 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
           <div className="notif-skeletons">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="skeleton-notif">
-                <div className="skeleton-icon-sm" />
                 <div className="skeleton-avatar-sm" />
                 <div className="skeleton-info">
                   <div className="skeleton-line medium" />
@@ -223,12 +222,15 @@ export default function NotificationsPage({ currentUserId }: NotificationsPagePr
             <div className="notif-list">
               {notifications.map((n) => (
                 <div key={n.id} className={`notif-item ${!n.is_read ? 'unread' : ''}`}>
-                  <div className={`notif-icon notif-icon--${n.type}`}>{getIcon(n.type)}</div>
-                  <div className="notif-avatar">
-                    {n.actor.avatar_url
-                      ? <img src={n.actor.avatar_url} alt="" loading="lazy" />
-                      : <span>{(n.actor.username[0] || '?').toUpperCase()}</span>
-                    }
+                  {/* Avatar first; the type icon is a small badge on its bottom-right corner */}
+                  <div className="notif-lead">
+                    <div className="notif-avatar">
+                      {n.actor.avatar_url
+                        ? <img src={n.actor.avatar_url} alt="" loading="lazy" />
+                        : <span>{(n.actor.username[0] || '?').toUpperCase()}</span>
+                      }
+                    </div>
+                    <div className={`notif-icon notif-icon--${n.type}`}>{getIcon(n.type)}</div>
                   </div>
                   <div className="notif-body">
                     <p>
