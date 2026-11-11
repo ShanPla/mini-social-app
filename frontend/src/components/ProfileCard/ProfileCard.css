@@ -64,6 +64,7 @@
   font-family: var(--font-display);
   font-size: 1rem;
   color: var(--ink);
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .profile-card-stat span {
   font-size: 0.62rem;

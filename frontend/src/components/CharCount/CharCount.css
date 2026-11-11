@@ -1,4 +1,4 @@
-.char-count { position: relative; font-size: 0.75rem; color: var(--ink-muted); letter-spacing: 0.04em; }
+.char-count { position: relative; font-variant-numeric: lining-nums tabular-nums; font-size: 0.75rem; color: var(--ink-muted); letter-spacing: 0.04em; }
 .char-count--near { color: var(--accent); }
 .char-count--full { color: var(--accent); font-weight: 600; }
 
