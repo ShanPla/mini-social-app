@@ -27,7 +27,8 @@ export default function Privacy() {
         Your data lives in Supabase (database, sign-in and file storage), which is hosted in the cloud. The
         website itself is hosted on Vercel. Vercel Web Analytics and Speed Insights are switched on; they
         count page views and measure how fast pages load. They are cookieless and are not used to follow
-        you around.
+        you around. The typefaces are loaded from Google Fonts, so Google receives your network address
+        when a page loads.
       </p>
 
       <h2>Who can see what</h2>
