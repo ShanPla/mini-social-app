@@ -23,7 +23,7 @@
       ]
     },
     {
-      "source": "/(favicon.svg|favicon.ico|apple-touch-icon.png|og.png|manifest.webmanifest|icon-.*\\.png)",
+      "source": "/(favicon.svg|favicon.ico|apple-touch-icon.png|og.png|manifest.webmanifest|icon-.*\\.png|demo.mp4|demo.webm|demo-poster.jpg|demo-phone.mp4|demo-phone.webm|demo-phone-poster.jpg)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]

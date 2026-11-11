@@ -23,8 +23,11 @@ describe('pageForPath', () => {
     expect(pageForPath('/messages/some-conversation')).toBe('messages');
   });
 
-  it('falls back to the feed for the root and anything unknown', () => {
-    expect(pageForPath('/')).toBe('feed');
+  it('knows the front page', () => {
+    expect(pageForPath('/')).toBe('landing');
+  });
+
+  it('falls back to the feed for anything unknown', () => {
     expect(pageForPath('/feed')).toBe('feed');
     expect(pageForPath('/does-not-exist')).toBe('feed');
   });

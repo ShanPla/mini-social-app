@@ -131,6 +131,8 @@
   align-items: baseline;
   gap: 4px;
   margin-bottom: 48px;
+  align-self: flex-start;
+  text-decoration: none;
 }
 
 .register-panel-brand-serif {

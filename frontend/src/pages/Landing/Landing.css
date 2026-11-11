@@ -1,0 +1,297 @@
+/* Front page for signed-out visitors. Same paper, ink and serif as the app. */
+
+.landing {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--cream);
+  color: var(--ink);
+}
+
+/* ── Top bar ── */
+.landing-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--warm-white);
+  border-bottom: 1px solid var(--border);
+}
+.landing-bar-inner {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.landing-name { display: flex; align-items: baseline; gap: 4px; }
+.landing-name-the {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--ink-muted);
+}
+.landing-name-main {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.landing-bar-links { display: flex; align-items: center; gap: 20px; }
+.landing-signin {
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.landing-signin:hover { color: var(--ink); }
+.landing-cta-small {
+  padding: 9px 16px;
+  font-size: 0.8rem;
+  text-decoration: none;
+  transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s;
+}
+/* Held back while the big button below is on screen; it keeps its place, so nothing shifts */
+.landing-cta-small--away {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+
+/* ── Hero ── */
+.landing-hero {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 88px 24px 56px;
+}
+.landing-hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 6vw, 4.2rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  animation: landingRise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.landing-hero h1 em { color: var(--accent); font-style: italic; }
+.landing-lede {
+  max-width: 34rem;
+  margin-top: 24px;
+  font-size: 1.1rem;
+  line-height: 1.65;
+  color: var(--ink-light);
+  animation: landingRise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+}
+.landing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+  animation: landingRise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
+}
+.landing-cta { padding: 13px 24px; text-decoration: none; }
+
+@keyframes landingRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── The recording ── */
+.landing-demo {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 0 24px;
+  animation: landingRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.24s both;
+}
+.landing-frame { margin: 0 auto; max-width: 920px; }
+
+/* A picture of a device, not a control, so it keeps a device's round corners
+   rather than the 2px the buttons and cards use */
+.landing-device {
+  overflow: hidden;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-hover);
+}
+.landing-device--window {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.landing-window-bar {
+  position: relative;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  background: var(--warm-white);
+  border-bottom: 1px solid var(--border);
+}
+.landing-window-dots { display: flex; gap: 6px; }
+.landing-window-dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.landing-window-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  pointer-events: none;
+}
+.landing-device--phone {
+  width: min(290px, 100%);
+  margin: 0 auto;
+  padding: 8px;
+  background: var(--night);
+  border: 1px solid var(--night-edge);
+  border-radius: 36px;
+}
+.landing-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  background: var(--warm-white);
+}
+.landing-device--phone .landing-video {
+  aspect-ratio: 390 / 844;
+  border-radius: 28px;
+}
+
+/* Under the device: what it shows, and the control that stops the motion */
+.landing-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+}
+.landing-caption figcaption {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+.landing-video-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+/* ── What is in it: a plain list, two columns, no boxes ── */
+.landing-features {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 96px 24px 88px;
+}
+.landing-features h2 {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.landing-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 56px;
+  margin: 0;
+}
+.landing-item {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--border);
+}
+.landing-item dt {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.landing-item dd {
+  margin: 0;
+  max-width: 30rem;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--ink-light);
+}
+
+/* ── Closing band: the dark panel from the sign-in pages ── */
+.landing-close {
+  background: var(--night);
+  border-top: 1px solid var(--night-edge);
+  color: var(--night-text);
+  padding: 80px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  text-align: center;
+}
+.landing-close-line {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4.5vw, 3rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+.landing-close-line em { color: var(--gold); font-style: italic; }
+/* Light button on the dark band, in both themes */
+.landing-close-cta {
+  padding: 13px 26px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--night);
+  background: var(--night-text);
+  border-radius: var(--radius);
+  transition: background 0.2s;
+}
+.landing-close-cta:hover { background: var(--gold); }
+
+/* ── Foot ── */
+.landing-foot {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+}
+.landing-foot a {
+  color: var(--ink-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.landing-foot a:hover { color: var(--accent); }
+
+@media (max-width: 700px) {
+  .landing-bar-inner { padding: 0 16px; }
+  .landing-bar-links { gap: 14px; }
+  .landing-signin,
+  .landing-cta-small,
+  .landing-cta { white-space: nowrap; }
+  .landing-name-main { font-size: 1.1rem; }
+  .landing-cta-small { padding: 8px 12px; }
+  .landing-hero { padding: 56px 16px 40px; }
+  .landing-demo { padding: 0 16px; }
+  .landing-features { padding: 64px 16px 56px; }
+  .landing-list { grid-template-columns: 1fr; }
+  .landing-close { padding: 64px 16px; }
+  .landing-actions .landing-cta { flex: 1 1 auto; text-align: center; }
+  .landing-caption { flex-direction: column; text-align: center; gap: 12px; }
+}

@@ -181,10 +181,10 @@ export default function Register() {
       <div className="register-art">
         <div className="register-art-watermark">✦</div>
 
-        <div className="register-panel-brand">
+        <Link to="/" className="register-panel-brand" aria-label="The Chronicle, front page">
           <span className="register-panel-brand-serif">The</span>
           <span className="register-panel-brand-main">Chronicle</span>
-        </div>
+        </Link>
 
         <div className="register-art-main">
           <p className="register-art-headline">

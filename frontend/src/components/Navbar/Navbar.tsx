@@ -36,7 +36,8 @@ export default function Navbar({ userId }: NavbarProps) {
   return (
     <nav className="navbar" ref={navRef}>
       <div className="navbar-inner">
-        <Link to="/feed" className="navbar-brand">
+        {/* Signed out (privacy, terms, a 404) the name leads to the front page */}
+        <Link to={userId ? '/feed' : '/'} className="navbar-brand">
           <span className="brand-serif">The</span>
           <span className="brand-main">Chronicle</span>
         </Link>

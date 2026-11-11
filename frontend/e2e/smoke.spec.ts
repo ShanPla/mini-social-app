@@ -79,3 +79,19 @@ test('forgot password opens from sign in and leads back', async ({ page }) => {
   await expect(page).toHaveURL(/\/login$/)
   await expect(page.locator('html')).not.toHaveClass(/auth-swap/)
 })
+
+test('the front page shows the site and leads to sign in and create account', async ({ page }) => {
+  await page.goto('/')
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Share your story')
+  /* The recording is there, with a control to stop it */
+  await expect(page.locator('video.landing-video')).toBeVisible()
+  await expect(page.getByRole('button', { name: /the demo$/ })).toBeVisible()
+  await page.getByRole('link', { name: 'Create an account' }).first().click()
+  await expect(page).toHaveURL(/\/register$/)
+  /* The name on the dark panel is the way back */
+  await page.getByRole('link', { name: /front page/ }).click()
+  await expect(page).toHaveURL(/\/$/)
+  await page.getByRole('link', { name: 'Sign in' }).first().click()
+  await expect(page).toHaveURL(/\/login$/)
+})

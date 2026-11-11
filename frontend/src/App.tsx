@@ -27,6 +27,7 @@ const Login = LoginPage;
 const Register = RegisterPage;
 const ForgotPassword = ForgotPasswordPage;
 const ResetPassword = lazy(pageLoaders.resetPassword);
+const Landing = lazy(pageLoaders.landing);
 const Feed = lazy(pageLoaders.feed);
 const ProfilePage = lazy(pageLoaders.profile);
 const PostPage = lazy(pageLoaders.post);
@@ -42,7 +43,8 @@ const AdminReports = lazy(pageLoaders.adminReports);
    /messages page; it loads with whichever is used first */
 const ChatDock = lazy(() => import('./components/ChatDock/ChatDock'));
 
-const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'];
+/* Pages with their own frame: no app navbar, chat dock or bottom bar */
+const AUTH_ROUTES = ['/', '/login', '/register', '/forgot-password', '/reset-password'];
 
 /* Read once at module load, before auth-js consumes the hash. PASSWORD_RECOVERY is
    broadcast to every open tab through a BroadcastChannel, so without this every
@@ -179,7 +181,8 @@ function AppInner({ userId, isAdmin, recovery, onRecoverySteered }: AppInnerProp
           {/* Legal pages: readable signed in or out */}
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
-          <Route path="/" element={<Navigate to={userId ? '/feed' : '/login'} replace />} />
+          {/* Signed out, the front page says what this is; signed in, there is nothing to sell */}
+          <Route path="/" element={userId ? <Navigate to="/feed" replace /> : <Landing />} />
           {/* Anything else is a real 404, not a silent bounce to the feed */}
           <Route path="*" element={<NotFound userId={userId} />} />
         </Routes>

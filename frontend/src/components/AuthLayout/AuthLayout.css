@@ -53,6 +53,9 @@
   align-items: baseline;
   gap: 4px;
   margin-bottom: 48px;
+  /* a link to the front page */
+  align-self: flex-start;
+  text-decoration: none;
 }
 
 .login-panel-brand-serif {

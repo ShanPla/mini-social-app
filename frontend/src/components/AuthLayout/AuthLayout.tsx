@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import './AuthLayout.css';
 
 type Props = {
@@ -17,10 +18,11 @@ export default function AuthLayout({ children, page }: Props) {
       <div className="login-left">
         <div className="login-watermark">✦</div>
 
-        <div className="login-panel-brand">
+        {/* The way back to the front page */}
+        <Link to="/" className="login-panel-brand" aria-label="The Chronicle, front page">
           <span className="login-panel-brand-serif">The</span>
           <span className="login-panel-brand-main">Chronicle</span>
-        </div>
+        </Link>
 
         <div className="login-brand">
           <p className="brand-tagline">Share your story,</p>

@@ -6,6 +6,7 @@ import type { ComponentType } from 'react';
  * dedupes the module fetch, so warming never costs a second download.
  */
 export const pageLoaders = {
+  landing: () => import('../pages/Landing/Landing'),
   login: () => import('../pages/Login/Login'),
   register: () => import('../pages/Register/Register'),
   forgotPassword: () => import('../pages/ForgotPassword/ForgotPassword'),
@@ -27,6 +28,7 @@ export type PageName = keyof typeof pageLoaders;
 
 /* Which page a path will render, so it can be fetched before routing happens */
 export function pageForPath(pathname: string): PageName {
+  if (pathname === '/') return 'landing';
   if (pathname === '/login') return 'login';
   if (pathname === '/register') return 'register';
   if (pathname === '/forgot-password') return 'forgotPassword';
