@@ -1,13 +1,17 @@
+/* Same sides as Sign in: dark panel left, form right, so the fields stay
+   where they were when one page gives way to the other. The form comes first
+   in the markup, hence the reversed row. */
 .register-page {
   display: flex;
+  flex-direction: row-reverse;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
 }
 
-/* ── LEFT PANEL (form) ── */
+/* ── FORM PANEL (right) ── as wide as the one on Sign in */
 .register-box {
-  width: 480px;
+  width: 460px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -69,12 +73,12 @@
 }
 .register-legal a:hover { color: var(--accent); }
 
-/* ── RIGHT PANEL (dark) ── */
+/* ── DARK PANEL (left) ── */
 .register-art {
   flex: 1;
   /* Stays dark in both themes; its text is white on purpose */
   background: var(--night);
-  box-shadow: inset 1px 0 0 var(--night-edge);
+  box-shadow: inset -1px 0 0 var(--night-edge);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -93,12 +97,13 @@
   pointer-events: none;
 }
 
-/* Circle decoration */
+/* Large circle top-right, where Sign in has it: the panel is on the same side
+   now, and the frame must not jump when one page gives way to the other */
 .register-art::after {
   content: '';
   position: absolute;
   top: -160px;
-  left: -160px;
+  right: -160px;
   width: 480px;
   height: 480px;
   border-radius: 50%;
@@ -109,7 +114,7 @@
 .register-art-watermark {
   position: absolute;
   bottom: -40px;
-  right: -20px;
+  left: -20px;
   font-size: 220px;
   color: rgba(255,255,255,0.025);
   font-family: var(--font-display);
@@ -132,7 +137,8 @@
   font-family: var(--font-display);
   font-style: italic;
   font-size: 1rem;
-  color: rgba(255,255,255,0.4);
+  /* same as on Sign in */
+  color: rgba(255,255,255,0.62);
 }
 
 .register-panel-brand-main {
@@ -165,7 +171,8 @@
 
 .register-art-sub {
   font-size: 0.9rem;
-  color: rgba(255,255,255,0.3);
+  /* about 7:1 on the panel; it was too faint to read */
+  color: rgba(255,255,255,0.62);
   line-height: 1.7;
 }
 
@@ -205,20 +212,24 @@
   font-family: var(--font-display);
   font-style: italic;
   font-size: 0.9rem;
-  color: rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.62);
   line-height: 1.6;
+  /* Room for two lines, as on Sign in, so the stars sit at the same height */
+  min-height: 3.2em;
 }
 
 /* Mobile */
 @media (max-width: 700px) {
   .register-page {
-    flex-direction: column;
+    /* dark panel on top, as on Sign in */
+    flex-direction: column-reverse;
     height: auto;
     min-height: 100vh;
     overflow: auto;
     min-height: 100dvh;
   }
-  .register-box { width: 100%; padding: 36px 24px; }
-  .register-art { min-height: 280px; flex: none; padding: 32px 28px; }
+  .register-box { width: 100%; padding: 36px 24px; flex: 1; justify-content: flex-start; }
+  /* Same height as the panel on Sign in */
+  .register-art { min-height: 400px; flex: none; padding: 32px 28px; }
   .register-art-watermark { font-size: 120px; }
 }
