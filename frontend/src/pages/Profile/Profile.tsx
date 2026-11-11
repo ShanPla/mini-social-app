@@ -597,9 +597,9 @@ export default function ProfilePage({ currentUserId, isAdmin }: ProfilePageProps
             <ComposePost userId={currentUserId} onPhotosAdded={prepend} onPosted={(post) => { prepend(post); setPostCount((c) => (c === null ? c : c + 1)); }} />
           )}
           {isOwnProfile ? (
-            <div className="profile-tabs" role="group" aria-label="Show">
-              <button type="button" className="profile-tab" aria-pressed={tab === 'posts'} onClick={() => setTab('posts')}>Posts</button>
-              <button type="button" className="profile-tab" aria-pressed={tab === 'saved'} onClick={() => setTab('saved')}>Saved</button>
+            <div className="feed-tabs profile-tabs" role="group" aria-label="Show">
+              <button type="button" className="feed-tab" aria-pressed={tab === 'posts'} onClick={() => setTab('posts')}>Posts</button>
+              <button type="button" className="feed-tab" aria-pressed={tab === 'saved'} onClick={() => setTab('saved')}>Saved</button>
             </div>
           ) : (
             <h2 className="profile-posts-title">Posts</h2>

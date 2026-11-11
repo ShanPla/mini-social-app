@@ -48,35 +48,15 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Feed tabs */
-.feed-tabs { display: flex; border-bottom: 1px solid var(--border); }
-
-.feed-tab {
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  padding: 10px 20px;
-  font-size: 0.8rem;
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-  cursor: pointer;
-  margin-bottom: -1px;
-  transition: color 0.2s, border-color 0.2s;
-}
-.feed-tab:hover { color: var(--ink); }
-.feed-tab.active { color: var(--ink); border-bottom-color: var(--ink); }
-
 .posts-list { display: flex; flex-direction: column; gap: 16px; }
 
-/* Sidebar */
+/* Sidebar: widgets are unboxed, so the wide gap is what separates them */
 .feed-sidebar {
   position: sticky;
   top: 80px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 32px;
   max-height: calc(100vh - 100px);
   max-height: calc(100dvh - 100px);
   overflow-y: auto;
@@ -105,7 +85,6 @@
   .feed-page { padding: 20px 16px; }
   .feed-inner { grid-template-columns: 1fr; }
   .feed-sidebar { display: none; }
-  .feed-tab { padding: 10px 14px; font-size: 0.75rem; }
 }
 
 /* This box clips overflow, so focus rings inside it are drawn inward */
