@@ -393,7 +393,7 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
               title={asAdmin ? 'Delete as admin' : 'Delete comment'}
               aria-label={asAdmin ? 'Delete comment as admin' : 'Delete comment'}
             >
-              {asAdmin ? <Shield size={11} /> : <Trash2 size={11} />}
+              {asAdmin ? <Shield size={13} /> : <Trash2 size={13} />}
             </button>
           )}
         </div>
@@ -423,7 +423,7 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
             aria-pressed={isLiked}
             aria-label={`Like comment, ${likeCount} ${likeCount === 1 ? 'like' : 'likes'}`}
           >
-            <Heart size={11} fill={isLiked ? 'currentColor' : 'none'} />
+            <Heart size={13} fill={isLiked ? 'currentColor' : 'none'} />
             {likeCount > 0 && <span>{likeCount}</span>}
           </button>
 
@@ -434,7 +434,7 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
               className="comment-action-btn"
               onClick={() => setShowReplyForm(!showReplyForm)}
             >
-              <Reply size={11} />
+              <Reply size={13} />
               <span>Reply</span>
             </button>
           )}
@@ -447,7 +447,7 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
               onClick={() => { setEditValue(comment.content); setEditing(true); }}
               disabled={editing}
             >
-              <Pencil size={11} />
+              <Pencil size={13} />
               <span>Edit</span>
             </button>
           )}
@@ -455,7 +455,7 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
           {/* Report — other people's comments */}
           {currentUserId && !isOwner && (
             <button className="comment-action-btn" onClick={() => setShowReport(true)}>
-              <Flag size={11} />
+              <Flag size={13} />
               <span>Report</span>
             </button>
           )}
@@ -466,7 +466,7 @@ function CommentItem({ comment, currentUserId, isAdmin, postOwnerId, onDelete, o
               className="comment-action-btn comment-toggle-replies"
               onClick={() => setShowReplies(!showReplies)}
             >
-              {showReplies ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+              {showReplies ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
               <span>{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
             </button>
           )}

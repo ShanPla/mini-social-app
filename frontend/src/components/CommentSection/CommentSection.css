@@ -125,13 +125,13 @@
 }
 
 .comment-time {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--ink-muted);
   letter-spacing: 0.02em;
 }
 
 .comment-edited {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--ink-muted);
   font-style: italic;
 }
@@ -141,8 +141,8 @@
   border: none;
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 0.75rem;
+  gap: 4px;
+  font-size: 0.8rem;
   color: var(--ink-muted);
   cursor: pointer;
   padding: 0;
@@ -269,9 +269,17 @@
 
 /* Mobile: shallower indents so a third-level reply still has room to read */
 @media (max-width: 680px) {
-  .comment-thread.depth-1 { margin-left: 20px; }
-  .comment-thread.depth-2 { margin-left: 32px; }
-  .comment-thread.depth-3 { margin-left: 40px; }
+  .comment-thread.depth-1 { margin-left: 10px; }
+  .comment-thread.depth-2 { margin-left: 16px; }
+  .comment-thread.depth-3 { margin-left: 20px; }
+  .comment-thread.depth-1,
+  .comment-thread.depth-2,
+  .comment-thread.depth-3 { padding-left: 8px; }
+  .comment-replies { gap: 10px; margin-top: 6px; }
+  /* The name gets its own line above the text */
+  .comment-body { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 1px; }
+  .comment-author { align-self: flex-start; max-width: 100%; }
+  .comment-content { flex: none; }
   .comment-actions,
   .comment-reply-form { padding-left: 30px; }
   .comment-edit-form { padding-left: 0; }
