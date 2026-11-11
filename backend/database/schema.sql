@@ -595,9 +595,12 @@ security definer
 stable
 set search_path = public, pg_temp
 as $$
-  select count(*) from conversation_members where conversation_id = conv_id;
+  select count(*) from conversation_members
+  where conversation_id = conv_id and public.is_conversation_member(conv_id);
 $$;
-grant execute on function public.conversation_member_count(uuid) to anon, authenticated;
+-- Members only (0 for everyone else): the size of a chat is not public.
+revoke all on function public.conversation_member_count(uuid) from public, anon;
+grant execute on function public.conversation_member_count(uuid) to authenticated;
 
 -- Username availability for the Register page, which runs logged out.
 -- anon has no table access (section 5), so this is the only door. At most 60
@@ -667,12 +670,19 @@ revoke all on function public.i_am_admin() from public, anon;
 grant execute on function public.i_am_admin() to authenticated;
 
 
+-- Helpers that policies need but that must not be callable through the API
+-- live in the private schema: PostgREST only exposes public.
+create schema if not exists private;
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated;
+
 -- True when either person has blocked the other. security definer because
 -- blocks is readable only by the blocker (RLS), yet the blocked side must be
 -- hidden too. Policies, RPCs and triggers all go through this one function.
--- Authenticated only: Realtime evaluates the posts and messages policies
--- as the subscriber, never as anon.
-create or replace function public.is_blocked_pair(a uuid, b uuid)
+-- In private, so nobody can ask the API whether two other people have a
+-- block. Authenticated only: Realtime evaluates the posts and messages
+-- policies as the subscriber, never as anon.
+create or replace function private.is_blocked_pair(a uuid, b uuid)
 returns boolean
 language sql
 security definer
@@ -685,8 +695,25 @@ as $$
        or (blocker_id = b and blocked_id = a)
   );
 $$;
-revoke all on function public.is_blocked_pair(uuid, uuid) from public, anon;
-grant execute on function public.is_blocked_pair(uuid, uuid) to authenticated;
+revoke all on function private.is_blocked_pair(uuid, uuid) from public, anon;
+grant execute on function private.is_blocked_pair(uuid, uuid) to authenticated;
+
+-- How much the caller has stored in a bucket, for the upload caps in section
+-- 6. Paths are {user}/... except chat-images, which is {conversation}/{user}/...
+create or replace function private.own_upload_count(bucket text)
+returns bigint
+language sql
+security definer
+stable
+set search_path = public, pg_temp
+as $$
+  select count(*)
+  from storage.objects o
+  where o.bucket_id = bucket
+    and (storage.foldername(o.name))[case when bucket = 'chat-images' then 2 else 1 end] = auth.uid()::text;
+$$;
+revoke all on function private.own_upload_count(text) from public, anon;
+grant execute on function private.own_upload_count(text) to authenticated;
 
 -- The usernames @mentioned in a text: lowercase, distinct, in order of first
 -- appearance, at most 10. The token must not touch a letter, digit or
@@ -846,6 +873,17 @@ create trigger trg_rate_limit_conversations
 before insert on conversations
 for each row execute procedure public.enforce_rate_limit('conversations', '600', '10', 'conversations');
 
+-- Edits: each one can notify newly mentioned people, so they are limited too.
+drop trigger if exists trg_rate_limit_comment_edits on comments;
+create trigger trg_rate_limit_comment_edits
+before update of content on comments
+for each row execute procedure public.enforce_rate_limit('comment_edits', '60', '10', 'edits');
+
+drop trigger if exists trg_rate_limit_post_edits on posts;
+create trigger trg_rate_limit_post_edits
+before update of content, visibility on posts
+for each row execute procedure public.enforce_rate_limit('post_edits', '60', '10', 'edits');
+
 -- Invites: adding people to an existing group. create_conversation sets
 -- app.skip_invite_limit for its own member inserts (those are not invites).
 drop trigger if exists trg_rate_limit_invites on conversation_members;
@@ -917,7 +955,7 @@ declare owner uuid;
 begin
   select user_id into owner from posts where id = new.post_id;
   if owner is not null and owner <> new.user_id
-     and not public.is_blocked_pair(owner, new.user_id) then
+     and not private.is_blocked_pair(owner, new.user_id) then
     insert into notifications (user_id, actor_id, type, post_id, created_at)
     values (owner, new.user_id, 'like', new.post_id, new.created_at)
     on conflict (user_id, actor_id, post_id) where type = 'like' do nothing;
@@ -953,7 +991,7 @@ begin
   if new.parent_id is null then
     select user_id into owner from posts where id = new.post_id;
     if owner is not null and owner <> new.user_id
-       and not public.is_blocked_pair(owner, new.user_id) then
+       and not private.is_blocked_pair(owner, new.user_id) then
       insert into notifications (user_id, actor_id, type, post_id, comment_id, created_at)
       values (owner, new.user_id, 'comment', new.post_id, new.id, new.created_at);
     end if;
@@ -969,7 +1007,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
-  if public.is_blocked_pair(new.following_id, new.follower_id) then
+  if private.is_blocked_pair(new.following_id, new.follower_id) then
     return null;
   end if;
   insert into notifications (user_id, actor_id, type, created_at)
@@ -1064,7 +1102,7 @@ begin
     from profiles pr
    where pr.username = any (names)
      and pr.id <> new.user_id
-     and not public.is_blocked_pair(pr.id, new.user_id)
+     and not private.is_blocked_pair(pr.id, new.user_id)
      and (
        new.visibility = 'public'
        or exists (
@@ -1106,8 +1144,8 @@ begin
    where pr.username = any (names)
      and pr.id <> new.user_id
      and not (new.parent_id is null and pr.id = owner)
-     and not public.is_blocked_pair(pr.id, new.user_id)
-     and not public.is_blocked_pair(pr.id, owner)
+     and not private.is_blocked_pair(pr.id, new.user_id)
+     and not private.is_blocked_pair(pr.id, owner)
      and (
        pr.id = owner
        or vis = 'public'
@@ -1182,7 +1220,7 @@ begin
     from conversation_members cm
     where cm.conversation_id = new.conversation_id
       and cm.user_id <> new.sender_id
-      and not public.is_blocked_pair(cm.user_id, new.sender_id)
+      and not private.is_blocked_pair(cm.user_id, new.sender_id)
   on conflict (user_id, conversation_id) where type = 'message' and is_read = false
   do update set actor_id = excluded.actor_id, created_at = excluded.created_at;
 
@@ -1208,7 +1246,7 @@ as $$
 declare actor uuid := auth.uid();
 begin
   if actor is null or actor = new.user_id then return null; end if;
-  if public.is_blocked_pair(new.user_id, actor) then return null; end if;
+  if private.is_blocked_pair(new.user_id, actor) then return null; end if;
   if not exists (select 1 from conversations c where c.id = new.conversation_id and c.is_group) then
     return null;
   end if;
@@ -1468,7 +1506,7 @@ begin
      where c.id = new.conversation_id
        and not c.is_group
        and cm.user_id <> new.sender_id
-       and public.is_blocked_pair(new.sender_id, cm.user_id)
+       and private.is_blocked_pair(new.sender_id, cm.user_id)
   ) then
     raise exception 'You cannot message this person.'
       using errcode = 'P0001', hint = 'blocked';
@@ -1521,7 +1559,7 @@ as $$
 begin
   if auth.uid() is not null
      and new.user_id <> auth.uid()
-     and public.is_blocked_pair(auth.uid(), new.user_id) then
+     and private.is_blocked_pair(auth.uid(), new.user_id) then
     raise exception 'You cannot add this person.'
       using errcode = 'P0001', hint = 'blocked';
   end if;
@@ -1765,7 +1803,7 @@ begin
   end if;
 
   -- nobody in a blocked pair with the caller, either way round
-  if exists (select 1 from unnest(others) o where public.is_blocked_pair(me, o)) then
+  if exists (select 1 from unnest(others) o where private.is_blocked_pair(me, o)) then
     raise exception 'You cannot message this person.'
       using errcode = 'P0001', hint = 'blocked';
   end if;
@@ -1793,6 +1831,20 @@ begin
        where conversation_id = conv_id and user_id = me;
       return conv_id;
     end if;
+  end if;
+
+  -- At most 60 people pulled into new groups per 10 minutes, so one account
+  -- can not drop hundreds of strangers into chats. A DM is not counted.
+  if is_grp then
+    perform pg_advisory_xact_lock(hashtext('group_adds:' || me::text));
+    if (select count(*) from rate_events
+         where user_id = me and kind = 'group_adds'
+           and created_at > now() - interval '10 minutes') + array_length(others, 1) > 60 then
+      raise exception 'Too many people added to new groups in a short time. Please slow down.'
+        using errcode = 'P0001', hint = 'rate_limit';
+    end if;
+    insert into rate_events (user_id, kind, created_at)
+    select me, 'group_adds', now() from unnest(others);
   end if;
 
   insert into conversations (is_group, name, created_by)
@@ -1896,10 +1948,13 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
-  update conversation_members
+  -- Only when something is unread: every change is broadcast to all members,
+  -- so a loop of calls must not be able to flood them.
+  update conversation_members cm
     set last_read_at = now()
-    where conversation_id = conv_id
-      and user_id = auth.uid();
+    where cm.conversation_id = conv_id
+      and cm.user_id = auth.uid()
+      and cm.last_read_at < (select c.last_message_at from conversations c where c.id = conv_id);
 
   update notifications
     set is_read = true
@@ -2116,7 +2171,7 @@ as $$
   )
   select c.id, c.username, c.display_name, c.avatar_url, c.bio, c.follower_count
   from candidates c
-  where not public.is_blocked_pair(auth.uid(), c.id)
+  where not private.is_blocked_pair(auth.uid(), c.id)
   order by c.follower_count desc, c.created_at asc
   limit least(greatest(coalesce(p_limit, 5), 1), 20);
 $$;
@@ -2150,7 +2205,7 @@ as $$
   from posts p
   join profiles pr on pr.id = p.user_id
   where p.created_at > now() - make_interval(days => least(greatest(coalesce(p_days, 7), 1), 30))
-    and not public.is_blocked_pair(auth.uid(), pr.id)
+    and not private.is_blocked_pair(auth.uid(), pr.id)
   group by pr.id, pr.username, pr.display_name, pr.avatar_url
   order by post_count desc, max(p.created_at) desc
   limit least(greatest(coalesce(p_limit, 5), 1), 20);
@@ -2193,7 +2248,7 @@ as $$
       or pr.display_name ilike '%' || replace(replace(replace(trim(q), '\', '\\'), '%', '\%'), '_', '\_') || '%'
     )
     and (p_after is null or pr.username > p_after)
-    and not public.is_blocked_pair(auth.uid(), pr.id)
+    and not private.is_blocked_pair(auth.uid(), pr.id)
   order by pr.username asc
   limit least(greatest(coalesce(p_limit, 20), 1), 50);
 $$;
@@ -2283,7 +2338,7 @@ using (
       )
     )
   )
-  and not public.is_blocked_pair(auth.uid(), user_id)
+  and not private.is_blocked_pair(auth.uid(), user_id)
 );
 
 drop policy if exists "Authenticated users can create posts" on posts;
@@ -2345,7 +2400,7 @@ create policy "Anyone can view likes"
 on likes for select to authenticated
 using (
   exists (select 1 from posts where id = post_id)
-  and not public.is_blocked_pair(auth.uid(), user_id)
+  and not private.is_blocked_pair(auth.uid(), user_id)
 );
 
 drop policy if exists "Users can like posts" on likes;
@@ -2366,13 +2421,18 @@ alter table comments enable row level security;
 
 -- Comments by someone in a blocked pair with the viewer are hidden (replies
 -- under a hidden comment stay, so the client drops comments whose parent_id
--- is not in the list it received).
+-- is not in the list it received). The post's owner is the exception: a
+-- delete only reaches rows the caller can see, so without it nobody but an
+-- admin could remove what a blocked person left under their post.
 drop policy if exists "Anyone can view comments" on comments;
 create policy "Anyone can view comments"
 on comments for select to authenticated
 using (
   exists (select 1 from posts where id = post_id)
-  and not public.is_blocked_pair(auth.uid(), user_id)
+  and (
+    not private.is_blocked_pair(auth.uid(), user_id)
+    or exists (select 1 from posts p where p.id = post_id and p.user_id = auth.uid())
+  )
 );
 
 drop policy if exists "Users can add comments" on comments;
@@ -2419,7 +2479,7 @@ create policy "Anyone can view comment likes"
 on comment_likes for select to authenticated
 using (
   exists (select 1 from comments where id = comment_id)
-  and not public.is_blocked_pair(auth.uid(), user_id)
+  and not private.is_blocked_pair(auth.uid(), user_id)
 );
 
 drop policy if exists "Users can like comments" on comment_likes;
@@ -2449,7 +2509,7 @@ create policy "Users can follow others"
 on follows for insert to authenticated
 with check (
   auth.uid() = follower_id
-  and not public.is_blocked_pair(follower_id, following_id)
+  and not private.is_blocked_pair(follower_id, following_id)
 );
 
 drop policy if exists "Users can unfollow" on follows;
@@ -2528,7 +2588,7 @@ with check (
     where c.id = conversation_id and c.is_group = true
   )
   and conversation_member_count(conversation_id) < 50
-  and not public.is_blocked_pair(auth.uid(), user_id)
+  and not private.is_blocked_pair(auth.uid(), user_id)
 );
 
 -- Users may update only their own row, and only last_read_at.
@@ -2751,9 +2811,11 @@ on conflict (id) do update
   where (buckets.public, buckets.file_size_limit, buckets.allowed_mime_types)
         is distinct from (excluded.public, excluded.file_size_limit, excluded.allowed_mime_types);
 
+-- Avatar links keep working for everyone (public bucket); this policy is only
+-- about listing the bucket, which logged-out visitors can not do.
 drop policy if exists "Anyone can view avatars" on storage.objects;
 create policy "Anyone can view avatars"
-on storage.objects for select
+on storage.objects for select to authenticated
 using (bucket_id = 'avatars');
 
 drop policy if exists "Authenticated users can upload avatars" on storage.objects;
@@ -2762,6 +2824,7 @@ on storage.objects for insert to authenticated
 with check (
   bucket_id = 'avatars'
   and (storage.foldername(name))[1] = auth.uid()::text
+  and private.own_upload_count('avatars') < 20
 );
 
 drop policy if exists "Users can update own avatar" on storage.objects;
@@ -2811,6 +2874,8 @@ on storage.objects for insert to authenticated
 with check (
   bucket_id = 'post-images'
   and (storage.foldername(name))[1] = auth.uid()::text
+  -- a ceiling on files per person, far above normal use
+  and private.own_upload_count('post-images') < 2000
 );
 
 -- Own folder, or an admin cleaning up after deleting someone else's post.
@@ -2870,6 +2935,7 @@ with check (
   and (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
   and public.is_conversation_member(((storage.foldername(name))[1])::uuid)
   and (storage.foldername(name))[2] = auth.uid()::text
+  and private.own_upload_count('chat-images') < 2000
 );
 
 drop policy if exists "Users can delete own chat images" on storage.objects;
@@ -2959,6 +3025,10 @@ using (
 -- --------------------------------------------
 -- 8. FINISH
 -- --------------------------------------------
+
+-- The API copy of is_blocked_pair is gone (it lives in private now). No
+-- cascade: if anything still used it, this fails and the whole run rolls back.
+drop function if exists public.is_blocked_pair(uuid, uuid);
 
 -- PostgREST caches the schema; new columns and embeds need a reload.
 notify pgrst, 'reload schema';
