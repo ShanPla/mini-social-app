@@ -67,3 +67,15 @@ test('sign in and create account lead to each other', async ({ page }) => {
   await expect(page.getByLabel('Email')).toBeEditable()
   await expect(page.locator('html')).not.toHaveClass(/auth-swap/)
 })
+
+test('forgot password opens from sign in and leads back', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByRole('link', { name: 'Forgot password?' }).click()
+  await expect(page).toHaveURL(/\/forgot-password$/)
+  await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible()
+  /* Nothing to send yet */
+  await expect(page.getByRole('button', { name: 'Send reset link' })).toBeDisabled()
+  await page.getByRole('link', { name: /Back to Sign In/ }).click()
+  await expect(page).toHaveURL(/\/login$/)
+  await expect(page.locator('html')).not.toHaveClass(/auth-swap/)
+})
