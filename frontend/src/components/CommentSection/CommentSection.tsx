@@ -223,7 +223,8 @@ export default function CommentSection({ postId, currentUserId, isAdmin = false,
             <button type="button" className="btn-ghost" onClick={refresh}>Retry</button>
           </p>
         )}
-        {!loadFailed && comments.length === 0 && (
+        {/* Only once the first load is in: before that an empty list is not yet an answer */}
+        {!loadFailed && total !== null && comments.length === 0 && (
           <p className="no-comments">No comments yet. Be the first.</p>
         )}
         {comments.map((comment) => (
