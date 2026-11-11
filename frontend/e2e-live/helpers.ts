@@ -105,6 +105,16 @@ export async function latestPostId(user: TestUser, content: string): Promise<str
   return data.id
 }
 
+/* The composer is one line until it is tapped; a draft or a retry keeps it open */
+export async function openComposer(page: Page): Promise<Locator> {
+  const prompt = page.locator('.compose-prompt')
+  const form = page.locator('.compose-card textarea')
+  await expect(prompt.or(form).first()).toBeVisible()
+  if (await prompt.count()) await prompt.click()
+  await expect(form).toBeVisible()
+  return page.locator('.compose-card')
+}
+
 export async function openEditPost(page: Page, card: Locator): Promise<Locator> {
   await card.locator('button[aria-haspopup=menu]').click()
   await page.getByRole('menuitem', { name: 'Edit post' }).click()

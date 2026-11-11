@@ -48,6 +48,10 @@ export default function ComposePost({
   const [retry, setRetry] = useState<{ post: Post; files: File[]; total: number; detail: string } | null>(null);
   const [retrying, setRetrying] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /* One quiet line until it is wanted, so posts start higher on the page.
+     It opens on a tap and stays open while there is anything in it. */
+  const [opened, setOpened] = useState(false);
+  const promptRef = useRef<HTMLButtonElement>(null);
   const [isOnCooldown, triggerCooldown] = useCooldown(3000);
   const toast = useToast();
 
@@ -75,6 +79,14 @@ export default function ComposePost({
   };
 
   const canPost = !!content.trim() || imageFiles.length > 0;
+  const empty = content === '' && imageFiles.length === 0;
+  const expanded = opened || !empty || posting || !!retry;
+
+  const collapse = () => {
+    setOpened(false);
+    /* The prompt line is back on the next frame: keep the keyboard there */
+    requestAnimationFrame(() => promptRef.current?.focus());
+  };
 
   /* Uploads the files and attaches them to the post. Files that fail come
      back in failedFiles; if attaching fails, all of them do, and the uploads
@@ -183,8 +195,24 @@ export default function ComposePost({
     writeDraft(draftKey, '');
     clearImages();
     setPosting(false);
+    setOpened(false);
     triggerCooldown();
   };
+
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        ref={promptRef}
+        className="compose-card compose-prompt"
+        aria-expanded={false}
+        onClick={() => setOpened(true)}
+      >
+        <span className="compose-prompt-label">{label}</span>
+        <span className="compose-prompt-hint"><ImagePlus size={15} /> Write a post</span>
+      </button>
+    );
+  }
 
   return (
     <div className="compose-card">
@@ -192,6 +220,8 @@ export default function ComposePost({
       <form onSubmit={handlePost}>
         <MentionInput
           multiline
+          /* Opened by a tap: start typing at once. A draft restored on load does not grab focus. */
+          autoFocus={opened}
           aria-label={label}
           value={content}
           onValueChange={(v) => {
@@ -203,6 +233,8 @@ export default function ComposePost({
           rows={3}
           aria-keyshortcuts={SUBMIT_SHORTCUT_ARIA}
           onKeyDown={(e) => {
+            /* Escape on an empty composer folds it away again */
+            if (e.key === 'Escape' && empty && !retry) { e.preventDefault(); collapse(); return; }
             if (!isSubmitShortcut(e.nativeEvent)) return;
             e.preventDefault();
             e.currentTarget.form?.requestSubmit();
@@ -277,9 +309,15 @@ export default function ComposePost({
 
         <div className="compose-footer">
           <CharCount length={content.length} max={500} />
-          <button type="submit" className="btn-primary" disabled={posting || !canPost || !!retry} title={`Publish (${SUBMIT_SHORTCUT_LABEL})`}>
-            {posting ? 'Publishing…' : 'Publish'}
-          </button>
+          <div className="compose-footer-actions">
+            {/* Nothing typed and nothing attached: offer the way back to one line */}
+            {empty && !posting && !retry && (
+              <button type="button" className="btn-ghost compose-close" onClick={collapse}>Close</button>
+            )}
+            <button type="submit" className="btn-primary" disabled={posting || !canPost || !!retry} title={`Publish (${SUBMIT_SHORTCUT_LABEL})`}>
+              {posting ? 'Publishing…' : 'Publish'}
+            </button>
+          </div>
         </div>
       </form>
     </div>

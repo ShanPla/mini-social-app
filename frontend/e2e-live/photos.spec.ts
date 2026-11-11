@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import type { Browser, Page } from '@playwright/test'
 import {
-  PHOTO_ROWS, UPLOADS, cancelAndDiscard, cleanup, failPosts, latestPostId, launch, openEditPost, png,
+  PHOTO_ROWS, UPLOADS, cancelAndDiscard, cleanup, failPosts, latestPostId, launch, openComposer, openEditPost, png,
   signIn, signedPhotos, signup, signupsConfirmInstantly, storedPhotos,
 } from './helpers'
 import type { TestUser } from './helpers'
@@ -27,6 +27,7 @@ test.describe.serial('photo uploads that fail', () => {
   const composer = () => page.locator('.compose-card')
   const retryBar = () => page.locator('.compose-retry')
   const publish = async (text: string, files: string[]) => {
+    await openComposer(page)
     await composer().locator('textarea').fill(text)
     await composer().locator('input[type=file]').setInputFiles(files.map(png))
     await page.getByRole('button', { name: 'Publish' }).click()
@@ -63,11 +64,14 @@ test.describe.serial('photo uploads that fail', () => {
     await retryBar().getByRole('button', { name: 'Skip these photos' }).click()
     await expect(retryBar()).toHaveCount(0)
     await expect(page.locator('.post-card', { hasText: 'retry two' })).toHaveCount(1)
+    /* With nothing left in it, the composer folds back to one line */
+    await expect(page.locator('.compose-prompt')).toBeVisible()
   })
 
   test('publishing: a photo-only post with no photo publishes nothing', async () => {
     await page.waitForTimeout(3500)
     const before = (await user.client.from('posts').select('id').eq('user_id', user.id)).data?.length
+    await openComposer(page)
     await composer().locator('input[type=file]').setInputFiles([png('d.png')])
     await page.getByRole('button', { name: 'Publish' }).click()
     await expect(page.getByText('nothing was published')).toBeVisible()
@@ -124,7 +128,7 @@ test.describe.serial('an edit can not leave a post blank', () => {
     browser = await launch()
     page = await signIn(browser, user)
     await page.goto('/feed')
-    const composer = page.locator('.compose-card')
+    const composer = await openComposer(page)
     await composer.locator('input[type=file]').setInputFiles([png('only.png')])
     await page.getByRole('button', { name: 'Publish' }).click()
     await expect(page.getByText('Post published')).toBeVisible()
@@ -203,6 +207,7 @@ test('a post published while the feed loads stays in the list', async () => {
       await route.fulfill({ response }).catch(() => {})
     })
     await page.goto('/feed')
+    await openComposer(page)
     await page.locator('.compose-card textarea').fill('published during load')
     await page.getByRole('button', { name: 'Publish' }).click()
     await expect(page.getByText('Post published')).toBeVisible()
